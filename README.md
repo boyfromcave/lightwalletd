@@ -1,4 +1,6 @@
 
+**Yellowback (YED):** this fork serves a second gRPC service for Ycash Yellowback light clients behind the `--yellowback` flag; see [docs/yellowback.md](docs/yellowback.md). Everything below is unchanged.
+
 [![pipeline status](https://gitlab.com/zcash/lightwalletd/badges/master/pipeline.svg)](https://gitlab.com/zcash/lightwalletd/commits/master)
 [![codecov](https://codecov.io/gh/zcash/lightwalletd/branch/master/graph/badge.svg)](https://codecov.io/gh/zcash/lightwalletd)
 
