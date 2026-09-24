@@ -31,7 +31,7 @@ LDFLAGS :=-ldflags "$(LDFLAGSSTRING)"
 
 # There are some files that are generated but are also in source control
 # (so that the average clone - build doesn't need the required tools)
-GENERATED_FILES := docs/rtd/index.html walletrpc/compact_formats.pb.go walletrpc/service.pb.go walletrpc/darkside.proto
+GENERATED_FILES := docs/rtd/index.html walletrpc/compact_formats.pb.go walletrpc/service.pb.go walletrpc/darkside.proto walletrpc/yellowback.pb.go
 
 PWD := $(shell pwd)
 
@@ -82,10 +82,10 @@ coverage_html: coverage
 # Generate documents, requires docker, see https://github.com/pseudomuto/protoc-gen-doc
 doc: docs/rtd/index.html
 
-docs/rtd/index.html: walletrpc/compact_formats.proto walletrpc/service.proto walletrpc/darkside.proto
+docs/rtd/index.html: walletrpc/compact_formats.proto walletrpc/service.proto walletrpc/darkside.proto walletrpc/yellowback.proto
 	docker run --rm -v $(PWD)/docs/rtd:/out -v $(PWD)/walletrpc:/protos pseudomuto/protoc-gen-doc
 
-proto: walletrpc/service.pb.go walletrpc/darkside.pb.go walletrpc/compact_formats.pb.go
+proto: walletrpc/service.pb.go walletrpc/darkside.pb.go walletrpc/compact_formats.pb.go walletrpc/yellowback.pb.go
 
 walletrpc/service.pb.go: walletrpc/service.proto
 	cd walletrpc && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative service.proto
@@ -96,10 +96,13 @@ walletrpc/darkside.pb.go: walletrpc/darkside.proto
 walletrpc/compact_formats.pb.go: walletrpc/compact_formats.proto
 	cd walletrpc && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative compact_formats.proto
 
+walletrpc/yellowback.pb.go: walletrpc/yellowback.proto
+	cd walletrpc && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative yellowback.proto
+
 # Generate documents using a very simple wrap-in-html approach (not ideal)
 simpledoc: lwd-api.html
 
-lwd-api.html: walletrpc/compact_formats.proto walletrpc/service.proto
+lwd-api.html: walletrpc/compact_formats.proto walletrpc/service.proto walletrpc/yellowback.proto
 	./docgen.sh $^ >lwd-api.html
 
 # Generate docker image
@@ -153,6 +156,7 @@ update-grpc:
 	cd walletrpc && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative service.proto
 	cd walletrpc && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative darkside.proto
 	cd walletrpc && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative compact_formats.proto
+	cd walletrpc && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative yellowback.proto
 	go mod tidy && go mod vendor
 
 clean:
