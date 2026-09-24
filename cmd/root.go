@@ -57,6 +57,7 @@ var rootCmd = &cobra.Command{
 			Redownload:          viper.GetBool("redownload"),
 			PingEnable:          viper.GetBool("ping-very-insecure"),
 			Darkside:            viper.GetBool("darkside-very-insecure"),
+			Yellowback:          viper.GetBool("yellowback"),
 			DarksideTimeout:     viper.GetUint64("darkside-timeout"),
 		}
 
@@ -266,6 +267,21 @@ func startServer(opts *common.Options) error {
 		}
 		walletrpc.RegisterDarksideStreamerServer(server, service)
 	}
+	// Yellowback (YED): a second, separate service, registered only when asked for and when the
+	// node has it (docs/yellowback.md; the darkside block above is the precedent).
+	if opts.Yellowback {
+		capability, err := common.ProbeYellowback()
+		switch {
+		case err != nil:
+			common.Log.WithFields(logrus.Fields{"error": err}).Error("Yellowback service not started")
+		case !capability.Enabled:
+			common.Log.Warn("Yellowback service not started: the node does not report the yellowback experimental feature")
+		default:
+			walletrpc.RegisterYellowbackStreamerServer(server, frontend.NewYellowbackStreamer(capability, common.Log))
+			frontend.YellowbackAddresses = true
+			common.Log.Infof("Yellowback service started (node rpcversion %d, network %s)", capability.RPCVersion, capability.Network)
+		}
+	}
 
 	// Start listening
 	listener, err := net.Listen("tcp", opts.GRPCBindAddr)
@@ -328,6 +344,7 @@ func init() {
 	rootCmd.Flags().String("data-dir", "/var/lib/lightwalletd", "data directory (such as db)")
 	rootCmd.Flags().Bool("ping-very-insecure", false, "allow Ping GRPC for testing")
 	rootCmd.Flags().Bool("darkside-very-insecure", false, "run with GRPC-controllable mock zcashd for integration testing (shuts down after 30 minutes)")
+	rootCmd.Flags().Bool("yellowback", false, "serve the Ycash Yellowback (YED) service when the node runs -yellowback (docs/yellowback.md)")
 	rootCmd.Flags().Int("darkside-timeout", 30, "override 30 minute default darkside timeout")
 
 	viper.BindPFlag("grpc-bind-addr", rootCmd.Flags().Lookup("grpc-bind-addr"))
@@ -362,6 +379,8 @@ func init() {
 	viper.SetDefault("ping-very-insecure", false)
 	viper.BindPFlag("darkside-very-insecure", rootCmd.Flags().Lookup("darkside-very-insecure"))
 	viper.SetDefault("darkside-very-insecure", false)
+	viper.BindPFlag("yellowback", rootCmd.Flags().Lookup("yellowback"))
+	viper.SetDefault("yellowback", false)
 	viper.BindPFlag("darkside-timeout", rootCmd.Flags().Lookup("darkside-timeout"))
 	viper.SetDefault("darkside-timeout", 30)
 

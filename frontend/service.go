@@ -46,6 +46,21 @@ func NewDarksideStreamer(cache *common.BlockCache) (walletrpc.DarksideStreamerSe
 	return &DarksideStreamer{cache: cache}, nil
 }
 
+// YellowbackAddresses is set by main when the Yellowback service is registered: the taddr RPCs
+// then also accept YED addresses (ye…/yt…/yr…), the same key hash under other version bytes
+// (yellowback_addr.go; docs/yellowback.md D-L-4). Off, every path below is the baseline's.
+var YellowbackAddresses bool
+
+// taddrOf returns the transparent form of a YED address when the service is on, else the input.
+func taddrOf(addr string) string {
+	if YellowbackAddresses {
+		if t, ok := yedToTransparent(addr); ok {
+			return t
+		}
+	}
+	return addr
+}
+
 // Test to make sure Address is a single s address
 func checkTaddress(taddr string) error {
 	match, err := regexp.Match("\\As[a-zA-Z0-9]{34}\\z", []byte(taddr))
@@ -70,6 +85,7 @@ func (s *lwdStreamer) GetLatestBlock(ctx context.Context, placeholder *walletrpc
 // GetTaddressTxids is a streaming RPC that returns transaction IDs that have
 // the given transparent address (taddr) as either an input or output.
 func (s *lwdStreamer) GetTaddressTxids(addressBlockFilter *walletrpc.TransparentAddressBlockFilter, resp walletrpc.CompactTxStreamer_GetTaddressTxidsServer) error {
+	addressBlockFilter.Address = taddrOf(addressBlockFilter.Address)
 	if err := checkTaddress(addressBlockFilter.Address); err != nil {
 		return err
 	}
@@ -327,8 +343,9 @@ func (s *lwdStreamer) SendTransaction(ctx context.Context, rawtx *walletrpc.RawT
 }
 
 func getTaddressBalanceZcashdRpc(addressList []string) (*walletrpc.Balance, error) {
-	for _, addr := range addressList {
-		if err := checkTaddress(addr); err != nil {
+	for i, addr := range addressList {
+		addressList[i] = taddrOf(addr)
+		if err := checkTaddress(addressList[i]); err != nil {
 			return &walletrpc.Balance{}, err
 		}
 	}
@@ -509,8 +526,9 @@ func MempoolFilter(items, exclude []string) []string {
 }
 
 func getAddressUtxos(arg *walletrpc.GetAddressUtxosArg, f func(*walletrpc.GetAddressUtxosReply) error) error {
-	for _, a := range arg.Addresses {
-		if err := checkTaddress(a); err != nil {
+	for i, a := range arg.Addresses {
+		arg.Addresses[i] = taddrOf(a)
+		if err := checkTaddress(arg.Addresses[i]); err != nil {
 			return err
 		}
 	}

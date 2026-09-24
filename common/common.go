@@ -45,6 +45,7 @@ type Options struct {
 	DataDir             string `json:"data_dir"`
 	PingEnable          bool   `json:"ping_enable"`
 	Darkside            bool   `json:"darkside"`
+	Yellowback          bool   `json:"yellowback"`
 	DarksideTimeout     uint64 `json:"darkside_timeout"`
 }
 
