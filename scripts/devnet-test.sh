@@ -40,7 +40,11 @@ if [ "$UP" -eq 1 ]; then
 fi
 
 say "baseline binary"
-"$ROOT/scripts/build-baseline.sh"
+# yellowback-devnet looks up the baseline at <parent of ycash-dd>/wt/lightwalletd-legacy-bin.
+# That is this script's default only when the two repos are siblings. CI clones lightwalletd
+# under RUNNER_TEMP, so the binary has to be written where the devnet script will open it.
+BASE_OUT="$(dirname "$NODE_REPO")/wt/lightwalletd-legacy-bin"
+"$ROOT/scripts/build-baseline.sh" "$BASE_OUT"
 say "fork binary"
 FORK_BIN="$WORKSPACE/wt/lightwalletd-dd-bin/lightwalletd"
 mkdir -p "$(dirname "$FORK_BIN")"
@@ -50,9 +54,11 @@ say "servers: fork on $FORK_PORT (--yellowback), baseline on $BASE_PORT"
 "$PY" "$DEVNET" lightwalletd stop --dir "$DIR" >/dev/null 2>&1 || true
 "$PY" "$DEVNET" lightwalletd start --dir "$DIR" --port "$FORK_PORT" --bin "$FORK_BIN" --extra=--yellowback
 BASE_CMD="$("$PY" "$DEVNET" lightwalletd start --baseline --port "$BASE_PORT" --print --dir "$DIR")"
-# The baseline gets its own log file and data dir; --print's command names the fork's.
+# The baseline gets its own log file and data dir. A glob replace of "--data-dir *" eats the
+# rest of the command (bash patterns are greedy), so append -legacy to that one argument.
 BASE_CMD="${BASE_CMD/lightwalletd.log/lightwalletd-legacy.log}"
-BASE_CMD="${BASE_CMD/--data-dir */--data-dir }"; BASE_CMD="$(printf '%s' "$BASE_CMD" | sed "s|--data-dir \([^ ]*\)|--data-dir \1-legacy|")"
+BASE_CMD="$(printf '%s\n' "$BASE_CMD" | sed -E 's|(--data-dir )([^ ]+)|\1\2-legacy|')"
+mkdir -p "$(printf '%s\n' "$BASE_CMD" | sed -n 's/.*--data-dir \([^ ]*\).*/\1/p')"
 pkill -f "lightwalletd-legacy .*-bind-addr 127.0.0.1:$BASE_PORT" 2>/dev/null || true
 nohup $BASE_CMD >/dev/null 2>&1 &
 BASE_PID=$!
@@ -62,10 +68,12 @@ cleanup() {
   if [ "$DOWN" -eq 1 ]; then "$PY" "$DEVNET" down --wipe --dir "$DIR"; fi
 }
 trap cleanup EXIT
+ready=0
 for _ in $(seq 1 30); do
-  if ( cd "$ROOT" && go run -mod=vendor ./testtools/lwdinfo -server "127.0.0.1:$BASE_PORT" -timeout 2s >/dev/null 2>&1 ); then break; fi
+  if ( cd "$ROOT" && go run -mod=vendor ./testtools/lwdinfo -server "127.0.0.1:$BASE_PORT" -timeout 2s >/dev/null 2>&1 ); then ready=1; break; fi
   sleep 1
 done
+[ "$ready" -eq 1 ] || { echo "devnet-test: baseline lightwalletd did not answer on 127.0.0.1:$BASE_PORT" >&2; exit 1; }
 
 say "fresh pool quotes (the price windows need tagged blocks with a live quote)"
 "$PY" "$DEVNET" price 50 --dir "$DIR"
