@@ -60,4 +60,7 @@ jobs:
           echo "$RUNNER_TEMP/protoc/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/protoc/bin/protoc" --version
       - name: Regenerate and diff
-        run: scripts/check-generated.sh
+        # The script's whole output (trace included) also lands on the run's summary page.
+        run: |
+          set -o pipefail
+          { echo '```'; scripts/check-generated.sh 2>&1; rc=$?; echo "exit $rc"; echo '```'; exit $rc; } | tee -a "$GITHUB_STEP_SUMMARY"
