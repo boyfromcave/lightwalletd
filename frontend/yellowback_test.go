@@ -600,3 +600,32 @@ func TestRateLimit(t *testing.T) {
 		t.Fatalf("read-only methods are not limited: %v", err)
 	}
 }
+
+// TestTaddrOfRejectsLongGarbageCheaply (audit E-1): the YED mapping must refuse an oversized or
+// non-YED string before base58-decoding it (the decode is quadratic in the length), so the
+// taddr RPCs stay as cheap as the baseline's regex made them; and such an address never reaches
+// the node through GetTaddressBalance.
+func TestTaddrOfRejectsLongGarbageCheaply(t *testing.T) {
+	_, node := newService(t)
+	YellowbackAddresses = true
+	defer func() { YellowbackAddresses = false }()
+	garbage := "y" + strings.Repeat("z", 1<<20)
+	start := time.Now()
+	if got := taddrOf(garbage); got != garbage {
+		t.Fatalf("garbage must pass through unchanged")
+	}
+	if elapsed := time.Since(start); elapsed > 50*time.Millisecond {
+		t.Fatalf("taddrOf on 1 MB took %v, want < 50ms (the decode ran before the length check)", elapsed)
+	}
+	for _, bad := range []string{garbage, "yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ijX", "yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9i", "xr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij"} {
+		if got, ok := yedToTransparent(bad); ok {
+			t.Errorf("%.40q must not convert, got %q", bad, got)
+		}
+	}
+	if _, err := getTaddressBalanceZcashdRpc([]string{garbage}); err == nil || err.Error() != "Invalid address" {
+		t.Fatalf("GetTaddressBalance must reject with the baseline regex, got %v", err)
+	}
+	if len(node.calls) != 0 {
+		t.Fatalf("the node was called for a garbage address: %v", node.calls)
+	}
+}

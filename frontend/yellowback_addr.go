@@ -24,6 +24,9 @@ var yedVersionMap = map[[2]byte][2]byte{
 	{0x20, 0x02}: {0x1C, 0x95}, // regtest  yr… -> sm…
 }
 
+// yedAddressLen is the base58check length of every YED P2PKH address (see yedToTransparent).
+const yedAddressLen = 35
+
 func checksum4(b []byte) []byte {
 	h := sha256.Sum256(b)
 	h = sha256.Sum256(h[:])
@@ -33,7 +36,16 @@ func checksum4(b []byte) []byte {
 // yedToTransparent returns the transparent form of a YED address and true, or ("", false) when
 // the input is not a well-formed YED P2PKH address (wrong length, bad checksum, unknown version).
 // A transparent address is returned unchanged with false, so callers apply their own check.
+//
+// The length and prefix are checked BEFORE decoding (audit E-1): base58.Decode is a big-integer
+// loop, quadratic in the input length, and the taddr RPCs hand this function a client string
+// before the baseline's 34-character regex. A 26-byte payload under any of the three YED
+// version bytes is always exactly 35 characters starting with 'y' (0x1FE4..0x2002 << 192 lie
+// between 58^34 and 58^35), so anything else is not a YED address and costs O(1) here.
 func yedToTransparent(addr string) (string, bool) {
+	if len(addr) != yedAddressLen || addr[0] != 'y' {
+		return "", false
+	}
 	raw := base58.Decode(addr)
 	if len(raw) != 2+20+4 { // version(2) + hash160(20) + checksum(4)
 		return "", false

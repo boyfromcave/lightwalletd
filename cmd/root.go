@@ -129,10 +129,17 @@ func startServer(opts *common.Options) error {
 	// gRPC initialization
 	var server *grpc.Server
 
+	// Bound on one incoming gRPC message (audit E-1): the baseline left gRPC's 4 MiB default.
+	// The largest legitimate request is SendTransaction with a post-Sapling transaction of up to
+	// MAX_TX_SIZE_AFTER_SAPLING = 2 000 000 bytes (ref/ycash/src/consensus/consensus.h:29);
+	// everything else a client sends is a few hundred bytes.
+	const grpcMaxRecvMsgSize = 2*1024*1024 + 64*1024
+
 	if opts.NoTLSVeryInsecure {
 		common.Log.Warningln("Starting insecure no-TLS (plaintext) server")
 		fmt.Println("Starting insecure server")
 		server = grpc.NewServer(
+			grpc.MaxRecvMsgSize(grpcMaxRecvMsgSize),
 			grpc.StreamInterceptor(
 				grpc_middleware.ChainStreamServer(
 					grpc_prometheus.StreamServerInterceptor),
@@ -161,6 +168,7 @@ func startServer(opts *common.Options) error {
 		}
 		server = grpc.NewServer(
 			grpc.Creds(transportCreds),
+			grpc.MaxRecvMsgSize(grpcMaxRecvMsgSize),
 			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 				grpc_prometheus.StreamServerInterceptor),
 			),
