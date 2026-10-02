@@ -52,7 +52,7 @@ observable way.** Proven on a regtest devnet: `GetLightdInfo` byte-identical and
 | `common/yellowback.go` | the probe; `CallYed`, the **only** path to a `yed_*` RPC, over the tree's `common.RawRequest`; the allow-list `YedMethods` and the reasoned `NotOffered` list; error mapping |
 | `frontend/yellowback.go` | the handlers: validate at the edge, call, unmarshal, return; embeds `UnimplementedYellowbackStreamerServer` |
 | `frontend/yellowback_addr.go` | YED → transparent address conversion (base58check, the node's version bytes) |
-| `frontend/yellowback_ratelimit.go` | per-peer token bucket for the four methods that make the node work |
+| `frontend/yellowback_ratelimit.go` | per-peer token bucket, every method (the node-work ones cost a token, index reads a fifth); peers keyed on the connection unless `--trusted-proxy-cidr` |
 | `frontend/yellowback_test.go`, `frontend/yellowback_devnet_test.go` | offline suite against the node's RPC contract; regtest suite (`-tags devnet`) |
 | `testtools/lwdinfo/main.go` | a probe tool the devnet's `check` uses |
 | `scripts/*.sh`, `.github/workflows/yellowback-tests.yml`, `docs/*.md`, `testdata/yellowback/contract.json` | tooling, CI, records, the contract fixture |
@@ -69,12 +69,14 @@ when a node RPC appears in neither list.
 
 A node RPC error is relayed as gRPC `FAILED_PRECONDITION` with the node's message verbatim; a
 transport failure is `UNAVAILABLE`; malformed input is `INVALID_ARGUMENT` and never reaches the
-node; a peer past its burst on `EstimateCollateral`, `BuildBundle`, `ValidateRawTransaction`
-and `GetAddressTokens` is `RESOURCE_EXHAUSTED` (20 calls, then one per second, per peer).
+node; a peer past its burst is `RESOURCE_EXHAUSTED` (20 tokens, one back per second, per
+connection address); so is a call that finds all `--yellowback-max-inflight` (16) node slots
+busy for 2 s. A node call ends with the client's context or a 15 s deadline
+(`DEADLINE_EXCEEDED` / `CANCELED`). These bounds are the 2026-10-01 audit's E-1..E-5.
 
 ## How it was proven
 
-- **Offline** (`go test -mod=vendor ./frontend/ -run …`, 11 tests): every method compared
+- **Offline** (`go test -mod=vendor ./frontend/ -run …`, 17 tests): every method compared
   field by field with the node contract's example values through a stubbed `common.RawRequest`
   (the tree's own test pattern); params encoding; error mapping; input validation; allow-list
   completeness; the probe on a stock node, a wrong `rpcversion`, a transport failure; address
@@ -88,6 +90,13 @@ and `GetAddressTokens` is `RESOURCE_EXHAUSTED` (20 calls, then one per second, p
 - **Generated code**: `scripts/check-generated.sh` regenerates every `.pb.go` and
   `_grpc.pb.go` with the pinned generators and diffs; the baseline's own files reproduce
   exactly, so the pin is right.
+
+**Gaps the offline and regtest suites leave** (audit E-10): the armed carrier path
+(`BuildBundle` feeding a mint, plan §9 Q6) has not run on a devnet, and
+`TestDevnetRawMintThroughServer` skips unless `LWD_RAWMINT` is set, so the raw-mint proof is
+only as fresh as the last run that set it; the baseline's three taddr paths in `service.go`
+run under no regression test beyond `TestTaddrOfMapsYedAddresses` and
+`TestTaddrOfRejectsLongGarbageCheaply` (F-R1 excludes the baseline's own frontend tests).
 
 **A note on the baseline's tests.** At `187a267` the `frontend` package's own tests fail and
 then hang (the Ycash regex commit invalidated upstream's `t…` test data; then the RPC stubs run

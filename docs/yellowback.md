@@ -37,10 +37,24 @@ offline suite fails when one appears in neither.
 
 **Errors:** a node RPC error → `FAILED_PRECONDITION` with the node's message verbatim
 (`bundle-insufficient: …`, `vault-not-found: …`); transport failure → `UNAVAILABLE`; malformed
-input → `INVALID_ARGUMENT` before any node call; a peer past its burst on the four node-work
-methods (`EstimateCollateral`, `BuildBundle`, `ValidateRawTransaction`, `GetAddressTokens`) →
-`RESOURCE_EXHAUSTED` (20 calls, then one per second, per `x-real-ip` or connection address;
-`frontend/yellowback_ratelimit.go`, no new dependency).
+input → `INVALID_ARGUMENT` before any node call; a peer past its burst on any method →
+`RESOURCE_EXHAUSTED` (a bucket of 20 tokens refilled one per second per peer; the methods that
+make the node walk its index or attestation pool — `EstimateCollateral`, `BuildBundle`,
+`ValidateRawTransaction`, `GetAddressTokens`, `GetSelection`, `ListVaults`, `ListClaimable`,
+`GetAttestations` — cost a token, the index reads a fifth of one;
+`frontend/yellowback_ratelimit.go`, no new dependency). The peer is the connection address;
+`x-real-ip` / `x-forwarded-for` are believed only from the networks named by
+`--trusted-proxy-cidr` (repeatable), since gRPC metadata is set by the client (audit E-2).
+The peer map is capped at 10 000 entries.
+
+**Node work in flight:** at most `--yellowback-max-inflight` (default 16) `yed_*` calls run at
+once; a call that cannot get a slot within 2 s is `RESOURCE_EXHAUSTED`; every call carries a
+15 s deadline and ends when the client departs (`DEADLINE_EXCEEDED` / `CANCELED`), though the
+node call itself, once sent, runs to completion and frees its slot then. The parameterless
+per-tip answers (`GetYellowbackInfo`, `GetPrice` at the tip, `GetStats`, `GetActivation`,
+`ListClaimable`, `GetAttestations`) are served from one node call for 2 s. A YED address is
+checked for length and prefix before it is base58-decoded, and one incoming gRPC message is
+at most 2 MiB + 64 KiB (`cmd/root.go`; audit E-1, E-3, E-4).
 
 ## Toolchain and generated code
 
@@ -108,7 +122,10 @@ cd ../lightwalletd-dd && scripts/devnet-test.sh [--up] [--down]      # the whole
 The devnet's `lightwalletd` subcommand starts this lineage with `--rpcuser/--rpcpassword/
 --rpchost/--rpcport` (the four flags bypass the conf file), `--no-tls-very-insecure`,
 `--grpc-bind-addr 127.0.0.1:<port>`, `--http-bind-addr 127.0.0.1:<port+2000>`,
-`--data-dir node0/lightwalletd`, `--log-file node0/lightwalletd.log`; `--baseline` runs the
+`--data-dir node0/lightwalletd`, `--log-file node0/lightwalletd.log` — `--rpcpassword` on the
+command line is visible to every local user in `ps` and is for the devnet only; a real
+deployment reads the credentials from the node's conf file (`--zcash-conf-path`, audit E-8);
+`--baseline` runs the
 `lightwalletd-legacy` build; `check` probes through `testtools/lwdinfo` (and, with
 `--extra=--yellowback`, every Yellowback method). On regtest the sapling height resolves to 0
 and the cache fills instantly.
@@ -146,8 +163,10 @@ txindex=1
 server=1 rpcuser=… rpcpassword=… rpcbind=127.0.0.1 rpcport=8232
 
 # server (TLS as the README describes, or nginx in front)
-lightwalletd --zcash-conf-path ycash.conf --data-dir /var/lib/lightwalletd --grpc-bind-addr 127.0.0.1:9067 --yellowback
+lightwalletd --zcash-conf-path ycash.conf --data-dir /var/lib/lightwalletd --grpc-bind-addr 127.0.0.1:9067 --yellowback \
+  --trusted-proxy-cidr 127.0.0.1/32      # only if nginx sets x-real-ip; omit otherwise
 ```
+Credentials come from `ycash.conf`: never put `--rpcpassword` on a production command line.
 
 The log says either `Yellowback service started (node rpcversion 3, network …)` or why not.
 **Upgrade order:** node first (`ycash-dd` with `-yellowback`), then the server binary (no change
