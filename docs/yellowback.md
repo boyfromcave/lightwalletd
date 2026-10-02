@@ -160,7 +160,7 @@ yellowback=1
 yellowbackenforce=0        # a relay follows the chain; enforcement is for miners (v2 plan §3.9)
 insightexplorer=1
 txindex=1
-server=1 rpcuser=… rpcpassword=… rpcbind=127.0.0.1 rpcport=8232
+server=1 rpcuser=… rpcpassword=… rpcbind=127.0.0.1 rpcport=8832
 
 # server (TLS as the README describes, or nginx in front)
 lightwalletd --zcash-conf-path ycash.conf --data-dir /var/lib/lightwalletd --grpc-bind-addr 127.0.0.1:9067 --yellowback \

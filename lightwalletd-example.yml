@@ -1,7 +1,10 @@
-bind-addr: 0.0.0.0:9067
-cache-size: 10
+# lightwalletd --config lightwalletd.yml: every flag of `lightwalletd --help` by its long name.
+grpc-bind-addr: 127.0.0.1:9067
+http-bind-addr: 127.0.0.1:9068
 log-file: /dev/stdout
-log-level: 10
-tls-cert: /secrets/lightwallted/cert.pem
-tls-key: /secrets/lightwallted/cert.key
-zcash-conf-path: /srv/zcashd/zcash.conf
+log-level: 4
+tls-cert: /etc/lightwalletd/tls/cert.pem
+tls-key: /etc/lightwalletd/tls/cert.key
+zcash-conf-path: /etc/lightwalletd/ycash.conf   # the flag name is inherited; the file is ycashd's
+data-dir: /var/lib/lightwalletd
+yellowback: true

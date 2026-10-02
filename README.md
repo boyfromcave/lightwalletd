@@ -1,171 +1,158 @@
+# Ycash lightwalletd
 
-**Yellowback (YED):** this fork serves a second gRPC service for Ycash Yellowback light clients behind the `--yellowback` flag; see [docs/yellowback.md](docs/yellowback.md). Everything below is unchanged.
+[![yellowback-tests](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml/badge.svg?branch=feature/yellowback-price-attest)](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml)
 
-[![pipeline status](https://gitlab.com/zcash/lightwalletd/badges/master/pipeline.svg)](https://gitlab.com/zcash/lightwalletd/commits/master)
-[![codecov](https://codecov.io/gh/zcash/lightwalletd/branch/master/graph/badge.svg)](https://codecov.io/gh/zcash/lightwalletd)
+lightwalletd is a backend service that gives light wallets a bandwidth-efficient, Sapling-era
+interface to the Ycash blockchain: compact blocks, transparent-address lookups, transaction
+broadcast. This tree is the Ycash lineage — [zcash/lightwalletd](https://github.com/zcash/lightwalletd)
+0.4.6 with the Ycash transparent-address regex (`s…`), as maintained at
+[yodl/lightwalletd](https://github.com/yodl/lightwalletd) — plus one addition:
 
-# Security Disclaimer
+**Ycash Yellowback (YED).** Behind the `--yellowback` flag the server offers a second gRPC service,
+`YellowbackStreamer`, whose nineteen methods are thin, allow-listed proxies of the read-only
+`yed_*` RPCs on the node it already follows (verdicts, price and collateral, vaults, attestation
+bundles, YED token sets). The flag off, or on a node without `-yellowback`, the binary behaves as
+the baseline in every observable way; with the flag on, the transparent-address RPCs also accept
+YED addresses. [docs/yellowback.md](docs/yellowback.md) is the operator and developer record,
+[docs/review.md](docs/review.md) the review packet. Clients: the YecWallet-lite style desktop
+wallets and the YEW mobile wallet, which vendor `walletrpc/*.proto`.
 
-lightwalletd is under active development, some features are more stable than
-others. The code has not been subjected to a thorough review by an external
-auditor, and recent code changes have not yet received security review from
-Electric Coin Company's security team.
+# Security disclaimer
 
-Developers should familiarize themselves with the [wallet app threat
-model](https://zcash.readthedocs.io/en/latest/rtd_pages/wallet_threat_model.html),
-since it contains important information about the security and privacy
-limitations of light wallets that use lightwalletd.
+From the upstream project, and as true here: lightwalletd is under active development, some
+features are more stable than others. The code has not been subjected to a thorough review by an
+external auditor. Developers should familiarize themselves with the
+[wallet app threat model](https://zcash.readthedocs.io/en/latest/rtd_pages/wallet_threat_model.html),
+since it contains important information about the security and privacy limitations of light
+wallets that use lightwalletd. The Yellowback service has had an internal audit
+(the workspace's `docs/audits/`), not an external one.
 
----
+# Building
 
-# Overview
+[Go](https://go.dev/dl/) 1.24 or later (CI builds with 1.24.7; `go.mod`'s `go 1.12` is the
+language floor). Dependencies are vendored, so no module download is needed:
 
-[lightwalletd](https://github.com/zcash/lightwalletd) is a backend service that provides a bandwidth-efficient interface to the Zcash blockchain. Currently, lightwalletd supports the Sapling protocol version and beyond as its primary concern. The intended purpose of lightwalletd is to support the development and operation of mobile-friendly shielded light wallets.
+```
+make                                   # go build with version ldflags → ./lightwalletd
+CGO_ENABLED=0 go build -mod=vendor .   # the same build, static, as CI and the Dockerfile do it
+```
 
-lightwalletd is a backend service that provides a bandwidth-efficient interface to the Zcash blockchain for mobile and other wallets, such as [Zecwallet](https://github.com/adityapk00/zecwallet-lite-lib).
+`lightwalletd --help` lists every flag. The gRPC interface is documented in
+[docs/rtd/index.html](docs/rtd/index.html), generated from the four `walletrpc/*.proto` files by
+`make doc` (needs Docker; it runs the `pseudomuto/protoc-gen-doc` image). Regenerate it when a
+proto changes.
 
-To view status of [CI pipeline](https://gitlab.com/zcash/lightwalletd/pipelines)
+# Running against ycashd
 
-To view detailed [Codecov](https://codecov.io/gh/zcash/lightwalletd) report
+The node is `ycashd` (Ycash 4.5.0 or later; for the Yellowback service, the Yellowback build with
+`-yellowback`). Its `ycash.conf` must contain:
 
-Documentation for lightwalletd clients (the gRPC interface) is in `docs/rtd/index.html`. The current version of this file corresponds to the two `.proto` files; if you change these files, please regenerate the documentation by running `make doc`, which requires docker to be installed. 
-# Local/Developer docker-compose Usage
-
-[docs/docker-compose-setup.md](./docs/docker-compose-setup.md)
-
-# Local/Developer Usage
-
-## Zcashd
-
-You must start a local instance of `zcashd`, and its `.zcash/zcash.conf` file must include the following entries
-(set the user and password strings accordingly):
 ```
 txindex=1
 insightexplorer=1
 experimentalfeatures=1
-rpcuser=xxxxx
-rpcpassword=xxxxx
+rpcuser=…
+rpcpassword=…
+rpcport=8832          # 18832 on testnet and regtest
 ```
 
-The `zcashd` can be configured to run `mainnet` or `testnet` (or `regtest`). If you stop `zcashd` and restart it on a different network (switch from `testnet` to `mainnet`, for example), you must also stop and restart lightwalletd.
+`txindex` and `insightexplorer` take effect only after a one-time `ycashd -reindex` on an existing
+datadir (hours, and more disk). lightwalletd has no RPC-cookie support, so `rpcuser`/`rpcpassword`
+are required. State `rpcport` explicitly: the conf-file reader is inherited from Zcash and falls
+back to 8232/18232 when the key is absent. The node is reached with `getinfo`, `getblockchaininfo`,
+`getblock`, `getrawtransaction`, `getrawmempool`, `getaddresstxids`, `getaddressbalance`,
+`getaddressutxos`, `sendrawtransaction`, `z_gettreestate`, and, with `--yellowback`,
+`getexperimentalfeatures`, `yed_getinfo` and the read-only `yed_*` methods listed in
+`common.YedMethods`.
 
-It's necessary to run `zcashd --reindex` one time for these options to take effect. This typically takes several hours, and requires more space in the `.zcash` data directory.
-
-Lightwalletd uses the following `zcashd` RPCs:
-- `getblockchaininfo`
-- `getblock`
-- `getrawtransaction`
-- `getaddresstxids`
-- `sendrawtransaction`
-
-## Lightwalletd
-
-First, install [Go](https://golang.org/dl/#stable) version 1.11 or later. You can see your current version by running `go version`.
-
-Clone the [current repository](https://github.com/zcash/lightwalletd) into a local directory that is _not_ within any component of
-your `$GOPATH` (`$HOME/go` by default), then build the lightwalletd server binary by running `make`.
-
-## To run SERVER
-
-Assuming you used `make` to build the server, here's a typical developer invocation:
+Credentials come from the conf file or from flags:
 
 ```
-./lightwalletd --no-tls-very-insecure --zcash-conf-path ~/.zcash/zcash.conf --data-dir . --log-file /dev/stdout
-```
-Type `./lightwalletd help` to see the full list of options and arguments.
-
-# Production Usage
-
-Run a local instance of `zcashd` (see above), except do _not_ specify `--no-tls-very-insecure`.
-Ensure [Go](https://golang.org/dl/#stable) version 1.11 or later is installed.
-
-**x509 Certificates**
-You will need to supply an x509 certificate that connecting clients will have good reason to trust (hint: do not use a self-signed one, our SDK will reject those unless you distribute them to the client out-of-band). We suggest that you be sure to buy a reputable one from a supplier that uses a modern hashing algorithm (NOT md5 or sha1) and that uses Certificate Transparency (OID 1.3.6.1.4.1.11129.2.4.2 will be present in the certificate).
-
-To check a given certificate's (cert.pem) hashing algorithm:
-```
-openssl x509 -text -in certificate.crt | grep "Signature Algorithm"
+./lightwalletd --zcash-conf-path /path/to/ycash.conf --data-dir /var/lib/lightwalletd --yellowback
+./lightwalletd --rpchost 127.0.0.1 --rpcport 18832 --rpcuser … --rpcpassword … …   # the four flags bypass the file
 ```
 
-To check if a given certificate (cert.pem) contains a Certificate Transparency OID:
+The flag is still called `--zcash-conf-path`; it is inherited and the file it reads is ycashd's.
+Prefer it on a real deployment — a password on the command line is visible to every local user.
+If you restart the node on a different network, restart lightwalletd too.
+
+**Yellowback.** `--yellowback` (or `YELLOWBACK=1`, or `yellowback: true` in the config file).
+At startup the server asks the node for `getexperimentalfeatures` and `yed_getinfo` and registers
+the service only when the node speaks Yellowback `rpcversion 3`; the log says
+`Yellowback service started (node rpcversion 3, network …)` or why not. Two operator flags
+belong to it: `--yellowback-max-inflight N` (node calls in flight at once, default 16) and
+`--trusted-proxy-cidr NET` (repeatable; the per-peer rate limiter believes `x-real-ip` /
+`x-forwarded-for` only from these networks — set it when, and only when, a reverse proxy sets
+them). Upgrade order: node first, then the server binary, then the flag.
+
+**TLS.** Clients expect TLS: pass `--tls-cert` and `--tls-key`. Use a certificate from a real CA
+with a modern signature algorithm; wallets reject self-signed certificates unless they were given
+them out of band. A free option is Let's Encrypt (`certbot certonly --standalone -d your.host`),
+passing the resulting `fullchain.pem`/`privkey.pem`. `--no-tls-very-insecure` is for regtest and
+for a reverse proxy that terminates TLS in front of a loopback bind; never for a public port.
+`--gen-cert-very-insecure` makes a throwaway self-signed certificate for the same cases.
+
+**Block cache.** lightwalletd caches every block from Sapling activation to the tip under
+`--data-dir` (default `/var/lib/lightwalletd`). The first fill takes a while on mainnet; the server
+answers meanwhile. It checks the files at startup, logs `CORRUPTION` and re-downloads from that
+height if they are damaged. `--redownload` discards the cache.
+
+Other flags: `--grpc-bind-addr` (default `127.0.0.1:9067`), `--http-bind-addr` (`127.0.0.1:9068`),
+`--log-file` (`./server.log`; `/dev/stdout` for a supervisor), `--log-level` (logrus 1–7),
+`--config lightwalletd.yml` ([lightwalletd-example.yml](lightwalletd-example.yml) names every key).
+
+# Docker
+
+`make docker_img` builds `ycash/lightwalletd:local` from this tree (static Go build in
+`golang:1.24.7-alpine`, `alpine:3.22` runtime, unprivileged uid 2002, cache at
+`/var/lib/lightwalletd`). `docker-compose.yml` runs that one service against a `ycashd` you run
+elsewhere — there is no public Ycash node image — configured by `.env` (copy
+[.env.example](.env.example)): `YCASHD_RPC_HOST/PORT/USER/PASSWORD` or a mounted `ycash.conf`,
+`LWD_YELLOWBACK=1`, a mounted certificate or `LWD_INSECURE=1`, ports bound to 127.0.0.1.
+[docs/docker.md](docs/docker.md) has the details and the verification.
+
+# Testing
+
 ```
-echo "1.3.6.1.4.1.11129.2.4.2 certTransparency Certificate Transparency" > oid.txt
-openssl asn1parse -in cert.pem -oid ./oid.txt | grep 'Certificate Transparency'
+go build -mod=vendor ./... && go vet -mod=vendor ./cmd/... ./common/... ./frontend/... ./walletrpc/...
+go test -mod=vendor ./cmd/... ./common/... ./parser/... ./walletrpc/...
+go test -mod=vendor -count=1 -timeout 120s -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit|CallYed|ListVaults|TipAnswers' ./frontend/
+scripts/check-generated.sh         # the committed .pb.go files match the protos (pinned generators)
 ```
 
-To use Let's Encrypt to generate a free certificate for your frontend, one method is to:
-1) Install certbot
-2) Open port 80 to your host
-3) Point some forward dns to that host (some.forward.dns.com)
-4) Run
-```
-certbot certonly --standalone --preferred-challenges http -d some.forward.dns.com
-```
-5) Pass the resulting certificate and key to frontend using the -tls-cert and -tls-key options.
+The baseline's own `frontend` tests fail and hang at the `187a267` pin (the Ycash address regex
+invalidated upstream's test data, [docs/yellowback.md](docs/yellowback.md) "Known baseline
+defects"); CI runs the Yellowback frontend tests by name and every other package in full.
+Against a real node: the regtest devnet of the Yellowback node repository
+(`ycash-dd/contrib/yellowback/devnet/yellowback-devnet`) and `scripts/devnet-test.sh`, which
+proves byte-equality of every compact block with the baseline binary and a mint seen through the
+server — see [docs/yellowback.md](docs/yellowback.md). Never test against mainnet.
+[docs/darksidewalletd.md](docs/darksidewalletd.md) describes the mock-node mode for client
+integration tests. CI is [.github/workflows/yellowback-tests.yml](.github/workflows/yellowback-tests.yml):
+build, vet, gofmt, the tests above, the generated-code check, and a `docker build` of the image.
 
-## To run production SERVER
+# Pull requests
 
-Example using server binary built from Makefile:
-
-```
-./lightwalletd --tls-cert cert.pem --tls-key key.pem --zcash-conf-path /home/zcash/.zcash/zcash.conf --log-file /logs/server.log
-```
-
-## Block cache
-
-lightwalletd caches all blocks from Sapling activation up to the
-most recent block, which takes about an hour the first time you run
-lightwalletd. During this syncing, lightwalletd is fully available,
-but block fetches are slower until the download completes.
-
-After syncing, lightwalletd will start almost immediately,
-because the blocks are cached in local files (by default, within
-`/var/lib/lightwalletd/db`; you can specify a different location using
-the `--data-dir` command-line option).
-
-lightwalletd checks the consistency of these files at startup and during
-operation as these files may be damaged by, for example, an unclean shutdown.
-If the server detects corruption, it will automatically re-downloading blocks
-from `zcashd` from that height, requiring up to an hour again (no manual
-intervention is required). But this should occur rarely.
-
-If lightwalletd detects corruption in these cache files, it will log
-a message containing the string `CORRUPTION` and also indicate the
-nature of the corruption.
-
-## Darksidewalletd & Testing
-
-lightwalletd now supports a mode that enables integration testing of itself and
-wallets that connect to it. See the [darksidewalletd
-docs](docs/darksidewalletd.md) for more information.
-
-# Pull Requests
-
-We welcome pull requests! We like to keep our Go code neatly formatted in a standard way,
-which the standard tool [gofmt](https://golang.org/cmd/gofmt/) can do. Please consider
-adding the following to the file `.git/hooks/pre-commit` in your clone:
+Keep Go code `gofmt`-formatted; a pre-commit hook that refuses unformatted files:
 
 ```
 #!/bin/sh
-
 modified_go_files=$(git diff --cached --name-only -- '*.go')
-if test "$modified_go_files"
-then
+if test "$modified_go_files"; then
     need_formatting=$(gofmt -l $modified_go_files)
-    if test "$need_formatting"
-    then
-        echo files need formatting (then don't forget to git add):
+    if test "$need_formatting"; then
+        echo "files need formatting (then don't forget to git add):"
         echo gofmt -w $need_formatting
         exit 1
     fi
 fi
 ```
 
-You'll also need to make this file executable:
+(`chmod +x .git/hooks/pre-commit`.) Changes under `walletrpc/` must keep the three baseline
+protos and their generated code at zero delta; the Yellowback contract lives in
+`walletrpc/yellowback.proto`.
 
-```
-$ chmod +x .git/hooks/pre-commit
-```
+# License
 
-Doing this will prevent commits that break the standard formatting. Simply run the
-`gofmt` command as indicated and rerun the `git add` and `git commit` commands.
+MIT, see [COPYING](COPYING) and [LICENSE](LICENSE): Copyright (c) 2019 Electric Coin Company,
+(c) 2020 The Zcash developers, (c) 2026 The Ycash developers.
