@@ -78,3 +78,18 @@ jobs:
           ls -l "$RUNNER_TEMP/gen"
       - name: Regenerate and diff (scripts/check-generated.sh)
         run: scripts/check-generated.sh
+
+  docker-image:
+    # The Dockerfile must keep building this tree (README "Docker"): build it, no registry push,
+    # and prove the entrypoint turns the environment into flags by asking the image for --help.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: docker build
+        run: docker build --build-arg LWD_VERSION=ci -t ycash/lightwalletd:ci .
+      - name: image runs as uid 2002 and prints the flag list
+        run: |
+          set -euo pipefail
+          test "$(docker run --rm --entrypoint id ycash/lightwalletd:ci -u)" = "2002"
+          docker run --rm -e YCASHD_RPC_HOST=127.0.0.1 -e YCASHD_RPC_USER=u -e YCASHD_RPC_PASSWORD=p -e LWD_INSECURE=1 \
+            ycash/lightwalletd:ci --help | grep -q -- '--yellowback'
