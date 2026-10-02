@@ -34,11 +34,15 @@ protos=(*.proto)
 PATH="$TMP/bin:$PATH" protoc --go_out="$TMP/gen" --go_opt=paths=source_relative \
   --go-grpc_out="$TMP/gen" --go-grpc_opt=paths=source_relative "${protos[@]}"
 
-# Mask what the protoc release changes: the header version line, the descriptor bytes, comment whitespace.
+# Mask what the toolchain, not the proto, decides: the header version line, the descriptor bytes,
+# and every comment-only or blank line (protoc-gen-go formats doc comments with the go/format of
+# the Go that compiled it — Go 1.24 reflows an indented comment line into a code block, Go 1.27
+# does not — so comments are compared nowhere; the Go API, every declaration and tag, must match).
 mask() { awk '
-  /^\/\/[ \t]+protoc[ \t]+v/ { next }
+  /^[ \t]*\/\//            { next }
+  /^[ \t]*$/                { next }
   /^[ \t]+0x[0-9a-f][0-9a-f],/  { next }
-  { sub(/^\/\/ +/, "// "); print }
+  { sub(/[ \t]+\/\/.*$/, ""); print }
 ' "$1"; }
 
 status=0
