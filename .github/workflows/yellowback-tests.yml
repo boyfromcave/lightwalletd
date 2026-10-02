@@ -4,6 +4,12 @@
 # and the generated-code check (scripts/check-generated.sh, protoc-gen-go v1.26.0 +
 # protoc-gen-go-grpc v1.1.0). The regtest job (the server against a ycash-dd devnet, plan §6.3)
 # runs from the node's nightly, which clones this repository and calls scripts/devnet-test.sh.
+#
+# Supply chain (audit E-6): actions are pinned by commit SHA (the tag is the comment), the Go
+# toolchain is an exact version (go.mod's `go 1.12` names a language floor, not a toolchain;
+# 1.24.7 is what the node's nightly installs for this fork), the runner image is a release,
+# and protoc is a release zip verified against its SHA-256 (the version docs/yellowback.md
+# records) rather than whatever protobuf-compiler Ubuntu ships that day.
 name: yellowback-tests
 
 on:
@@ -14,12 +20,12 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
-          go-version: stable
+          go-version: "1.24.7"
       - name: Build (vendored, as the Makefile)
         run: CGO_ENABLED=0 go build -mod=vendor -o lightwalletd . && go build -mod=vendor -o /dev/null ./testtools/lwdinfo
       - name: Vet
@@ -33,16 +39,25 @@ jobs:
         # regex commit invalidated upstream's t-address test data, after which the RPC stubs run
         # out of order and TestGetBlockRange waits forever). They are not this fork's to fix; the
         # Yellowback tests run by name so the package is still covered.
-        run: go test -mod=vendor -count=1 -timeout 120s -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit' ./frontend/
+        run: go test -mod=vendor -count=1 -timeout 120s -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit|CallYed|ListVaults|TipAnswers' ./frontend/
 
   generated-code:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
-          go-version: stable
-      - name: Install protoc
-        run: sudo apt-get update -q && sudo apt-get install -y -q protobuf-compiler && protoc --version
+          go-version: "1.24.7"
+      - name: Install protoc (release zip, SHA-256 verified)
+        env:
+          PROTOC_VERSION: "36.1"
+          PROTOC_SHA256: c4bc672d9d49214dc8cafdceadf4df92182d6ca8e3ec65a56b2d7de5602669b4
+        run: |
+          set -euo pipefail
+          curl -sSL -o "$RUNNER_TEMP/protoc.zip" "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+          echo "${PROTOC_SHA256}  $RUNNER_TEMP/protoc.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/protoc.zip" -d "$RUNNER_TEMP/protoc"
+          echo "$RUNNER_TEMP/protoc/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/protoc/bin/protoc" --version
       - name: Regenerate and diff
         run: scripts/check-generated.sh
