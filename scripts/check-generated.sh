@@ -23,8 +23,9 @@ UPDATE=0
 command -v protoc >/dev/null || { echo "check-generated: protoc not found (brew install protobuf / apt install protobuf-compiler)" >&2; exit 2; }
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-GOBIN="$TMP/bin" go install "google.golang.org/protobuf/cmd/protoc-gen-go@$GEN_GO" 2>/dev/null
-GOBIN="$TMP/bin" go install "google.golang.org/grpc/cmd/protoc-gen-go-grpc@$GEN_GRPC" 2>/dev/null
+echo "check-generated: $(go version); protoc $(protoc --version | awk '{print $2}')"
+GOBIN="$TMP/bin" GOFLAGS= go install "google.golang.org/protobuf/cmd/protoc-gen-go@$GEN_GO"
+GOBIN="$TMP/bin" GOFLAGS= go install "google.golang.org/grpc/cmd/protoc-gen-go-grpc@$GEN_GRPC"
 mkdir -p "$TMP/gen"
 
 cd "$ROOT/walletrpc"
