@@ -48,6 +48,7 @@ jobs:
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version: "1.24.7"
+          cache: false   # the generators are installed at pinned versions; no restored cache in this job
       - name: Install protoc (release zip, SHA-256 verified)
         env:
           PROTOC_VERSION: "36.1"
