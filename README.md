@@ -58,8 +58,8 @@ rpcport=8832          # 18832 on testnet and regtest
 
 `txindex` and `insightexplorer` take effect only after a one-time `ycashd -reindex` on an existing
 datadir (hours, and more disk). lightwalletd has no RPC-cookie support, so `rpcuser`/`rpcpassword`
-are required. State `rpcport` explicitly: the conf-file reader is inherited from Zcash and falls
-back to 8232/18232 when the key is absent. The node is reached with `getinfo`, `getblockchaininfo`,
+are required. Without `rpcport` the server assumes Ycash's defaults, 8832 on mainnet and 18832 on
+testnet and regtest. The node is reached with `getinfo`, `getblockchaininfo`,
 `getblock`, `getrawtransaction`, `getrawmempool`, `getaddresstxids`, `getaddressbalance`,
 `getaddressutxos`, `sendrawtransaction`, `z_gettreestate`, and, with `--yellowback`,
 `getexperimentalfeatures`, `yed_getinfo` and the read-only `yed_*` methods listed in

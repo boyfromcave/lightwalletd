@@ -39,7 +39,7 @@ jobs:
         # regex commit invalidated upstream's t-address test data, after which the RPC stubs run
         # out of order and TestGetBlockRange waits forever). They are not this fork's to fix; the
         # Yellowback tests run by name so the package is still covered.
-        run: go test -mod=vendor -count=1 -timeout 120s -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit|CallYed|ListVaults|TipAnswers' ./frontend/
+        run: go test -mod=vendor -count=1 -timeout 120s -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit|CallYed|ListVaults|TipAnswers|ConfDefaultPorts|NewZRPCFromConf' ./frontend/
 
   generated-code:
     runs-on: ubuntu-24.04

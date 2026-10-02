@@ -49,11 +49,11 @@ func connFromConf(confPath interface{}) (*rpcclient.ConnConfig, error) {
 	}
 	rpcport := cfg.Section("").Key("rpcport").String()
 	if rpcport == "" {
-		rpcport = "8232" // default mainnet
+		rpcport = "8832" // Ycash mainnet default (ref chainparamsbase.cpp); Zcash's was 8232
 		testnet, _ := cfg.Section("").Key("testnet").Int()
 		regtest, _ := cfg.Section("").Key("regtest").Int()
 		if testnet > 0 || regtest > 0 {
-			rpcport = "18232"
+			rpcport = "18832"
 		}
 	}
 	username := cfg.Section("").Key("rpcuser").String()

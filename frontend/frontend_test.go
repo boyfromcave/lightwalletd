@@ -500,6 +500,23 @@ rpcuser = testlightwduser
 rpcpassword = testlightwdpassword
 `
 
+// Without rpcport the defaults are Ycash's (8832 mainnet, 18832 testnet/regtest), not Zcash's.
+func TestConfDefaultPortsAreYcash(t *testing.T) {
+	for _, c := range []struct{ conf, host string }{
+		{"rpcuser = u\nrpcpassword = p\n", "127.0.0.1:8832"},
+		{"testnet = 1\nrpcuser = u\nrpcpassword = p\n", "127.0.0.1:18832"},
+		{"regtest = 1\nrpcuser = u\nrpcpassword = p\n", "127.0.0.1:18832"},
+	} {
+		connCfg, err := connFromConf([]byte(c.conf))
+		if err != nil {
+			t.Fatal("connFromConf failed")
+		}
+		if connCfg.Host != c.host {
+			t.Fatalf("connFromConf: got %s, want %s", connCfg.Host, c.host)
+		}
+	}
+}
+
 func TestNewZRPCFromConf(t *testing.T) {
 	connCfg, err := connFromConf([]byte(sampleconf))
 	if err != nil {
