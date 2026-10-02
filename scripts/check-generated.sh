@@ -14,6 +14,7 @@
 # protoc releases is the gzipped FileDescriptorProto each .pb.go embeds and the version line in
 # the header, so the comparison masks those (and comment re-wrapping); the Go API must match.
 set -euo pipefail
+[ -n "${CI:-}" ] && set -x   # trace under GitHub Actions so a failure names its command
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GEN_GO="v1.26.0"; GEN_GRPC="v1.1.0"
