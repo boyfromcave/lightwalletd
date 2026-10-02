@@ -28,15 +28,20 @@ import (
 // Input bounds checked at the edge so the node never sees a malformed request from here
 // (plan Phase L3 item; the cheap ones land now).
 const (
-	maxHexLen      = 2 * 200000 // a raw transaction is at most 100 kB on Ycash's MAX_TX_SIZE ... generous
-	maxSelectorLen = 2 * 36     // a serialised COutPoint
-	maxListCount   = 1000
-	maxAddresses   = 100 // yed_listtokens' own bound
-	maxAddressLen  = 64
+	maxHexLen        = 2 * 200000 // a raw transaction is at most 100 kB on Ycash's MAX_TX_SIZE ... generous
+	maxSelectorLen   = 2 * 36     // a serialised COutPoint
+	maxListCount     = 1000
+	defaultListCount = 100 // yed_listvaults' own default (audit E-5)
+	maxAddresses     = 100 // yed_listtokens' own bound
+	maxAddressLen    = 64
 )
 
 var txidPattern = regexp.MustCompile(`^[0-9a-fA-F]{64}$`)
 var hexPattern = regexp.MustCompile(`^([0-9a-fA-F]{2})*$`)
+
+// vaultStatuses is yed_listvaults' status filter enum (the contract; yellowback.cpp "status
+// must be ACTIVE, VOID, CLOSED or CLAIMED"), checked at the edge (audit E-5).
+var vaultStatuses = map[string]bool{"": true, "ACTIVE": true, "VOID": true, "CLOSED": true, "CLAIMED": true}
 
 // yedCacheTTL: the per-tip, parameterless answers (GetYellowbackInfo, GetPrice at the tip,
 // GetStats, GetActivation, ListClaimable, GetAttestations) are identical bytes for every client
@@ -227,6 +232,9 @@ func (y *YellowbackStreamer) ListVaults(in *walletrpc.YedVaultFilter, stream wal
 	if in.Count > maxListCount {
 		return badArg("count must be at most %d", maxListCount)
 	}
+	if !vaultStatuses[in.Status] {
+		return badArg("status must be ACTIVE, VOID, CLOSED or CLAIMED")
+	}
 	// The RPC's positionals: status defaults to "" (all) when count or skip is given.
 	var params []json.RawMessage
 	if in.Status != "" || in.Count != 0 || in.Skip != 0 {
@@ -235,7 +243,7 @@ func (y *YellowbackStreamer) ListVaults(in *walletrpc.YedVaultFilter, stream wal
 	if in.Count != 0 || in.Skip != 0 {
 		count := int64(in.Count)
 		if count == 0 {
-			count = maxListCount
+			count = defaultListCount
 		}
 		params = append(params, common.JSONNumber(count))
 	}

@@ -730,6 +730,22 @@ func TestCallYedDeadlineAndInFlight(t *testing.T) {
 	}
 }
 
+// TestListVaultsStatusAndCount (audit E-5): the status filter is checked against the contract's
+// enum before the node is called, and count defaults to the node's own 100.
+func TestListVaultsStatusAndCount(t *testing.T) {
+	svc, node := newService(t)
+	err := svc.ListVaults(&walletrpc.YedVaultFilter{Status: strings.Repeat("x", 1<<16)}, &vaultStream{})
+	if st, _ := status.FromError(err); st.Code() != codes.InvalidArgument || len(node.calls) != 0 {
+		t.Fatalf("garbage status: want INVALID_ARGUMENT without a node call, got %v %v", err, node.calls)
+	}
+	if err := svc.ListVaults(&walletrpc.YedVaultFilter{Status: "VOID", Skip: 5}, &vaultStream{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(node.params["yed_listvaults"][1]); got != "100" {
+		t.Fatalf("count=0 with skip must ask for the node's default 100, got %s", got)
+	}
+}
+
 // TestTipAnswersCached (audit E-3): the parameterless per-tip answers are served from one node
 // call for yedCacheTTL; a height-specific GetPrice is not cached.
 func TestTipAnswersCached(t *testing.T) {
