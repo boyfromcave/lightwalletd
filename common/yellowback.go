@@ -1,3 +1,7 @@
+// Copyright (c) 2026 The Ycash developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or https://www.opensource.org/licenses/mit-license.php .
+
 // Yellowback (YED) support: the node-side half of the YellowbackStreamer service
 // (docs/plans/yellowback-lightwalletd-plan.md section 4.2, re-ported onto zcash/lightwalletd 0.4.6 in section 10).
 //

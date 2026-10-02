@@ -1,3 +1,7 @@
+// Copyright (c) 2026 The Ycash developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or https://www.opensource.org/licenses/mit-license.php .
+
 // lwdinfo: a probe for a running lightwalletd. Calls GetLightdInfo and GetLatestBlock over
 // plaintext gRPC and prints them as one JSON object, so a shell script (the ycash-dd devnet's
 // `check`, plan §6.3) can assert the server is up and which node it follows without a gRPC

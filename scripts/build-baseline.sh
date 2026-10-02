@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 The Ycash developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or https://www.opensource.org/licenses/mit-license.php .
+#
 # Build the BASELINE server — the `lightwalletd-legacy` branch, yodl/lightwalletd master 187a26765e
 # (zcash/lightwalletd 0.4.6 + the Ycash regex) — so the regtest suite can compare this fork's
 # answers against it byte for byte (plan §6.3, the backward-compatibility gate).

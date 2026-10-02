@@ -1,3 +1,7 @@
+// Copyright (c) 2026 The Ycash developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or https://www.opensource.org/licenses/mit-license.php .
+
 // YellowbackStreamer: the Yellowback (YED) light-client service, every method a proxy of one
 // read-only yed_* node RPC through common.CallYed (docs/plans/yellowback-lightwalletd-plan.md
 // section 4.1). Each handler validates its input, calls, unmarshals the JSON result straight into

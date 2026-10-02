@@ -1,3 +1,7 @@
+// Copyright (c) 2026 The Ycash developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or https://www.opensource.org/licenses/mit-license.php .
+
 // YED addresses for GetAddressTxids (plan D-L-4). A YED address is a transparent P2PKH address
 // with different base58check version bytes and the same 20-byte key hash
 // (ycash-dd/src/yellowback/address.h:14-21; params.cpp:142,156,189). The node's getaddresstxids

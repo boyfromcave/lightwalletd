@@ -1,3 +1,7 @@
+// Copyright (c) 2026 The Ycash developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or https://www.opensource.org/licenses/mit-license.php .
+
 // Offline tests for the Yellowback service: a fake node answering every yed_* RPC from the
 // node's contract (testdata/yellowback/contract.json, kept equal to
 // ycash-dd/doc/yellowback-rpc-contract.json by the workspace's `make spec`), the same trick as

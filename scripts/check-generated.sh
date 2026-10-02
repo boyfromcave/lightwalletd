@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 The Ycash developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or https://www.opensource.org/licenses/mit-license.php .
+#
 # Regenerate every walletrpc/*.proto with the pinned generators and diff against the checked-in
 # .pb.go and _grpc.pb.go (plan D-L-6). Exit 1 on any difference.
 #

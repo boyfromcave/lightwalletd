@@ -12,6 +12,9 @@
 # Never mainnet: the devnet is regtest by construction. Needs go, protoc is not needed, and the
 # workspace venv for the devnet script and lwd-rawmint. Exit status is go test's.
 set -euo pipefail
+# Copyright (c) 2026 The Ycash developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE="$(dirname "$ROOT")"

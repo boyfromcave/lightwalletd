@@ -1,3 +1,7 @@
+// Copyright (c) 2026 The Ycash developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or https://www.opensource.org/licenses/mit-license.php .
+
 // Per-peer rate limiting for the Yellowback methods that make the node do work (plan Phase L3).
 // A plain token bucket per peer IP, no new dependency: the vendored tree has no
 // golang.org/x/time/rate and D-L-6 forbids adding one. The baseline limits nothing but
