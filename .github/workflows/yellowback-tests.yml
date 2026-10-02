@@ -34,7 +34,7 @@ jobs:
         run: test -z "$(gofmt -l common/yellowback.go frontend/yellowback*.go testtools/lwdinfo)"
       - name: Test (every package but frontend)
         run: go test -mod=vendor ./cmd/... ./common/... ./parser/... ./walletrpc/...
-      - name: Test (frontend: the Yellowback suite by name)
+      - name: "Test (frontend: the Yellowback suite by name)"
         # The baseline's own frontend tests fail and then hang at 187a267 (F-R1: yodl's Ycash
         # regex commit invalidated upstream's t-address test data, after which the RPC stubs run
         # out of order and TestGetBlockRange waits forever). They are not this fork's to fix; the
