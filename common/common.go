@@ -28,26 +28,28 @@ var (
 )
 
 type Options struct {
-	GRPCBindAddr        string `json:"grpc_bind_address,omitempty"`
-	GRPCLogging         bool   `json:"grpc_logging_insecure,omitempty"`
-	HTTPBindAddr        string `json:"http_bind_address,omitempty"`
-	TLSCertPath         string `json:"tls_cert_path,omitempty"`
-	TLSKeyPath          string `json:"tls_cert_key,omitempty"`
-	LogLevel            uint64 `json:"log_level,omitempty"`
-	LogFile             string `json:"log_file,omitempty"`
-	ZcashConfPath       string `json:"zcash_conf,omitempty"`
-	RPCUser             string `json:"rpcuser"`
-	RPCPassword         string `json:"rpcpassword"`
-	RPCHost             string `json:"rpchost"`
-	RPCPort             string `json:"rpcport"`
-	NoTLSVeryInsecure   bool   `json:"no_tls_very_insecure,omitempty"`
-	GenCertVeryInsecure bool   `json:"gen_cert_very_insecure,omitempty"`
-	Redownload          bool   `json:"redownload"`
-	DataDir             string `json:"data_dir"`
-	PingEnable          bool   `json:"ping_enable"`
-	Darkside            bool   `json:"darkside"`
-	Yellowback          bool   `json:"yellowback"`
-	DarksideTimeout     uint64 `json:"darkside_timeout"`
+	GRPCBindAddr        string   `json:"grpc_bind_address,omitempty"`
+	GRPCLogging         bool     `json:"grpc_logging_insecure,omitempty"`
+	HTTPBindAddr        string   `json:"http_bind_address,omitempty"`
+	TLSCertPath         string   `json:"tls_cert_path,omitempty"`
+	TLSKeyPath          string   `json:"tls_cert_key,omitempty"`
+	LogLevel            uint64   `json:"log_level,omitempty"`
+	LogFile             string   `json:"log_file,omitempty"`
+	ZcashConfPath       string   `json:"zcash_conf,omitempty"`
+	RPCUser             string   `json:"rpcuser"`
+	RPCPassword         string   `json:"rpcpassword"`
+	RPCHost             string   `json:"rpchost"`
+	RPCPort             string   `json:"rpcport"`
+	NoTLSVeryInsecure   bool     `json:"no_tls_very_insecure,omitempty"`
+	GenCertVeryInsecure bool     `json:"gen_cert_very_insecure,omitempty"`
+	Redownload          bool     `json:"redownload"`
+	DataDir             string   `json:"data_dir"`
+	PingEnable          bool     `json:"ping_enable"`
+	Darkside            bool     `json:"darkside"`
+	Yellowback          bool     `json:"yellowback"`
+	YellowbackInFlight  int      `json:"yellowback_max_inflight"`
+	TrustedProxyCIDRs   []string `json:"trusted_proxy_cidr"`
+	DarksideTimeout     uint64   `json:"darkside_timeout"`
 }
 
 // RawRequest points to the function to send a an RPC request to zcashd;

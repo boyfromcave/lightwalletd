@@ -58,6 +58,8 @@ var rootCmd = &cobra.Command{
 			PingEnable:          viper.GetBool("ping-very-insecure"),
 			Darkside:            viper.GetBool("darkside-very-insecure"),
 			Yellowback:          viper.GetBool("yellowback"),
+			YellowbackInFlight:  viper.GetInt("yellowback-max-inflight"),
+			TrustedProxyCIDRs:   viper.GetStringSlice("trusted-proxy-cidr"),
 			DarksideTimeout:     viper.GetUint64("darkside-timeout"),
 		}
 
@@ -285,7 +287,12 @@ func startServer(opts *common.Options) error {
 		case !capability.Enabled:
 			common.Log.Warn("Yellowback service not started: the node does not report the yellowback experimental feature")
 		default:
-			walletrpc.RegisterYellowbackStreamerServer(server, frontend.NewYellowbackStreamer(capability, common.Log))
+			service := frontend.NewYellowbackStreamer(capability, common.Log)
+			if err := service.TrustProxies(opts.TrustedProxyCIDRs); err != nil {
+				common.Log.WithFields(logrus.Fields{"error": err}).Fatal("--trusted-proxy-cidr")
+			}
+			common.SetYedMaxInFlight(opts.YellowbackInFlight)
+			walletrpc.RegisterYellowbackStreamerServer(server, service)
 			frontend.YellowbackAddresses = true
 			common.Log.Infof("Yellowback service started (node rpcversion %d, network %s)", capability.RPCVersion, capability.Network)
 		}
@@ -353,6 +360,8 @@ func init() {
 	rootCmd.Flags().Bool("ping-very-insecure", false, "allow Ping GRPC for testing")
 	rootCmd.Flags().Bool("darkside-very-insecure", false, "run with GRPC-controllable mock zcashd for integration testing (shuts down after 30 minutes)")
 	rootCmd.Flags().Bool("yellowback", false, "serve the Ycash Yellowback (YED) service when the node runs -yellowback (docs/yellowback.md)")
+	rootCmd.Flags().Int("yellowback-max-inflight", common.DefaultYedMaxInFlight, "at most this many Yellowback node calls in flight at once (0: unbounded)")
+	rootCmd.Flags().StringSlice("trusted-proxy-cidr", nil, "reverse-proxy networks whose x-real-ip / x-forwarded-for the Yellowback rate limiter believes (repeatable)")
 	rootCmd.Flags().Int("darkside-timeout", 30, "override 30 minute default darkside timeout")
 
 	viper.BindPFlag("grpc-bind-addr", rootCmd.Flags().Lookup("grpc-bind-addr"))
@@ -389,6 +398,9 @@ func init() {
 	viper.SetDefault("darkside-very-insecure", false)
 	viper.BindPFlag("yellowback", rootCmd.Flags().Lookup("yellowback"))
 	viper.SetDefault("yellowback", false)
+	viper.BindPFlag("yellowback-max-inflight", rootCmd.Flags().Lookup("yellowback-max-inflight"))
+	viper.SetDefault("yellowback-max-inflight", common.DefaultYedMaxInFlight)
+	viper.BindPFlag("trusted-proxy-cidr", rootCmd.Flags().Lookup("trusted-proxy-cidr"))
 	viper.BindPFlag("darkside-timeout", rootCmd.Flags().Lookup("darkside-timeout"))
 	viper.SetDefault("darkside-timeout", 30)
 

@@ -13,10 +13,12 @@
 package common
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -141,16 +143,89 @@ func ProbeYellowback() (YellowbackCapability, error) {
 	return capability, nil
 }
 
+// Bounds on the node work this server has in flight (audit E-3, E-4). The node serves RPC on a
+// small fixed thread pool shared with this server's own getblock / sendrawtransaction traffic,
+// so at most YedMaxInFlight yed_* calls run at once (--yellowback-max-inflight); a call that
+// cannot get a slot within yedQueueWait is RESOURCE_EXHAUSTED. Each call also carries a
+// deadline: RawRequest (btcd's rpcclient) cannot be cancelled, so the goroutine that made it
+// runs on and frees its slot when the node answers, but the client stops waiting at
+// YedCallTimeout, or as soon as it departs.
+const (
+	DefaultYedMaxInFlight = 16
+	YedCallTimeout        = 15 * time.Second
+	yedQueueWait          = 2 * time.Second
+)
+
+var yedInFlight = make(chan struct{}, DefaultYedMaxInFlight)
+
+// SetYedMaxInFlight sizes the semaphore; called once at startup, before any request. n <= 0
+// disables the bound.
+func SetYedMaxInFlight(n int) {
+	if n <= 0 {
+		yedInFlight = nil
+		return
+	}
+	yedInFlight = make(chan struct{}, n)
+}
+
+// YedInFlightCap reports the bound (for the probe tool and tests); 0 when disabled.
+func YedInFlightCap() int { return cap(yedInFlight) }
+
+func ctxStatus(ctx context.Context, method string) error {
+	if ctx.Err() == context.DeadlineExceeded {
+		return status.Errorf(codes.DeadlineExceeded, "%s: the node did not answer within %s", method, YedCallTimeout)
+	}
+	return status.Errorf(codes.Canceled, "%s: %v", method, ctx.Err())
+}
+
 // CallYed forwards one allow-listed yed_* RPC. params are already-encoded JSON values.
 // Errors are gRPC statuses (plan section 3.3): a node RPC error is FAILED_PRECONDITION carrying
 // the node's message verbatim (the contract's error identifiers are its first word); a
 // transport failure is UNAVAILABLE; a method outside the allow-list is INTERNAL, because that
-// is a programming error in this server, never a client's doing.
-func CallYed(method string, params ...json.RawMessage) (json.RawMessage, error) {
+// is a programming error in this server, never a client's doing. ctx bounds the wait (the
+// handler's context plus YedCallTimeout): DEADLINE_EXCEEDED or CANCELED when it ends first,
+// RESOURCE_EXHAUSTED when every in-flight slot stays busy for yedQueueWait.
+func CallYed(ctx context.Context, method string, params ...json.RawMessage) (json.RawMessage, error) {
 	if !YedMethods[method] {
 		return nil, status.Errorf(codes.Internal, "%s is not an allow-listed Yellowback RPC", method)
 	}
-	raw, err := RawRequest(method, params)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, YedCallTimeout)
+	defer cancel()
+	sem := yedInFlight
+	if sem != nil {
+		queue := time.NewTimer(yedQueueWait)
+		defer queue.Stop()
+		select {
+		case sem <- struct{}{}:
+		case <-queue.C:
+			return nil, status.Errorf(codes.ResourceExhausted, "%s: the node is busy (%d Yellowback calls in flight)", method, cap(sem))
+		case <-ctx.Done():
+			return nil, ctxStatus(ctx, method)
+		}
+	}
+	type result struct {
+		raw json.RawMessage
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		raw, err := RawRequest(method, params)
+		if sem != nil {
+			<-sem
+		}
+		done <- result{raw, err}
+	}()
+	var raw json.RawMessage
+	var err error
+	select {
+	case r := <-done:
+		raw, err = r.raw, r.err
+	case <-ctx.Done():
+		return nil, ctxStatus(ctx, method)
+	}
 	if err == nil {
 		return raw, nil
 	}

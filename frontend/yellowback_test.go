@@ -16,6 +16,7 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -485,7 +486,7 @@ func TestAllowListCoversContract(t *testing.T) {
 func TestAllowListIsTheOnlyPath(t *testing.T) {
 	node := newFakeNode(t)
 	install(t, node)
-	_, err := common.CallYed("yed_mint")
+	_, err := common.CallYed(context.Background(), "yed_mint")
 	if st, _ := status.FromError(err); st.Code() != codes.Internal || len(node.calls) != 0 {
 		t.Fatalf("yed_mint must be refused without a node call: %v %v", err, node.calls)
 	}
@@ -570,14 +571,19 @@ func TestTaddrOfMapsYedAddresses(t *testing.T) {
 	}
 }
 
-// TestRateLimit: the node-work methods refuse a peer past its burst with RESOURCE_EXHAUSTED,
-// before any node call; tokens come back with time; peers are independent.
+func peerCtx(ip net.IP) context.Context {
+	return peer.NewContext(context.Background(), &peer.Peer{Addr: &net.TCPAddr{IP: ip, Port: 5}})
+}
+
+// TestRateLimit: a peer past its burst gets RESOURCE_EXHAUSTED before any node call; tokens
+// come back with time; peers are independent; the cheap index reads cost a fraction of a token
+// (audit E-3: every method is gated).
 func TestRateLimit(t *testing.T) {
 	svc, node := newService(t)
 	now := time.Unix(1700000000, 0)
 	svc.limiter = newRateLimiter(3, time.Second)
 	svc.limiter.now = func() time.Time { return now }
-	ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: &net.TCPAddr{IP: net.IPv4(10, 0, 0, 1), Port: 5}})
+	ctx := peerCtx(net.IPv4(10, 0, 0, 1))
 	for i := 0; i < 3; i++ {
 		if _, err := svc.EstimateCollateral(ctx, &walletrpc.YedMintQuery{Cents: 100000, LockBlocks: 48}); err != nil {
 			t.Fatalf("call %d: %v", i, err)
@@ -588,7 +594,7 @@ func TestRateLimit(t *testing.T) {
 	if st, _ := status.FromError(err); st.Code() != codes.ResourceExhausted || len(node.calls) != calls {
 		t.Fatalf("4th call: want RESOURCE_EXHAUSTED without a node call, got %v (%d calls)", err, len(node.calls)-calls)
 	}
-	other := metadata.NewIncomingContext(context.Background(), metadata.Pairs("x-real-ip", "10.0.0.2"))
+	other := peerCtx(net.IPv4(10, 0, 0, 2))
 	if _, err := svc.EstimateCollateral(other, &walletrpc.YedMintQuery{Cents: 100000, LockBlocks: 48}); err != nil {
 		t.Fatalf("another peer must not be limited: %v", err)
 	}
@@ -596,8 +602,158 @@ func TestRateLimit(t *testing.T) {
 	if _, err := svc.BuildBundle(ctx, &walletrpc.YedBundleQuery{RefHeight: 1}); err != nil {
 		t.Fatalf("one second later one token is back: %v", err)
 	}
+	// Light calls are limited too, at 1/yedCostLight per token.
+	svc.limiter = newRateLimiter(1, time.Hour)
+	svc.limiter.now = func() time.Time { return now }
+	for i := 0; i < int(1/yedCostLight); i++ {
+		if _, err := svc.GetVault(ctx, &walletrpc.YedTxid{Txid: exampleTxid}); err != nil {
+			t.Fatalf("light call %d: %v", i, err)
+		}
+	}
+	_, err = svc.GetVault(ctx, &walletrpc.YedTxid{Txid: exampleTxid})
+	if st, _ := status.FromError(err); st.Code() != codes.ResourceExhausted {
+		t.Fatalf("light calls past the budget: want RESOURCE_EXHAUSTED, got %v", err)
+	}
+}
+
+// TestRateLimitPeerKey (audit E-2): a client-set x-real-ip / x-forwarded-for header is ignored
+// unless the connection comes from a trusted proxy network; "unknown" peers share one bucket.
+func TestRateLimitPeerKey(t *testing.T) {
+	svc, _ := newService(t)
+	conn := &peer.Peer{Addr: &net.TCPAddr{IP: net.IPv4(203, 0, 113, 9), Port: 5}}
+	forged := metadata.NewIncomingContext(peer.NewContext(context.Background(), conn),
+		metadata.Pairs("x-real-ip", "10.0.0.2", "x-forwarded-for", "10.0.0.3, 10.0.0.4"))
+	if got := svc.limiter.peerKey(forged); got != "203.0.113.9" {
+		t.Fatalf("without a trusted proxy the header must be ignored: got %q", got)
+	}
+	if err := svc.TrustProxies([]string{"203.0.113.0/24", "::1/128"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := svc.limiter.peerKey(forged); got != "10.0.0.2" {
+		t.Fatalf("from a trusted proxy x-real-ip is the peer: got %q", got)
+	}
+	xff := metadata.NewIncomingContext(peer.NewContext(context.Background(), conn), metadata.Pairs("x-forwarded-for", " 10.0.0.3 , 10.0.0.4"))
+	if got := svc.limiter.peerKey(xff); got != "10.0.0.3" {
+		t.Fatalf("x-forwarded-for's first entry: got %q", got)
+	}
+	untrusted := metadata.NewIncomingContext(peerCtx(net.IPv4(198, 51, 100, 1)), metadata.Pairs("x-real-ip", "10.0.0.2"))
+	if got := svc.limiter.peerKey(untrusted); got != "198.51.100.1" {
+		t.Fatalf("a header from outside the trusted networks: got %q", got)
+	}
+	if got := svc.limiter.peerKey(context.Background()); got != "unknown" {
+		t.Fatalf("no peer: got %q", got)
+	}
+	if err := svc.TrustProxies([]string{"not-a-cidr"}); err == nil {
+		t.Fatal("a malformed --trusted-proxy-cidr must be refused")
+	}
+	// The limiter is really keyed on that: a forged header does not refill the bucket.
+	svc.limiter = newRateLimiter(1, time.Hour)
+	if !svc.limiter.allow(svc.limiter.peerKey(untrusted), yedCostHeavy) {
+		t.Fatal("first call")
+	}
+	rotated := metadata.NewIncomingContext(peerCtx(net.IPv4(198, 51, 100, 1)), metadata.Pairs("x-real-ip", "10.9.9.9"))
+	if svc.limiter.allow(svc.limiter.peerKey(rotated), yedCostHeavy) {
+		t.Fatal("rotating x-real-ip must not yield a fresh bucket")
+	}
+}
+
+// TestRateLimitMapBounded (audit E-2): the peer map never exceeds its bound; refilled buckets
+// go first, then the least recently seen peer.
+func TestRateLimitMapBounded(t *testing.T) {
+	r := newRateLimiter(2, time.Second)
+	now := time.Unix(1700000000, 0)
+	r.now = func() time.Time { return now }
+	r.maxPeers = 4
+	for i := 0; i < 4; i++ {
+		r.allow(string(rune('a'+i)), yedCostHeavy)
+		now = now.Add(time.Millisecond)
+	}
+	r.allow("e", yedCostHeavy) // full: every peer live, so the oldest ("a") goes
+	if len(r.peers) != 4 || r.peers["a"] != nil || r.peers["e"] == nil {
+		t.Fatalf("eviction of the least recently seen peer: %d peers, a=%v e=%v", len(r.peers), r.peers["a"], r.peers["e"])
+	}
+	now = now.Add(3 * time.Second) // burst*interval: every bucket has refilled
+	r.allow("f", yedCostHeavy)
+	if len(r.peers) != 1 || r.peers["f"] == nil {
+		t.Fatalf("refilled buckets are swept when the map is full: %d peers", len(r.peers))
+	}
+	// A hot peer keeps its (empty) bucket while strangers come and go.
+	r.allow("f", yedCostHeavy)
+	if r.allow("f", yedCostHeavy) {
+		t.Fatal("f's bucket should be empty")
+	}
+	for i := 0; i < 20; i++ {
+		now = now.Add(time.Millisecond)
+		r.allow(string(rune('g'+i)), yedCostHeavy)
+		r.allow("f", yedCostHeavy) // still refused, still live
+	}
+	if len(r.peers) > 4 {
+		t.Fatalf("map grew past the bound: %d", len(r.peers))
+	}
+	if r.peers["f"] == nil || r.allow("f", yedCostHeavy) {
+		t.Fatal("the hot peer's empty bucket was lost to strangers")
+	}
+}
+
+// TestCallYedDeadlineAndInFlight (audit E-3, E-4): a call ends with the handler's context even
+// though the node call cannot be cancelled; past the in-flight bound a call that cannot queue is
+// RESOURCE_EXHAUSTED; a slot is freed when the node finally answers.
+func TestCallYedDeadlineAndInFlight(t *testing.T) {
+	release := make(chan struct{})
+	var started sync.WaitGroup
+	previous := common.RawRequest
+	common.RawRequest = func(method string, params []json.RawMessage) (json.RawMessage, error) {
+		started.Done()
+		<-release
+		return json.RawMessage(`{"height":1}`), nil
+	}
+	t.Cleanup(func() { common.RawRequest = previous; common.SetYedMaxInFlight(common.DefaultYedMaxInFlight) })
+	common.SetYedMaxInFlight(1)
+
+	started.Add(1)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	_, err := common.CallYed(ctx, "yed_getinfo")
+	if st, _ := status.FromError(err); st.Code() != codes.DeadlineExceeded || time.Since(start) > time.Second {
+		t.Fatalf("want DEADLINE_EXCEEDED promptly, got %v after %v", err, time.Since(start))
+	}
+	started.Wait() // the node call is still running and holds the one slot
+	_, err = common.CallYed(context.Background(), "yed_getstats")
+	if st, _ := status.FromError(err); st.Code() != codes.ResourceExhausted {
+		t.Fatalf("past the in-flight bound: want RESOURCE_EXHAUSTED, got %v", err)
+	}
+	close(release) // the node answers; the slot comes back
+	started.Add(1)
+	if _, err := common.CallYed(context.Background(), "yed_getstats"); err != nil {
+		t.Fatalf("after the slot is freed: %v", err)
+	}
+}
+
+// TestTipAnswersCached (audit E-3): the parameterless per-tip answers are served from one node
+// call for yedCacheTTL; a height-specific GetPrice is not cached.
+func TestTipAnswersCached(t *testing.T) {
+	svc, node := newService(t)
+	now := time.Unix(1700000000, 0)
+	svc.now = func() time.Time { return now }
+	ctx := context.Background()
+	for i := 0; i < 3; i++ {
+		if _, err := svc.GetPrice(ctx, &walletrpc.HeightFilter{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(node.calls) != 1 {
+		t.Fatalf("three GetPrice at the tip must be one node call, got %v", node.calls)
+	}
+	if _, err := svc.GetPrice(ctx, &walletrpc.HeightFilter{Height: 5}); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(yedCacheTTL)
 	if _, err := svc.GetPrice(ctx, &walletrpc.HeightFilter{}); err != nil {
-		t.Fatalf("read-only methods are not limited: %v", err)
+		t.Fatal(err)
+	}
+	if len(node.calls) != 3 {
+		t.Fatalf("a height-specific call and an expired entry each reach the node: %v", node.calls)
 	}
 }
 
