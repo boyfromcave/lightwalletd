@@ -1,0 +1,16 @@
+# ycash.conf for a node that serves lightwalletd. Copy beside your node's datadir (or mount
+# it at /etc/lightwalletd/ycash.conf and leave YCASHD_RPC_HOST empty in .env). lightwalletd
+# reads rpcuser, rpcpassword, rpcbind and rpcport from here and nothing else; it has no RPC
+# cookie support, and its port fallback when rpcport= is absent is Zcash's 8232/18232 (the
+# conf reader is inherited), so always state rpcport explicitly.
+server=1
+txindex=1
+insightexplorer=1
+experimentalfeatures=1
+rpcuser=ycashrpc
+rpcpassword=change-me
+rpcbind=127.0.0.1
+rpcport=8832
+# Yellowback (YED): a relay follows the chain, enforcement is for miners (docs/yellowback.md).
+yellowback=1
+yellowbackenforce=0

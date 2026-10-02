@@ -1,0 +1,13 @@
+.git
+.env
+*.log
+lightwalletd
+first-make-timestamp
+db/
+coverage.out
+lwd-api.html
+docs/
+kubernetes/
+tekton/
+testdata/
+-legacy/

@@ -1,65 +1,35 @@
-# /************************************************************************
- #  File: Dockerfile
- #  Author: mdr0id
- #  Date: 9/3/2019
- #  Description:  Used for devs that have not built zcashd or lightwalletd on
- #                on existing system
- #  USAGE:
- #
- #  To build image: make docker_img
- #  To run container: make docker_image_run
- #  
- #  This will place you into the container where you can run zcashd, zcash-cli, 
- #  lightwalletd server etc..
- #
- #  First you need to get zcashd sync to current height on testnet, from outside container:
- #  make docker_img_run_zcashd
- #
- #  Sometimes you need to manually start zcashd for the first time, from inside the container:
- #  zcashd -printtoconsole   
- #
- #  Once the block height is at least 280,000 you can go ahead and start lightwalletd
- #  make docker_img_run_lightwalletd_insecure_server
- #  
- #  If you need a random bash session in the container, use:
- #  make docker_img_bash
- #
- #  If you get kicked out of docker or it locks up...
- #  To restart, check to see what container you want to restart via docker ps -a
- #  Then, docker restart <container id>
- #  The reattach to it, docker attach <container id>
- #
- #  Known bugs/missing features/todos:
- #
- #  *** DO NOT USE IN PRODUCTION ***
- #  
- #  - Create docker-compose with according .env scaffolding 
- #  - Determine librustzcash bug that breaks zcashd alpine builds at runtime
- #  - Once versioning is stable add config flags for images
- #  - Add mainnet config once lightwalletd stack supports it 
- #
- # ************************************************************************/
+# Copyright (c) 2026 The Ycash developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or https://www.opensource.org/licenses/mit-license.php .
+#
+# Ycash lightwalletd. Two stages: the Go toolchain CI uses (go.mod's `go 1.12` is a language
+# floor, not a toolchain; .github/workflows/yellowback-tests.yml builds with 1.24.7) compiles
+# the vendored tree statically, and a small Alpine image runs it as an unprivileged user.
+# The node is NOT in this image: run ycashd yourself and point the server at its RPC port
+# (docs/docker.md). Build: `make docker_img` (or `docker build -t ycash/lightwalletd .`).
 
-# Create layer in case you want to modify local lightwalletd code
-FROM golang:1.13 AS lightwalletd_base
+FROM golang:1.24.7-alpine3.22 AS builder
+ARG LWD_VERSION=docker
+WORKDIR /src
+COPY . .
+RUN CGO_ENABLED=0 go build -mod=vendor -trimpath \
+      -ldflags "-s -w -X github.com/zcash/lightwalletd/common.Version=${LWD_VERSION} -X github.com/zcash/lightwalletd/common.BuildDate=docker" \
+      -o /out/lightwalletd . \
+ && CGO_ENABLED=0 go build -mod=vendor -trimpath -o /out/lwdinfo ./testtools/lwdinfo
 
-ADD . /go/src/github.com/zcash/lightwalletd
-WORKDIR /go/src/github.com/zcash/lightwalletd
-RUN make \
-  && /usr/bin/install -c ./lightwalletd /usr/local/bin/ \
-  && mkdir -p /var/lib/lightwalletd/db \
-  && chown 2002:2002 /var/lib/lightwalletd/db
-
+FROM alpine:3.22
 ARG LWD_USER=lightwalletd
 ARG LWD_UID=2002
-
-RUN useradd --home-dir /srv/$LWD_USER \
-            --shell /bin/bash \
-            --create-home \
-            --uid $LWD_UID\
-            $LWD_USER
-USER $LWD_USER
-WORKDIR /srv/$LWD_USER
-
-ENTRYPOINT ["lightwalletd"]
-CMD ["--help"]
+RUN apk add --no-cache ca-certificates tzdata \
+ && addgroup -g ${LWD_UID} ${LWD_USER} \
+ && adduser -D -u ${LWD_UID} -G ${LWD_USER} -h /srv/${LWD_USER} ${LWD_USER} \
+ && mkdir -p /var/lib/lightwalletd /etc/lightwalletd \
+ && chown ${LWD_UID}:${LWD_UID} /var/lib/lightwalletd
+COPY --from=builder /out/lightwalletd /out/lwdinfo /usr/local/bin/
+COPY docker/entrypoint.sh /usr/local/bin/lightwalletd-entrypoint
+USER ${LWD_USER}
+WORKDIR /srv/${LWD_USER}
+VOLUME ["/var/lib/lightwalletd"]
+EXPOSE 9067 9068
+ENTRYPOINT ["lightwalletd-entrypoint"]
+CMD []

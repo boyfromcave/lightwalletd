@@ -106,33 +106,21 @@ simpledoc: lwd-api.html
 lwd-api.html: walletrpc/compact_formats.proto walletrpc/service.proto walletrpc/yellowback.proto
 	./docgen.sh $^ >lwd-api.html
 
-# Generate docker image
+# Build the container image (Dockerfile: static Go build, Alpine runtime, uid 2002). The node
+# is not in it; docs/docker.md explains running against your own ycashd.
+DOCKER_IMAGE ?= ycash/lightwalletd:local
 docker_img:
-	docker build -t zcash_lwd_base .
+	docker build --build-arg LWD_VERSION=$(VERSION) -t $(DOCKER_IMAGE) .
 
-# Run the above docker image in a container
+# Run the image once, in the foreground, with the environment of .env (docker compose does the
+# same with a persistent volume and restart policy: `docker compose up -d`).
 docker_img_run:
-	docker run -i --name zcashdlwd zcash_lwd_base
+	docker run --rm -it --env-file .env --add-host host.docker.internal:host-gateway \
+	  -p 127.0.0.1:9067:9067 -p 127.0.0.1:9068:9068 $(DOCKER_IMAGE)
 
-# Execture a bash process on zcashdlwdcontainer
-docker_img_bash:
-	docker exec -it zcashdlwd bash
-
-# Start the zcashd process in the zcashdlwd container
-docker_img_run_zcashd:
-	docker exec -i zcashdlwd zcashd -printtoconsole
-
-# Stop the zcashd process in the zcashdlwd container
-docker_img_stop_zcashd:
-	docker exec -i zcashdlwd zcash-cli stop
-
-# Start the lightwalletd server in the zcashdlwd container
-docker_img_run_lightwalletd_insecure_server:
-	docker exec -i zcashdlwd server --no-tls-very-insecure=true --conf-file /home/zcash/.zcash/zcash.conf --log-file /logs/server.log --bind-addr 127.0.0.1:18232
-
-# Remove and delete ALL images and containers in Docker; assumes containers are stopped
-docker_remove_all:
-	docker system prune -f
+# Self-signed certificate for a local server into docker/tls (gitignored)
+docker_cert:
+	docker/gen_cert.sh
 
 # Get dependencies
 dep:

@@ -1,99 +1,34 @@
----
-version: '2'
+# Copyright (c) 2026 The Ycash developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or https://www.opensource.org/licenses/mit-license.php .
+#
+# One service: lightwalletd, built from this tree, against a ycashd the operator runs
+# elsewhere (there is no public Ycash node image, and a node belongs on its own host or in its
+# own compose project). Copy .env.example to .env, set YCASHD_RPC_* (or mount a ycash.conf),
+# then `docker compose up -d`. docs/docker.md walks through it.
 
 services:
   lightwalletd:
-    build: .
+    build:
+      context: .
+      args:
+        LWD_VERSION: ${LWD_VERSION:-docker}
+    image: ${LWD_IMAGE:-ycash/lightwalletd:local}
     env_file:
-      - .env
-    #entrypoint: ["/bin/bash", "-c", "sleep infinity"]
-    command:
-      - --grpc-bind-addr=0.0.0.0:$LWD_GRPC_PORT
-      - --http-bind-addr=0.0.0.0:$LWD_HTTP_PORT
-      - --zcash-conf-path=$ZCASHD_CONF_PATH
-      - --log-file=/dev/stdout
-      - --log-level=7
+      - path: .env
+        required: false   # copy .env.example; without it the container prints why it needs YCASHD_RPC_*
+    # On Linux, host.docker.internal is not defined unless asked for; Docker Desktop defines it.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
-      - "127.0.0.1:$LWD_GRPC_PORT:$LWD_GRPC_PORT"
-      - "127.0.0.1:$LWD_HTTP_PORT:$LWD_HTTP_PORT"      
+      - "${LWD_BIND_HOST:-127.0.0.1}:${LWD_GRPC_PORT:-9067}:9067"
+      - "${LWD_BIND_HOST:-127.0.0.1}:${LWD_HTTP_PORT:-9068}:9068"
     volumes:
-      - ./docker/:/srv/lightwalletd
-      - lightwalletd_cache:/var/lib/lightwalletd
-    logging:
-      driver: loki
-      options:
-        loki-url: 'http://localhost:3100/api/prom/push'
-
-  zcashd:
-    image: electriccoinco/zcashd:latest
-    volumes:
-      - $ZCASHD_DATADIR:/srv/zcashd/.zcash
-      - $ZCASHD_PARMDIR:/srv/zcashd/.zcash-params
-    env_file:
-      - .env
-    mem_limit: 4G
-    logging:
-      driver: loki
-      options:
-        loki-url: 'http://localhost:3100/api/prom/push'
-
-  zcashd_exporter:
-    image: electriccoinco/zcashd_exporter:latest
-    environment:
-      - ZCASHD_RPCUSER=$ZCASHD_RPCUSER
-      - ZCASHD_RPCPASSWORD=$ZCASHD_RPCPASSWORD
-    command:
-      - --rpc.host=zcashd
-      - --rpc.port=$ZCASHD_RPCPORT
-      - --rpc.user=$ZCASHD_RPCUSER
-      - --rpc.password=$ZCASHD_RPCPASSWORD
-    ports:
-      - "127.0.0.1:9100:9100"
-    logging:
-      driver: loki
-      options:
-        loki-url: 'http://localhost:3100/api/prom/push'
-
-  grafana:
-    image: grafana/grafana:6.4.3
-    entrypoint:
-      - bash
-      - -c
-      - grafana-cli plugins install grafana-piechart-panel && /run.sh
-    ports:
-      - "127.0.0.1:3000:3000"
-    env_file:
-      - .env
-    volumes:
-      - ./docker/grafana/provisioning/:/etc/grafana/provisioning/
-    logging:
-      driver: loki
-      options:
-        loki-url: 'http://localhost:3100/api/prom/push'
-
-  prometheus:
-    image: prom/prometheus:v2.13.1
-    ports:
-      - "127.0.0.1:9090:9090"
-    volumes:
-      - ./docker/prometheus/config.yml:/etc/prometheus/prometheus.yml
-      - promethus_data:/promethus_data
-    mem_limit: 2G
-    logging:
-      driver: loki
-      options:
-        loki-url: 'http://localhost:3100/api/prom/push'
-
-  loki:
-    image: grafana/loki:master
-    ports:
-      - "127.0.0.1:3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
-    logging:
-      driver: loki
-      options:
-        loki-url: 'http://localhost:3100/api/prom/push'
+      - lightwalletd_data:/var/lib/lightwalletd
+      # Uncomment what you use (paths from .env; both are read-only inside the container):
+      # - ${LWD_CONF_FILE:-./docker/ycash.conf}:/etc/lightwalletd/ycash.conf:ro
+      # - ${LWD_TLS_DIR:-./docker/tls}:/etc/lightwalletd/tls:ro
+    restart: unless-stopped
 
 volumes:
-  promethus_data:
-  lightwalletd_cache:
+  lightwalletd_data:
