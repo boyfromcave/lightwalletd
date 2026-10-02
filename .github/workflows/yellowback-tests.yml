@@ -60,8 +60,21 @@ jobs:
           unzip -q "$RUNNER_TEMP/protoc.zip" -d "$RUNNER_TEMP/protoc"
           echo "$RUNNER_TEMP/protoc/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/protoc/bin/protoc" --version
-      - name: Regenerate and diff
-        # The script's whole output (trace included) also lands on the run's summary page.
+      - name: Install the pinned generators (protoc-gen-go v1.26.0, protoc-gen-go-grpc v1.1.0)
         run: |
-          set -o pipefail
-          { echo '```'; scripts/check-generated.sh 2>&1; rc=$?; echo "exit $rc"; echo '```'; exit $rc; } | tee -a "$GITHUB_STEP_SUMMARY"
+          set -x
+          mkdir -p "$RUNNER_TEMP/gen-bin"
+          GOBIN="$RUNNER_TEMP/gen-bin" GOFLAGS= go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26.0
+          GOBIN="$RUNNER_TEMP/gen-bin" GOFLAGS= go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1.0
+          ls -l "$RUNNER_TEMP/gen-bin"
+          echo "$RUNNER_TEMP/gen-bin" >> "$GITHUB_PATH"
+      - name: Run protoc on every walletrpc proto
+        run: |
+          set -x
+          which protoc protoc-gen-go protoc-gen-go-grpc
+          mkdir -p "$RUNNER_TEMP/gen"
+          cd walletrpc
+          protoc --go_out="$RUNNER_TEMP/gen" --go_opt=paths=source_relative --go-grpc_out="$RUNNER_TEMP/gen" --go-grpc_opt=paths=source_relative *.proto
+          ls -l "$RUNNER_TEMP/gen"
+      - name: Regenerate and diff (scripts/check-generated.sh)
+        run: scripts/check-generated.sh
