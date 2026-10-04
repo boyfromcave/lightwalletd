@@ -37,6 +37,7 @@ type YellowbackStreamerClient interface {
 	GetAttestations(ctx context.Context, in *Empty, opts ...grpc.CallOption) (YellowbackStreamer_GetAttestationsClient, error)
 	ListAttestors(ctx context.Context, in *HeightFilter, opts ...grpc.CallOption) (YellowbackStreamer_ListAttestorsClient, error)
 	GetAddressTokens(ctx context.Context, in *YedAddressList, opts ...grpc.CallOption) (YellowbackStreamer_GetAddressTokensClient, error)
+	GetChainInfo(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*YedChainInfo, error)
 }
 
 type yellowbackStreamerClient struct {
@@ -333,6 +334,15 @@ func (x *yellowbackStreamerGetAddressTokensClient) Recv() (*YedToken, error) {
 	return m, nil
 }
 
+func (c *yellowbackStreamerClient) GetChainInfo(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*YedChainInfo, error) {
+	out := new(YedChainInfo)
+	err := c.cc.Invoke(ctx, "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetChainInfo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // YellowbackStreamerServer is the server API for YellowbackStreamer service.
 // All implementations must embed UnimplementedYellowbackStreamerServer
 // for forward compatibility
@@ -356,6 +366,7 @@ type YellowbackStreamerServer interface {
 	GetAttestations(*Empty, YellowbackStreamer_GetAttestationsServer) error
 	ListAttestors(*HeightFilter, YellowbackStreamer_ListAttestorsServer) error
 	GetAddressTokens(*YedAddressList, YellowbackStreamer_GetAddressTokensServer) error
+	GetChainInfo(context.Context, *Empty) (*YedChainInfo, error)
 	mustEmbedUnimplementedYellowbackStreamerServer()
 }
 
@@ -419,6 +430,9 @@ func (UnimplementedYellowbackStreamerServer) ListAttestors(*HeightFilter, Yellow
 }
 func (UnimplementedYellowbackStreamerServer) GetAddressTokens(*YedAddressList, YellowbackStreamer_GetAddressTokensServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetAddressTokens not implemented")
+}
+func (UnimplementedYellowbackStreamerServer) GetChainInfo(context.Context, *Empty) (*YedChainInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetChainInfo not implemented")
 }
 func (UnimplementedYellowbackStreamerServer) mustEmbedUnimplementedYellowbackStreamerServer() {}
 
@@ -790,6 +804,24 @@ func (x *yellowbackStreamerGetAddressTokensServer) Send(m *YedToken) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _YellowbackStreamer_GetChainInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(YellowbackStreamerServer).GetChainInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetChainInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(YellowbackStreamerServer).GetChainInfo(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // YellowbackStreamer_ServiceDesc is the grpc.ServiceDesc for YellowbackStreamer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -852,6 +884,10 @@ var YellowbackStreamer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSelection",
 			Handler:    _YellowbackStreamer_GetSelection_Handler,
+		},
+		{
+			MethodName: "GetChainInfo",
+			Handler:    _YellowbackStreamer_GetChainInfo_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

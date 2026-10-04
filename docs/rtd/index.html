@@ -368,6 +368,10 @@
                 </li>
               
                 <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YedChainInfo"><span class="badge">M</span>YedChainInfo</a>
+                </li>
+              
+                <li>
                   <a href="#cash.z.wallet.sdk.rpc.YedClaimable"><span class="badge">M</span>YedClaimable</a>
                 </li>
               
@@ -453,6 +457,10 @@
               
                 <li>
                   <a href="#cash.z.wallet.sdk.rpc.YedTxid"><span class="badge">M</span>YedTxid</a>
+                </li>
+              
+                <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YedUpgrade"><span class="badge">M</span>YedUpgrade</a>
                 </li>
               
                 <li>
@@ -2278,6 +2286,72 @@ The block can be specified by either height or hash.</p></td>
 
         
       
+        <h3 id="cash.z.wallet.sdk.rpc.YedChainInfo">YedChainInfo</h3>
+        <p>GetChainInfo: what a client needs to SIGN correctly. GetLightdInfo (service.proto, frozen) carries</p><p>consensus.chaintip only; a transaction built for the NEXT block must use consensus.nextblock, which</p><p>differs from chaintip exactly on the block before a network upgrade. Names follow LightdInfo's.</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>chainName</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>blockHeight</td>
+                  <td><a href="#uint64">uint64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bestBlockHash</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>consensusBranchId</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>getblockchaininfo.consensus.chaintip </p></td>
+                </tr>
+              
+                <tr>
+                  <td>nextBlockBranchId</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>getblockchaininfo.consensus.nextblock </p></td>
+                </tr>
+              
+                <tr>
+                  <td>saplingActivationHeight</td>
+                  <td><a href="#uint64">uint64</a></td>
+                  <td></td>
+                  <td><p>upgrades[&#34;76b809bb&#34;].activationheight, as LightdInfo reads it </p></td>
+                </tr>
+              
+                <tr>
+                  <td>upgrades</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YedUpgrade">YedUpgrade</a></td>
+                  <td>repeated</td>
+                  <td><p>every upgrade the node knows, by activationHeight then branchId </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="cash.z.wallet.sdk.rpc.YedClaimable">YedClaimable</h3>
         <p></p>
 
@@ -3695,6 +3769,51 @@ The block can be specified by either height or hash.</p></td>
 
         
       
+        <h3 id="cash.z.wallet.sdk.rpc.YedUpgrade">YedUpgrade</h3>
+        <p>One network upgrade as the node's getblockchaininfo.upgrades lists it (key = branch id).</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>branchId</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>activationHeight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>status</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="cash.z.wallet.sdk.rpc.YedValidation">YedValidation</h3>
         <p></p>
 
@@ -5058,6 +5177,13 @@ The block can be specified by either height or hash.</p></td>
                 <td>GetAddressTokens</td>
                 <td><a href="#cash.z.wallet.sdk.rpc.YedAddressList">YedAddressList</a></td>
                 <td><a href="#cash.z.wallet.sdk.rpc.YedToken">YedToken</a> stream</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>GetChainInfo</td>
+                <td><a href="#cash.z.wallet.sdk.rpc.Empty">Empty</a></td>
+                <td><a href="#cash.z.wallet.sdk.rpc.YedChainInfo">YedChainInfo</a></td>
                 <td><p></p></td>
               </tr>
             

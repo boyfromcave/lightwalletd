@@ -57,6 +57,15 @@ var YedMethods = map[string]bool{
 	"yed_listtokens":             true,
 }
 
+// StockMethods is the second, separate allow-list: the stock (non-yed_*) node RPCs the service may
+// call through CallYed — read-only, node-context, parameterless. getblockchaininfo backs
+// GetChainInfo (consensus.nextblock, which the frozen GetLightdInfo cannot carry; x402 X-F71).
+// It is kept apart from YedMethods so the contract test's meaning ("every yed_* RPC is either
+// offered or declined") is unchanged.
+var StockMethods = map[string]bool{
+	"getblockchaininfo": true,
+}
+
 // NotOffered lists the contract's other node-context RPCs and why the service does not proxy
 // them; wallet-context RPCs need the node's keys and are never candidates. Adding a method to
 // the service means moving it from here to YedMethods, a proto change and a row in the plan.
@@ -178,7 +187,7 @@ func ctxStatus(ctx context.Context, method string) error {
 	return status.Errorf(codes.Canceled, "%s: %v", method, ctx.Err())
 }
 
-// CallYed forwards one allow-listed yed_* RPC. params are already-encoded JSON values.
+// CallYed forwards one allow-listed RPC (YedMethods or StockMethods). params are already-encoded JSON values.
 // Errors are gRPC statuses (plan section 3.3): a node RPC error is FAILED_PRECONDITION carrying
 // the node's message verbatim (the contract's error identifiers are its first word); a
 // transport failure is UNAVAILABLE; a method outside the allow-list is INTERNAL, because that
@@ -186,7 +195,7 @@ func ctxStatus(ctx context.Context, method string) error {
 // handler's context plus YedCallTimeout): DEADLINE_EXCEEDED or CANCELED when it ends first,
 // RESOURCE_EXHAUSTED when every in-flight slot stays busy for yedQueueWait.
 func CallYed(ctx context.Context, method string, params ...json.RawMessage) (json.RawMessage, error) {
-	if !YedMethods[method] {
+	if !YedMethods[method] && !StockMethods[method] {
 		return nil, status.Errorf(codes.Internal, "%s is not an allow-listed Yellowback RPC", method)
 	}
 	if ctx == nil {

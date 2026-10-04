@@ -8,6 +8,8 @@
 #               use the one already at DIR
 #   --down      tear it down afterwards (`down --wipe`)
 #   --dir       devnet directory (default ~/yb-devnet-lwd); --portseed (default 8) with --up
+#   env: YCASH_DD (node repo; ycash6 for the 6.x line), LWD_PYTHON, LWD_FORK_BIN (where the fork
+#        binary is built), LWD_FORK_PORT / LWD_BASELINE_PORT (9067 / 9068)
 #
 # Never mainnet: the devnet is regtest by construction. Needs go, protoc is not needed, and the
 # workspace venv for the devnet script and lwd-rawmint. Exit status is go test's.
@@ -49,7 +51,7 @@ say "baseline binary"
 BASE_OUT="$(dirname "$NODE_REPO")/wt/lightwalletd-legacy-bin"
 "$ROOT/scripts/build-baseline.sh" "$BASE_OUT"
 say "fork binary"
-FORK_BIN="$WORKSPACE/wt/lightwalletd-dd-bin/lightwalletd"
+FORK_BIN="${LWD_FORK_BIN:-$WORKSPACE/wt/lightwalletd-dd-bin/lightwalletd}"
 mkdir -p "$(dirname "$FORK_BIN")"
 ( cd "$ROOT" && CGO_ENABLED=0 go build -mod=vendor -o "$FORK_BIN" . )
 

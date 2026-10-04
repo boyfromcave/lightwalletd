@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"regexp"
+	"sort"
 	"sync"
 	"time"
 
@@ -448,4 +449,59 @@ func (y *YellowbackStreamer) GetAddressTokens(in *walletrpc.YedAddressList, stre
 		}
 	}
 	return nil
+}
+
+// chainInfoReply is the subset of getblockchaininfo GetChainInfo reads (common.ZcashdRpcReplyGetblockchaininfo
+// is the frozen baseline's; this adds the upgrade names and the best block hash without touching it).
+type chainInfoReply struct {
+	Chain         string `json:"chain"`
+	Blocks        uint64 `json:"blocks"`
+	BestBlockHash string `json:"bestblockhash"`
+	Consensus     struct {
+		Chaintip  string `json:"chaintip"`
+		Nextblock string `json:"nextblock"`
+	} `json:"consensus"`
+	Upgrades map[string]struct {
+		Name             string `json:"name"`
+		ActivationHeight int64  `json:"activationheight"`
+		Status           string `json:"status"`
+	} `json:"upgrades"`
+}
+
+// saplingBranchID is the Sapling network upgrade's consensus branch id (ZIP 205), the key
+// GetLightdInfo (common.go) reads the activation height from; Ycash kept it.
+const saplingBranchID = "76b809bb"
+
+// GetChainInfo proxies the stock getblockchaininfo for the two consensus branch ids. The frozen
+// GetLightdInfo reports consensus.chaintip only; a transaction meant for the NEXT block is signed
+// under consensus.nextblock (ZIP 243 binds the sighash to it), which differs on the one block
+// before a network upgrade (x402 X-F71). One node call serves every client for yedCacheTTL.
+func (y *YellowbackStreamer) GetChainInfo(ctx context.Context, _ *walletrpc.Empty) (*walletrpc.YedChainInfo, error) {
+	if err := y.limited(ctx, yedCostLight); err != nil {
+		return nil, err
+	}
+	var reply chainInfoReply
+	if err := y.callCached(ctx, &reply, "getblockchaininfo"); err != nil {
+		return nil, err
+	}
+	out := &walletrpc.YedChainInfo{ChainName: reply.Chain, BlockHeight: reply.Blocks, BestBlockHash: reply.BestBlockHash,
+		ConsensusBranchId: reply.Consensus.Chaintip, NextBlockBranchId: reply.Consensus.Nextblock}
+	if reply.Consensus.Chaintip == "" || reply.Consensus.Nextblock == "" {
+		y.log.WithField("method", "getblockchaininfo").Error("Yellowback: node result carries no consensus branch ids")
+		return nil, status.Errorf(codes.Internal, "getblockchaininfo: node result carries no consensus branch ids")
+	}
+	for id, u := range reply.Upgrades {
+		if id == saplingBranchID {
+			out.SaplingActivationHeight = uint64(u.ActivationHeight)
+		}
+		out.Upgrades = append(out.Upgrades, &walletrpc.YedUpgrade{BranchId: id, Name: u.Name, ActivationHeight: u.ActivationHeight, Status: u.Status})
+	}
+	sort.Slice(out.Upgrades, func(i, j int) bool {
+		a, b := out.Upgrades[i], out.Upgrades[j]
+		if a.ActivationHeight != b.ActivationHeight {
+			return a.ActivationHeight < b.ActivationHeight
+		}
+		return a.BranchId < b.BranchId
+	})
+	return out, nil
 }
