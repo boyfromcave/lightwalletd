@@ -11,8 +11,9 @@ re-ported here on 2026-09-24 (plan Phase R0, §10); the design and its evidence 
 ## What it adds
 
 A second gRPC service, `cash.z.wallet.sdk.rpc.YellowbackStreamer` (`walletrpc/yellowback.proto`),
-beside `CompactTxStreamer`. Nineteen methods, each a thin, allow-listed proxy of one read-only
-`yed_*` RPC on the node this server already talks to: verdicts (`GetTxInfo`,
+beside `CompactTxStreamer`. Twenty methods, each a thin, allow-listed proxy of one read-only
+node RPC — nineteen `yed_*` RPCs and the stock `getblockchaininfo` (`GetChainInfo`, below) — on
+the node this server already talks to: verdicts (`GetTxInfo`,
 `ValidateRawTransaction`), price and collateral (`GetPrice`, `GetStats`, `EstimateCollateral`,
 `EstimateFee`, `GetFeePayee`), vaults (`GetVault`, `ListVaults`, `ListClaimable`, `GetNotice`),
 attestation (`BuildBundle`, `GetSelection`, `GetAttestations`, `ListAttestors`), the YED UTXO set
@@ -33,7 +34,38 @@ addresses (`ye…`/`yt…`/`yr…`), mapped to the transparent form before the b
 `main` assigns from the btcd client and tests replace with a stub — no new abstraction.
 `common.CallYed` is the only path to a `yed_*` RPC; `common.YedMethods` (allow-list) and
 `common.NotOffered` (with reasons) together cover every `yed_*` method of the contract, and the
-offline suite fails when one appears in neither.
+offline suite fails when one appears in neither. `common.StockMethods` is the separate, one-entry
+allow-list of stock RPCs `CallYed` may also reach (`getblockchaininfo`, for `GetChainInfo`).
+
+## Light-client sync notes (x402 `lwdnext`, 2026-10-04)
+
+What a light client (the x402 agent, YEW) gets from this server for syncing and signing, and what
+it does not, on **both** node lines (ycash-dd 4.5.0 and ycash6 6.21.0):
+
+- **`GetChainInfo(Empty) → YedChainInfo`** relays `getblockchaininfo`: `chainName`, `blockHeight`,
+  `bestBlockHash`, `consensusBranchId` (= `consensus.chaintip`, the id the frozen `GetLightdInfo`
+  already reports), **`nextBlockBranchId`** (= `consensus.nextblock`), `saplingActivationHeight`,
+  and `upgrades[]{branchId, name, activationHeight, status}` sorted by height then id. ZIP 243
+  binds a transaction's sighash to the branch id of the block that will include it, so on the one
+  block before a network upgrade a client that signs with `chaintip` is rejected; it must sign
+  with `nextblock` (x402 X-F71). `service.proto` is frozen (the gate), so the field lives on this
+  service, not on `LightdInfo`. Cached per tip like the other parameterless answers; cost light.
+- **No `GetSubtreeRoots`** (zcash/lightwalletd ≥ 0.4.14). It needs the node's
+  `z_getsubtreesbyindex`: **absent on 4.5.0** (`Method not found`) and present on 6.21.0 only
+  behind `-experimentalfeatures -lightwalletd` (`ycash6/src/rpc/blockchain.cpp:2009`). Only what
+  both lines support is offered, so the fast-sync path is **`GetTreeState` at a checkpoint height,
+  then compact-block scanning from there**. `GetTreeState` is proven at arbitrary heights and by
+  hash on both lines, equal to the node's `z_gettreestate` and byte-identical to the baseline,
+  before and after a Sapling note (`TestDevnetTreeStateAtArbitraryHeights`; closes plan F-11's
+  open item). On the 0.4.6 lineage `GetTreeState` is served live from the node per call (no cache),
+  so a client should ask for one checkpoint, not one per block.
+- **`GetMempoolTx` streams Sapling transactions only** (X-F70, pinned by
+  `TestDevnetMempoolStreamsSaplingOnly`): `frontend/service.go` keeps a mempool transaction only
+  when `tx.HasSaplingElements()`, so a purely transparent transaction — every YED transfer, every
+  x402 transparent payment — is never streamed, on the fork exactly as on the baseline. A light
+  client cannot see a pending spend of its own transparent coin through this method; it learns of
+  it at the next block (`GetAddressUtxos` / `GetAddressTokens` list confirmed outputs) or as a
+  broadcast refusal. Unchanged: the method is the frozen service's.
 
 **Errors:** a node RPC error → `FAILED_PRECONDITION` with the node's message verbatim
 (`bundle-insufficient: …`, `vault-not-found: …`); transport failure → `UNAVAILABLE`; malformed
@@ -79,9 +111,9 @@ change with the protoc release) and comment re-wrapping; CI runs it.
 | `frontend/yellowback.go` | the handlers (embed `UnimplementedYellowbackStreamerServer`; validate at the edge) |
 | `frontend/yellowback_addr.go`, `taddrOf` in `frontend/service.go` | D-L-4 |
 | `frontend/yellowback_ratelimit.go` | the token bucket |
-| `frontend/yellowback_test.go` | the offline suite (11 tests, every method against the contract) |
+| `frontend/yellowback_test.go` | the offline suite (every method against the contract; `GetChainInfo` against a fixed `getblockchaininfo` answer) |
 | `frontend/yellowback_devnet_test.go` | the regtest suite (`-tags devnet`) |
-| `testtools/lwdinfo/main.go` | `go run -mod=vendor ./testtools/lwdinfo -server host:port [-yellowback]`: `GetLightdInfo` + `GetLatestBlock` (+ every Yellowback method once) as JSON; the devnet's `check` uses it |
+| `testtools/lwdinfo/main.go` | `go run -mod=vendor ./testtools/lwdinfo -server host:port [-yellowback]`: `GetLightdInfo` + `GetLatestBlock` (+ every Yellowback method once, incl. `GetChainInfo`'s two branch ids) as JSON; the devnet's `check` uses it |
 | `scripts/build-baseline.sh`, `scripts/check-generated.sh`, `scripts/devnet-test.sh` | the baseline binary, the generated-code gate, the regtest driver |
 | `.github/workflows/yellowback-tests.yml` | build, vet, gofmt (the fork's files), tests, generated-code check |
 
@@ -107,7 +139,7 @@ from indirect to direct, same version, for `base58`), `README.md` (+2). **Zero:*
 
 ## Testing against a regtest `ycash-dd` (the rule: never mainnet)
 
-Offline: `go test -mod=vendor -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit' ./frontend/`.
+Offline: `go test -mod=vendor -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit|GetChainInfo|StockAllowList|CallYed|ListVaults|TipAnswers' ./frontend/`.
 
 Regtest, the way `yecwallet-dd` is tested — a real server against a real node:
 
@@ -131,7 +163,9 @@ deployment reads the credentials from the node's conf file (`--zcash-conf-path`,
 and the cache fills instantly.
 
 `scripts/devnet-test.sh` builds both binaries, starts them (fork 9067 with `--yellowback`,
-legacy 9068) and runs `go test -tags devnet`:
+legacy 9068) and runs `go test -tags devnet`. Environment: `YCASH_DD` (the node repo —
+`ycash6` runs the same suite against a 6.21.0 devnet), `LWD_PYTHON`, `LWD_FORK_BIN`,
+`LWD_FORK_PORT` / `LWD_BASELINE_PORT`:
 
 | Case | What it proves |
 |---|---|
@@ -139,11 +173,19 @@ legacy 9068) and runs `go test -tags devnet`:
 | `TestDevnetBaselineHasNoYellowback` | the legacy binary answers `UNIMPLEMENTED` |
 | `TestDevnetWalletMintSeenThroughServer` | node 0's `yed_mint` (a miner goroutine beside it, on a second RPC client); `GetAddressTokens` equals `yed_listunspent`; `GetTxInfo` `ok` |
 | `TestDevnetRawMintThroughServer` | plan §5 item 5: a mint assembled by `ycash-dd/contrib/yellowback/devnet/lwd-rawmint` from numbers the server gave (`EstimateCollateral`, `GetFeePayee`, `BuildBundle` when armed), `ValidateRawTransaction`, `SendTransaction`, a block, `GetTxInfo` `ok`, the token in `GetAddressTokens` |
+| `TestDevnetChainInfoMatchesNode` | `GetChainInfo` equals node 0's `getblockchaininfo` (both branch ids, height, hash, every upgrade, sorted); its `consensusBranchId` is `GetLightdInfo`'s; the baseline answers `UNIMPLEMENTED` |
+| `TestDevnetTreeStateAtArbitraryHeights` | stock `GetTreeState` at 1, 2, tip/3, tip/2, tip−1, tip, by height and by hash: equals `z_gettreestate`, byte-identical to the baseline; then a Sapling note (`z_shieldcoinbase`) is mined and the tree at that height is non-empty while the previous height's is unchanged; past the tip fails |
+| `TestDevnetMempoolStreamsSaplingOnly` | X-F70: with a transparent and a Sapling transaction in node 0's mempool, `GetMempoolTx` streams the Sapling one and never the transparent one, fork and baseline identical |
 
 **Evidence (R0, 2026-09-24)**, five-node `--no-attest` devnet: 388 compact blocks [1..388]
 byte-identical between fork and the `187a267` binary, `GetLightdInfo` identical; the baseline
 `UNIMPLEMENTED`; wallet mint `86a0ef4a…` verdict `ok`, 10 tokens on 10 addresses identical to
 `yed_listunspent`; raw mint `5ac1457b…` validated, sent and confirmed with verdict `ok`; 6.6 s.
+**Evidence (lwdnext, 2026-10-04)**, five-node `--no-attest --lean` devnets of both lines: all
+seven cases pass on ycash-dd 4.5.0 (seed 321; 232 compact blocks identical; tree 6 → 70 hex
+chars after the note at 236) and on ycash6 6.21.0 (seed 323; 232 identical; tree 6 → 134 after
+the note at 236); `GetChainInfo` tip = next = `19bd2d2f` (Canopy) on both; `devnet check` passes
+with the fork binary.
 Three harness lessons (in the workspace's `docs/mapping.md` §15): mine on a **pool** node, whose
 blocks carry the quote tag (node 0's are untagged and empty the price windows); re-quote the
 pools first (`yellowback-devnet price`) and warm the price up to the slow window; wait for the

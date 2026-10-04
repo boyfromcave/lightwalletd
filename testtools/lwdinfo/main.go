@@ -122,6 +122,14 @@ func probeYellowback(conn *grpc.ClientConn, timeout time.Duration) map[string]st
 		}
 		return err
 	})
+	call("GetChainInfo", func(ctx context.Context) error {
+		info, err := y.GetChainInfo(ctx, &walletrpc.Empty{})
+		if err == nil {
+			result["GetChainInfo#consensusBranchId"] = info.ConsensusBranchId
+			result["GetChainInfo#nextBlockBranchId"] = info.NextBlockBranchId
+		}
+		return err
+	})
 	call("GetPrice", func(ctx context.Context) error { _, err := y.GetPrice(ctx, &walletrpc.HeightFilter{}); return err })
 	call("GetStats", func(ctx context.Context) error { _, err := y.GetStats(ctx, &walletrpc.Empty{}); return err })
 	call("GetActivation", func(ctx context.Context) error { _, err := y.GetActivation(ctx, &walletrpc.Empty{}); return err })

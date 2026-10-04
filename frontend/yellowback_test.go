@@ -89,8 +89,22 @@ func (f *fakeNode) RawRequest(method string, params []json.RawMessage) (json.Raw
 		b, _ := json.Marshal(f.features)
 		return b, nil
 	}
+	if method == "getblockchaininfo" {
+		return json.RawMessage(fakeBlockchainInfo), nil
+	}
 	return f.contract.returns(f.t, method), nil
 }
+
+// fakeBlockchainInfo is the stock RPC's answer on a regtest ycash-dd at height 232 (every upgrade
+// active from height 1), with the one case GetChainInfo exists for: the next block's branch id
+// differs from the tip's (as on the block before a network upgrade).
+const fakeBlockchainInfo = `{"chain":"regtest","blocks":232,"bestblockhash":"0a27ab27467ff304d7d602ea5227a0d5410425a9809bdbb9331f8b4df0e15278",
+ "upgrades":{"5ba81b19":{"name":"Overwinter","activationheight":1,"status":"active","info":"x"},
+  "76b809bb":{"name":"Sapling","activationheight":1,"status":"active","info":"x"},
+  "374d694f":{"name":"Ycash","activationheight":1,"status":"active","info":"x"},
+  "19bd2d2f":{"name":"Canopy","activationheight":1,"status":"active","info":"x"},
+  "c2d6d0b4":{"name":"NU5","activationheight":233,"status":"pending","info":"x"}},
+ "consensus":{"chaintip":"19bd2d2f","nextblock":"c2d6d0b4"}}`
 
 // install makes node the process's RawRequest for the test and restores the previous one after.
 func install(t *testing.T, node *fakeNode) {
@@ -799,5 +813,79 @@ func TestTaddrOfRejectsLongGarbageCheaply(t *testing.T) {
 	}
 	if len(node.calls) != 0 {
 		t.Fatalf("the node was called for a garbage address: %v", node.calls)
+	}
+}
+
+// TestGetChainInfo: the stock getblockchaininfo reaches the client as the two branch ids (the
+// frozen GetLightdInfo carries chaintip only; x402 X-F71), the upgrades sorted, Sapling's height.
+func TestGetChainInfo(t *testing.T) {
+	svc, node := newService(t)
+	ctx := context.Background()
+	got, err := svc.GetChainInfo(ctx, &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ChainName != "regtest" || got.BlockHeight != 232 || got.BestBlockHash[:8] != "0a27ab27" {
+		t.Errorf("chain fields: %+v", got)
+	}
+	if got.ConsensusBranchId != "19bd2d2f" || got.NextBlockBranchId != "c2d6d0b4" {
+		t.Errorf("branch ids: tip %q next %q", got.ConsensusBranchId, got.NextBlockBranchId)
+	}
+	if got.SaplingActivationHeight != 1 {
+		t.Errorf("saplingActivationHeight = %d", got.SaplingActivationHeight)
+	}
+	var order []string
+	for _, u := range got.Upgrades {
+		order = append(order, u.BranchId)
+	}
+	// height 1 ids in lexical order, then the pending one at 233
+	if want := []string{"19bd2d2f", "374d694f", "5ba81b19", "76b809bb", "c2d6d0b4"}; !reflect.DeepEqual(order, want) {
+		t.Errorf("upgrades order = %v, want %v", order, want)
+	}
+	if last := got.Upgrades[4]; last.Name != "NU5" || last.Status != "pending" || last.ActivationHeight != 233 {
+		t.Errorf("pending upgrade: %+v", last)
+	}
+	if p := node.params["getblockchaininfo"]; len(p) != 0 {
+		t.Errorf("getblockchaininfo must take no params, sent %s", p)
+	}
+	// Cached like the other per-tip answers: a second call within the TTL makes no node call.
+	n := len(node.calls)
+	if _, err := svc.GetChainInfo(ctx, &walletrpc.Empty{}); err != nil || len(node.calls) != n {
+		t.Errorf("second GetChainInfo: err %v, node calls %d -> %d", err, n, len(node.calls))
+	}
+	// A node answer without the consensus object is INTERNAL, not a silent empty id.
+	svc.cache = map[string]cacheEntry{}
+	prev := common.RawRequest
+	common.RawRequest = func(method string, params []json.RawMessage) (json.RawMessage, error) {
+		return json.RawMessage(`{"chain":"regtest","blocks":1}`), nil
+	}
+	_, err = svc.GetChainInfo(ctx, &walletrpc.Empty{})
+	common.RawRequest = prev
+	if st, _ := status.FromError(err); st.Code() != codes.Internal {
+		t.Errorf("missing consensus ids: want INTERNAL, got %v", err)
+	}
+}
+
+// TestStockAllowListIsSeparate: getblockchaininfo is reachable through CallYed, no other stock
+// RPC is, and StockMethods holds nothing a yed_* list should.
+func TestStockAllowListIsSeparate(t *testing.T) {
+	node := newFakeNode(t)
+	install(t, node)
+	if _, err := common.CallYed(context.Background(), "getblockchaininfo"); err != nil {
+		t.Fatalf("getblockchaininfo: %v", err)
+	}
+	for _, m := range []string{"getblock", "getinfo", "z_gettreestate", "sendrawtransaction", "stop"} {
+		_, err := common.CallYed(context.Background(), m)
+		if st, _ := status.FromError(err); st.Code() != codes.Internal {
+			t.Errorf("%s must be refused: %v", m, err)
+		}
+	}
+	for m := range common.StockMethods {
+		if strings.HasPrefix(m, "yed_") || common.YedMethods[m] {
+			t.Errorf("%s belongs in YedMethods, not StockMethods", m)
+		}
+	}
+	if len(node.calls) != 1 {
+		t.Errorf("node calls = %v, want only getblockchaininfo", node.calls)
 	}
 }
