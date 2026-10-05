@@ -11,3 +11,4 @@ __debug_bin
 
 .env
 docker/tls/
+unittestcache/
