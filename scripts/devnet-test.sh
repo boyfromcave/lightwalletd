@@ -9,7 +9,8 @@
 #   --down      tear it down afterwards (`down --wipe`)
 #   --dir       devnet directory (default ~/yb-devnet-lwd); --portseed (default 8) with --up
 #   env: YCASH_DD (node repo; ycash6 for the 6.x line), LWD_PYTHON, LWD_FORK_BIN (where the fork
-#        binary is built), LWD_FORK_PORT / LWD_BASELINE_PORT (9067 / 9068)
+#        binary is built), LWD_FORK_PORT / LWD_BASELINE_PORT (9067 / 9068), LWD_RAWMINT (default
+#        the node repo's contrib/yellowback/devnet/lwd-rawmint; rpcversion 5 passes it --attestor-set)
 #
 # Never mainnet: the devnet is regtest by construction. Needs go, protoc is not needed, and the
 # workspace venv for the devnet script and lwd-rawmint. Exit status is go test's.
@@ -86,5 +87,5 @@ say "fresh pool quotes (the price windows need tagged blocks with a live quote)"
 say "go test -tags devnet"
 cd "$ROOT"
 LWD_DEVNET_DIR="$DIR" LWD_FORK_ADDR="127.0.0.1:$FORK_PORT" LWD_BASELINE_ADDR="127.0.0.1:$BASE_PORT" \
-LWD_RAWMINT="$NODE_REPO/contrib/yellowback/devnet/lwd-rawmint" LWD_PYTHON="$PY" \
+LWD_RAWMINT="${LWD_RAWMINT:-$NODE_REPO/contrib/yellowback/devnet/lwd-rawmint}" LWD_PYTHON="$PY" \
   go test -mod=vendor -tags devnet -count=1 -v -run 'TestDevnet' ./frontend/

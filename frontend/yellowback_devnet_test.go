@@ -409,8 +409,18 @@ func TestDevnetRawMintThroughServer(t *testing.T) {
 	if est.RequiredZat == 0 {
 		t.Fatalf("no price after warming: %+v", est)
 	}
+	info, err := y.GetYellowbackInfo(ctx, &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// rpcversion 5: the vault is the primitive's V template under the YED attestor set (U-23), so
+	// the builder needs the set id, and it comes from the server like every other number.
+	if info.GetParams().GetAttestorSetId() == "" {
+		t.Fatal("GetYellowbackInfo.params.attestorSetId is empty")
+	}
 	args := []string{rawmint, "--dir", d.dir, "--cents", fmt.Sprint(cents), "--lock-blocks", fmt.Sprint(lockBlocks),
-		"--ref-height", fmt.Sprint(est.RefHeight), "--collateral-zat", fmt.Sprint(est.RequiredZat)}
+		"--ref-height", fmt.Sprint(est.RefHeight), "--collateral-zat", fmt.Sprint(est.RequiredZat),
+		"--attestor-set", info.GetParams().GetAttestorSetId()}
 	if payee, err := y.GetFeePayee(ctx, &walletrpc.YedPayeeQuery{RefHeight: uint32(est.RefHeight), CollateralZat: est.RequiredZat}); err == nil {
 		addr := payee.Preferred
 		if addr == "" && payee.Default != nil {
@@ -422,7 +432,6 @@ func TestDevnetRawMintThroughServer(t *testing.T) {
 	} else if st, _ := status.FromError(err); st.Code() != codes.FailedPrecondition {
 		t.Fatal(err)
 	} // fee-no-eligible-payee (FEE-0): no fee output
-	info, _ := y.GetYellowbackInfo(ctx, &walletrpc.Empty{})
 	if info.GetAttest().GetArmed() {
 		bundle, err := y.BuildBundle(ctx, &walletrpc.YedBundleQuery{RefHeight: uint32(est.RefHeight)})
 		if err != nil {
@@ -818,4 +827,155 @@ func TestDevnetMempoolStreamsSaplingOnly(t *testing.T) {
 	}
 	d.mine(t, ctx, 1)
 	t.Logf("GetMempoolTx: Sapling tx %s streamed, transparent tx %s not streamed, fork and baseline agree (%d txs)", ztxid[:8], ttxid[:8], len(forkIDs))
+}
+
+// ---- rpcversion 5: the vault upgrade and the primitive's read RPCs ----
+
+// TestDevnetVaultUpgradeThroughServer: the devnet runs on the vault network upgrade (YED is a
+// consensus module of it, upgrade plan section 15.10). The server reports the upgrade exactly as
+// the node does (GetChainInfo's upgrades and next-block branch id, GetYellowbackInfo.upgrade,
+// GetActivation), and its four primitive proxies answer what vault_getinfo, set_list, set_getinfo
+// (the YED attestor set) and vault_list answer. Mines nothing, so the tip is stable.
+func TestDevnetVaultUpgradeThroughServer(t *testing.T) {
+	d := openDevnet(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	y := walletrpc.NewYellowbackStreamerClient(d.fork)
+	const vaultBranch = "6d5b7a31"
+
+	chain, err := y.GetChainInfo(ctx, &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vaultUpgrade *walletrpc.YedUpgrade
+	for _, u := range chain.Upgrades {
+		if u.BranchId == vaultBranch {
+			vaultUpgrade = u
+		}
+	}
+	if vaultUpgrade == nil || vaultUpgrade.Name != "Vault" || vaultUpgrade.Status != "active" {
+		t.Fatalf("GetChainInfo.upgrades has no active Vault: %v", chain.Upgrades)
+	}
+	if chain.ConsensusBranchId != vaultBranch || chain.NextBlockBranchId != vaultBranch {
+		t.Fatalf("past activation both branch ids are Vault's: tip %s next %s", chain.ConsensusBranchId, chain.NextBlockBranchId)
+	}
+
+	info, err := y.GetYellowbackInfo(ctx, &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := info.GetUpgrade()
+	if u.GetBranchId() != vaultBranch || u.GetStatus() != "active" || u.GetActivationHeight() != vaultUpgrade.ActivationHeight ||
+		u.GetAttestorSetId() == "" || u.GetAttestorSetId() != info.GetParams().GetAttestorSetId() {
+		t.Fatalf("GetYellowbackInfo.upgrade %+v vs the node's upgrade %+v", u, vaultUpgrade)
+	}
+	act, err := y.GetActivation(ctx, &walletrpc.Empty{})
+	if err != nil || act.GetAttestorSetId() != u.GetAttestorSetId() || act.GetBranchId() != vaultBranch {
+		t.Fatalf("GetActivation %+v (%v) vs yed_getinfo.upgrade %+v", act, err, u)
+	}
+
+	var nodeInfo struct {
+		Branchid   string `json:"branchid"`
+		Active     bool   `json:"active"`
+		Activation int64  `json:"activationheight"`
+		Sets       int64  `json:"sets"`
+		Vaults     int64  `json:"vaults"`
+		Intents    int64  `json:"intents"`
+		Statehash  string `json:"statehash"`
+	}
+	d.rpc(t, &nodeInfo, "vault_getinfo")
+	vi, err := y.GetVaultInfo(ctx, &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vi.Branchid != nodeInfo.Branchid || vi.Active != nodeInfo.Active || vi.Activationheight != nodeInfo.Activation ||
+		vi.Sets != nodeInfo.Sets || vi.Vaults != nodeInfo.Vaults || vi.Intents != nodeInfo.Intents || vi.Statehash != nodeInfo.Statehash {
+		t.Fatalf("GetVaultInfo %+v != vault_getinfo %+v", vi, nodeInfo)
+	}
+
+	var nodeSets []struct {
+		Setid string `json:"setid"`
+	}
+	d.rpc(t, &nodeSets, "set_list")
+	ls, err := y.ListSets(ctx, &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sets []string
+	for {
+		row, err := ls.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		sets = append(sets, row.Setid)
+	}
+	if len(sets) != len(nodeSets) || int64(len(sets)) != vi.Sets {
+		t.Fatalf("ListSets: %d sets, set_list %d, vault_getinfo %d", len(sets), len(nodeSets), vi.Sets)
+	}
+
+	var nodeSet struct {
+		Seats      int64 `json:"seats"`
+		Members    int64 `json:"members"`
+		Current    int64 `json:"current"`
+		Dormant    bool  `json:"dormant"`
+		Released   bool  `json:"released"`
+		Memberlist []struct {
+			Key     string `json:"key"`
+			Status  string `json:"status"`
+			Lastact int64  `json:"lastact"`
+		} `json:"memberlist"`
+	}
+	d.rpc(t, &nodeSet, "set_getinfo", u.GetAttestorSetId())
+	set, err := y.GetSet(ctx, &walletrpc.VaultSetQuery{Setid: u.GetAttestorSetId()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if set.Setid != u.GetAttestorSetId() || set.Seats != nodeSet.Seats || set.Members != nodeSet.Members || set.Current != nodeSet.Current ||
+		set.Dormant != nodeSet.Dormant || set.Released != nodeSet.Released || len(set.Memberlist) != len(nodeSet.Memberlist) {
+		t.Fatalf("GetSet(attestor set) %+v != set_getinfo %+v", set, nodeSet)
+	}
+	for i, m := range set.Memberlist {
+		if m.Key != nodeSet.Memberlist[i].Key || m.Status != nodeSet.Memberlist[i].Status || m.Lastact != nodeSet.Memberlist[i].Lastact {
+			t.Fatalf("member %d: server %+v node %+v", i, m, nodeSet.Memberlist[i])
+		}
+	}
+
+	var nodeOutputs []struct {
+		Outpoint string `json:"outpoint"`
+		Kind     string `json:"kind"`
+	}
+	d.rpc(t, &nodeOutputs, "vault_list")
+	lo, err := y.ListVaultOutputs(ctx, &walletrpc.VaultOutputFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var outs []string
+	for {
+		row, err := lo.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		outs = append(outs, row.Outpoint+" "+row.Kind)
+	}
+	var want []string
+	for _, o := range nodeOutputs {
+		want = append(want, o.Outpoint+" "+o.Kind)
+	}
+	sort.Strings(outs)
+	sort.Strings(want)
+	if strings.Join(outs, ",") != strings.Join(want, ",") || int64(len(outs)) != vi.Vaults+vi.Intents {
+		t.Fatalf("ListVaultOutputs %v != vault_list %v (vault_getinfo %d vaults + %d intents)", outs, want, vi.Vaults, vi.Intents)
+	}
+	_, err = walletrpc.NewYellowbackStreamerClient(d.baseline).GetVaultInfo(ctx, &walletrpc.Empty{})
+	if st, _ := status.FromError(err); st.Code() != codes.Unimplemented {
+		t.Fatalf("baseline GetVaultInfo: want UNIMPLEMENTED, got %v", err)
+	}
+	t.Logf("vault upgrade %s active from %d; attestor set %s: %d members (%d current); %d sets, %d vault outputs; statehash %s",
+		vaultBranch, vaultUpgrade.ActivationHeight, u.GetAttestorSetId()[:16], set.Members, set.Current, len(sets), len(outs), vi.Statehash[:16])
 }
