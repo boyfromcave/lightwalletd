@@ -72,12 +72,22 @@ type fakeNode struct {
 	calls    []string
 	params   map[string][]json.RawMessage
 	fail     map[string]error
-	features []string
 }
 
 func newFakeNode(t *testing.T) *fakeNode {
-	return &fakeNode{t: t, contract: loadContract(t), params: map[string][]json.RawMessage{}, fail: map[string]error{},
-		features: []string{"yellowback"}}
+	return &fakeNode{t: t, contract: loadContract(t), params: map[string][]json.RawMessage{}, fail: map[string]error{}}
+}
+
+// vaultFixture is a set_* / vault_* answer captured from a ycash-dd upgrade/vault devnet
+// (testdata/vault/<method>.json): the primitive's RPCs have no JSON contract, their document
+// (vault-rpc.md, copied beside the fixtures) is prose, so real answers are the fixtures.
+func vaultFixture(t *testing.T, method string) json.RawMessage {
+	t.Helper()
+	data, err := ioutil.ReadFile("../testdata/vault/" + method + ".json")
+	if err != nil {
+		t.Fatalf("vault fixture: %v", err)
+	}
+	return json.RawMessage(data)
 }
 
 func (f *fakeNode) RawRequest(method string, params []json.RawMessage) (json.RawMessage, error) {
@@ -86,9 +96,8 @@ func (f *fakeNode) RawRequest(method string, params []json.RawMessage) (json.Raw
 	if err, ok := f.fail[method]; ok {
 		return nil, err
 	}
-	if method == "getexperimentalfeatures" {
-		b, _ := json.Marshal(f.features)
-		return b, nil
+	if common.VaultMethods[method] {
+		return vaultFixture(f.t, method), nil
 	}
 	if method == "getblockchaininfo" {
 		return json.RawMessage(fakeBlockchainInfo), nil
@@ -96,16 +105,19 @@ func (f *fakeNode) RawRequest(method string, params []json.RawMessage) (json.Raw
 	return f.contract.returns(f.t, method), nil
 }
 
-// fakeBlockchainInfo is the stock RPC's answer on a regtest ycash-dd at height 232 (every upgrade
-// active from height 1), with the one case GetChainInfo exists for: the next block's branch id
-// differs from the tip's (as on the block before a network upgrade).
+// fakeBlockchainInfo is the stock RPC's answer on a regtest ycash-dd upgrade/vault node at height
+// 232 (every earlier upgrade active from height 1, the vault upgrade scheduled at 233 with
+// -nuparams=6d5b7a31:233), with the one case GetChainInfo exists for: the next block's branch id
+// differs from the tip's (the block before a network upgrade).
 const fakeBlockchainInfo = `{"chain":"regtest","blocks":232,"bestblockhash":"0a27ab27467ff304d7d602ea5227a0d5410425a9809bdbb9331f8b4df0e15278",
  "upgrades":{"5ba81b19":{"name":"Overwinter","activationheight":1,"status":"active","info":"x"},
   "76b809bb":{"name":"Sapling","activationheight":1,"status":"active","info":"x"},
   "374d694f":{"name":"Ycash","activationheight":1,"status":"active","info":"x"},
+  "8e471bd6":{"name":"Blossom","activationheight":1,"status":"active","info":"x"},
+  "66314da3":{"name":"Heartwood","activationheight":1,"status":"active","info":"x"},
   "19bd2d2f":{"name":"Canopy","activationheight":1,"status":"active","info":"x"},
-  "c2d6d0b4":{"name":"NU5","activationheight":233,"status":"pending","info":"x"}},
- "consensus":{"chaintip":"19bd2d2f","nextblock":"c2d6d0b4"}}`
+  "6d5b7a31":{"name":"Vault","activationheight":233,"status":"pending","info":"Ycash vault primitive (docs/plans/yellowback-upgrade-plan.md)"}},
+ "consensus":{"chaintip":"19bd2d2f","nextblock":"6d5b7a31"}}`
 
 // install makes node the process's RawRequest for the test and restores the previous one after.
 func install(t *testing.T, node *fakeNode) {
@@ -528,14 +540,22 @@ func TestAllowListIsTheOnlyPath(t *testing.T) {
 	}
 }
 
-// TestProbe: stock node, wrong rpcversion, and the good case.
+// TestProbe: a node without the yed_* commands, wrong rpcversion, and the good case. From
+// rpcversion 5 there is no "yellowback" experimental feature (upgrade plan finding (31)): the
+// node registers the yed_* commands only where the vault upgrade and a YED attestor set are
+// configured, so "Method not found" is the stock answer and the probe never asks for features.
 func TestProbe(t *testing.T) {
 	node := newFakeNode(t)
 	install(t, node)
-	node.features = []string{"insightexplorer"}
+	node.fail["yed_getinfo"] = errors.New("-32601: Method not found")
 	capability, err := common.ProbeYellowback()
 	if err != nil || capability.Enabled {
 		t.Fatalf("stock node: got enabled=%v err=%v", capability.Enabled, err)
+	}
+	for _, m := range node.calls {
+		if m == "getexperimentalfeatures" {
+			t.Fatal("the probe must not depend on getexperimentalfeatures (rpcversion 5)")
+		}
 	}
 	node = newFakeNode(t)
 	install(t, node)
@@ -543,7 +563,7 @@ func TestProbe(t *testing.T) {
 	if err != nil || !capability.Enabled || capability.RPCVersion != common.KnownRPCVersion || capability.Network != "regtest" {
 		t.Fatalf("yellowback node: got %+v err=%v", capability, err)
 	}
-	// rpcversion 3 (before hardening H3-c) and a future 5 are both refused: the contract is exact.
+	// rpcversion 4 (before the vault upgrade) and a future 6 are both refused: the contract is exact.
 	for _, v := range []int{common.KnownRPCVersion - 1, common.KnownRPCVersion + 1} {
 		node = newFakeNode(t)
 		install(t, node)
@@ -554,9 +574,15 @@ func TestProbe(t *testing.T) {
 	}
 	node = newFakeNode(t)
 	install(t, node)
-	node.fail["getexperimentalfeatures"] = errors.New("connection refused")
+	node.fail["yed_getinfo"] = errors.New("connection refused")
 	if _, err := common.ProbeYellowback(); err == nil {
 		t.Fatal("a transport failure must be an error")
+	}
+	node = newFakeNode(t)
+	install(t, node)
+	node.fail["yed_getinfo"] = errors.New("-28: Loading block index...")
+	if _, err := common.ProbeYellowback(); err == nil {
+		t.Fatal("a node RPC error other than Method not found must be an error")
 	}
 }
 
@@ -853,7 +879,7 @@ func TestGetChainInfo(t *testing.T) {
 	if got.ChainName != "regtest" || got.BlockHeight != 232 || got.BestBlockHash[:8] != "0a27ab27" {
 		t.Errorf("chain fields: %+v", got)
 	}
-	if got.ConsensusBranchId != "19bd2d2f" || got.NextBlockBranchId != "c2d6d0b4" {
+	if got.ConsensusBranchId != "19bd2d2f" || got.NextBlockBranchId != "6d5b7a31" {
 		t.Errorf("branch ids: tip %q next %q", got.ConsensusBranchId, got.NextBlockBranchId)
 	}
 	if got.SaplingActivationHeight != 1 {
@@ -864,10 +890,10 @@ func TestGetChainInfo(t *testing.T) {
 		order = append(order, u.BranchId)
 	}
 	// height 1 ids in lexical order, then the pending one at 233
-	if want := []string{"19bd2d2f", "374d694f", "5ba81b19", "76b809bb", "c2d6d0b4"}; !reflect.DeepEqual(order, want) {
+	if want := []string{"19bd2d2f", "374d694f", "5ba81b19", "66314da3", "76b809bb", "8e471bd6", "6d5b7a31"}; !reflect.DeepEqual(order, want) {
 		t.Errorf("upgrades order = %v, want %v", order, want)
 	}
-	if last := got.Upgrades[4]; last.Name != "NU5" || last.Status != "pending" || last.ActivationHeight != 233 {
+	if last := got.Upgrades[6]; last.Name != "Vault" || last.Status != "pending" || last.ActivationHeight != 233 {
 		t.Errorf("pending upgrade: %+v", last)
 	}
 	if p := node.params["getblockchaininfo"]; len(p) != 0 {

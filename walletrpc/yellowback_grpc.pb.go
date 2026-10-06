@@ -38,6 +38,10 @@ type YellowbackStreamerClient interface {
 	ListAttestors(ctx context.Context, in *HeightFilter, opts ...grpc.CallOption) (YellowbackStreamer_ListAttestorsClient, error)
 	GetAddressTokens(ctx context.Context, in *YedAddressList, opts ...grpc.CallOption) (YellowbackStreamer_GetAddressTokensClient, error)
 	GetChainInfo(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*YedChainInfo, error)
+	GetVaultInfo(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*VaultInfo, error)
+	ListSets(ctx context.Context, in *Empty, opts ...grpc.CallOption) (YellowbackStreamer_ListSetsClient, error)
+	GetSet(ctx context.Context, in *VaultSetQuery, opts ...grpc.CallOption) (*VaultSet, error)
+	ListVaultOutputs(ctx context.Context, in *VaultOutputFilter, opts ...grpc.CallOption) (YellowbackStreamer_ListVaultOutputsClient, error)
 }
 
 type yellowbackStreamerClient struct {
@@ -343,6 +347,88 @@ func (c *yellowbackStreamerClient) GetChainInfo(ctx context.Context, in *Empty, 
 	return out, nil
 }
 
+func (c *yellowbackStreamerClient) GetVaultInfo(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*VaultInfo, error) {
+	out := new(VaultInfo)
+	err := c.cc.Invoke(ctx, "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetVaultInfo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *yellowbackStreamerClient) ListSets(ctx context.Context, in *Empty, opts ...grpc.CallOption) (YellowbackStreamer_ListSetsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &YellowbackStreamer_ServiceDesc.Streams[5], "/cash.z.wallet.sdk.rpc.YellowbackStreamer/ListSets", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &yellowbackStreamerListSetsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type YellowbackStreamer_ListSetsClient interface {
+	Recv() (*VaultSet, error)
+	grpc.ClientStream
+}
+
+type yellowbackStreamerListSetsClient struct {
+	grpc.ClientStream
+}
+
+func (x *yellowbackStreamerListSetsClient) Recv() (*VaultSet, error) {
+	m := new(VaultSet)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *yellowbackStreamerClient) GetSet(ctx context.Context, in *VaultSetQuery, opts ...grpc.CallOption) (*VaultSet, error) {
+	out := new(VaultSet)
+	err := c.cc.Invoke(ctx, "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetSet", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *yellowbackStreamerClient) ListVaultOutputs(ctx context.Context, in *VaultOutputFilter, opts ...grpc.CallOption) (YellowbackStreamer_ListVaultOutputsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &YellowbackStreamer_ServiceDesc.Streams[6], "/cash.z.wallet.sdk.rpc.YellowbackStreamer/ListVaultOutputs", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &yellowbackStreamerListVaultOutputsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type YellowbackStreamer_ListVaultOutputsClient interface {
+	Recv() (*VaultOutput, error)
+	grpc.ClientStream
+}
+
+type yellowbackStreamerListVaultOutputsClient struct {
+	grpc.ClientStream
+}
+
+func (x *yellowbackStreamerListVaultOutputsClient) Recv() (*VaultOutput, error) {
+	m := new(VaultOutput)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // YellowbackStreamerServer is the server API for YellowbackStreamer service.
 // All implementations must embed UnimplementedYellowbackStreamerServer
 // for forward compatibility
@@ -367,6 +453,10 @@ type YellowbackStreamerServer interface {
 	ListAttestors(*HeightFilter, YellowbackStreamer_ListAttestorsServer) error
 	GetAddressTokens(*YedAddressList, YellowbackStreamer_GetAddressTokensServer) error
 	GetChainInfo(context.Context, *Empty) (*YedChainInfo, error)
+	GetVaultInfo(context.Context, *Empty) (*VaultInfo, error)
+	ListSets(*Empty, YellowbackStreamer_ListSetsServer) error
+	GetSet(context.Context, *VaultSetQuery) (*VaultSet, error)
+	ListVaultOutputs(*VaultOutputFilter, YellowbackStreamer_ListVaultOutputsServer) error
 	mustEmbedUnimplementedYellowbackStreamerServer()
 }
 
@@ -433,6 +523,18 @@ func (UnimplementedYellowbackStreamerServer) GetAddressTokens(*YedAddressList, Y
 }
 func (UnimplementedYellowbackStreamerServer) GetChainInfo(context.Context, *Empty) (*YedChainInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetChainInfo not implemented")
+}
+func (UnimplementedYellowbackStreamerServer) GetVaultInfo(context.Context, *Empty) (*VaultInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetVaultInfo not implemented")
+}
+func (UnimplementedYellowbackStreamerServer) ListSets(*Empty, YellowbackStreamer_ListSetsServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListSets not implemented")
+}
+func (UnimplementedYellowbackStreamerServer) GetSet(context.Context, *VaultSetQuery) (*VaultSet, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSet not implemented")
+}
+func (UnimplementedYellowbackStreamerServer) ListVaultOutputs(*VaultOutputFilter, YellowbackStreamer_ListVaultOutputsServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListVaultOutputs not implemented")
 }
 func (UnimplementedYellowbackStreamerServer) mustEmbedUnimplementedYellowbackStreamerServer() {}
 
@@ -822,6 +924,84 @@ func _YellowbackStreamer_GetChainInfo_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _YellowbackStreamer_GetVaultInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(YellowbackStreamerServer).GetVaultInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetVaultInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(YellowbackStreamerServer).GetVaultInfo(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _YellowbackStreamer_ListSets_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Empty)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(YellowbackStreamerServer).ListSets(m, &yellowbackStreamerListSetsServer{stream})
+}
+
+type YellowbackStreamer_ListSetsServer interface {
+	Send(*VaultSet) error
+	grpc.ServerStream
+}
+
+type yellowbackStreamerListSetsServer struct {
+	grpc.ServerStream
+}
+
+func (x *yellowbackStreamerListSetsServer) Send(m *VaultSet) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _YellowbackStreamer_GetSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VaultSetQuery)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(YellowbackStreamerServer).GetSet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetSet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(YellowbackStreamerServer).GetSet(ctx, req.(*VaultSetQuery))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _YellowbackStreamer_ListVaultOutputs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(VaultOutputFilter)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(YellowbackStreamerServer).ListVaultOutputs(m, &yellowbackStreamerListVaultOutputsServer{stream})
+}
+
+type YellowbackStreamer_ListVaultOutputsServer interface {
+	Send(*VaultOutput) error
+	grpc.ServerStream
+}
+
+type yellowbackStreamerListVaultOutputsServer struct {
+	grpc.ServerStream
+}
+
+func (x *yellowbackStreamerListVaultOutputsServer) Send(m *VaultOutput) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // YellowbackStreamer_ServiceDesc is the grpc.ServiceDesc for YellowbackStreamer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -889,6 +1069,14 @@ var YellowbackStreamer_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GetChainInfo",
 			Handler:    _YellowbackStreamer_GetChainInfo_Handler,
 		},
+		{
+			MethodName: "GetVaultInfo",
+			Handler:    _YellowbackStreamer_GetVaultInfo_Handler,
+		},
+		{
+			MethodName: "GetSet",
+			Handler:    _YellowbackStreamer_GetSet_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -914,6 +1102,16 @@ var YellowbackStreamer_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetAddressTokens",
 			Handler:       _YellowbackStreamer_GetAddressTokens_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ListSets",
+			Handler:       _YellowbackStreamer_ListSets_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ListVaultOutputs",
+			Handler:       _YellowbackStreamer_ListVaultOutputs_Handler,
 			ServerStreams: true,
 		},
 	},

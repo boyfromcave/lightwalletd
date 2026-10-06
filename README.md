@@ -44,8 +44,9 @@ proto changes.
 
 # Running against ycashd
 
-The node is `ycashd` (Ycash 4.5.0 or later; for the Yellowback service, the Yellowback build with
-`-yellowback`). Its `ycash.conf` must contain:
+The node is `ycashd` (Ycash 4.5.0 or later; for the Yellowback service, the Yellowback build on
+the vault network upgrade, where YED is live once the upgrade and a YED attestor set are configured
+— no flag). Its `ycash.conf` must contain:
 
 ```
 txindex=1
@@ -62,8 +63,8 @@ are required. Without `rpcport` the server assumes Ycash's defaults, 8832 on mai
 testnet and regtest. The node is reached with `getinfo`, `getblockchaininfo`,
 `getblock`, `getrawtransaction`, `getrawmempool`, `getaddresstxids`, `getaddressbalance`,
 `getaddressutxos`, `sendrawtransaction`, `z_gettreestate`, and, with `--yellowback`,
-`getexperimentalfeatures`, `yed_getinfo` and the read-only `yed_*` methods listed in
-`common.YedMethods`.
+`yed_getinfo`, the read-only `yed_*` methods listed in `common.YedMethods` and the vault
+primitive's read-only `vault_getinfo`, `set_list`, `set_getinfo`, `vault_list` (`common.VaultMethods`).
 
 Credentials come from the conf file or from flags:
 
@@ -77,9 +78,9 @@ Prefer it on a real deployment — a password on the command line is visible to 
 If you restart the node on a different network, restart lightwalletd too.
 
 **Yellowback.** `--yellowback` (or `YELLOWBACK=1`, or `yellowback: true` in the config file).
-At startup the server asks the node for `getexperimentalfeatures` and `yed_getinfo` and registers
-the service only when the node speaks Yellowback `rpcversion 4`; the log says
-`Yellowback service started (node rpcversion 4, network …)` or why not. Two operator flags
+At startup the server asks the node for `yed_getinfo` and registers the service only when the node
+speaks Yellowback `rpcversion 5` (a node without the yed_* commands answers "Method not found": no
+service, no error); the log says `Yellowback service started (node rpcversion 5, network …)` or why not. Two operator flags
 belong to it: `--yellowback-max-inflight N` (node calls in flight at once, default 16) and
 `--trusted-proxy-cidr NET` (repeatable; the per-peer rate limiter believes `x-real-ip` /
 `x-forwarded-for` only from these networks — set it when, and only when, a reverse proxy sets

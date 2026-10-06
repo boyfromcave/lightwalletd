@@ -340,6 +340,34 @@
                 </li>
               
                 <li>
+                  <a href="#cash.z.wallet.sdk.rpc.VaultDbTip"><span class="badge">M</span>VaultDbTip</a>
+                </li>
+              
+                <li>
+                  <a href="#cash.z.wallet.sdk.rpc.VaultInfo"><span class="badge">M</span>VaultInfo</a>
+                </li>
+              
+                <li>
+                  <a href="#cash.z.wallet.sdk.rpc.VaultOutput"><span class="badge">M</span>VaultOutput</a>
+                </li>
+              
+                <li>
+                  <a href="#cash.z.wallet.sdk.rpc.VaultOutputFilter"><span class="badge">M</span>VaultOutputFilter</a>
+                </li>
+              
+                <li>
+                  <a href="#cash.z.wallet.sdk.rpc.VaultSet"><span class="badge">M</span>VaultSet</a>
+                </li>
+              
+                <li>
+                  <a href="#cash.z.wallet.sdk.rpc.VaultSetMember"><span class="badge">M</span>VaultSetMember</a>
+                </li>
+              
+                <li>
+                  <a href="#cash.z.wallet.sdk.rpc.VaultSetQuery"><span class="badge">M</span>VaultSetQuery</a>
+                </li>
+              
+                <li>
                   <a href="#cash.z.wallet.sdk.rpc.YedAddressList"><span class="badge">M</span>YedAddressList</a>
                 </li>
               
@@ -476,15 +504,11 @@
                 </li>
               
                 <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YedVaultIntent"><span class="badge">M</span>YedVaultIntent</a>
+                </li>
+              
+                <li>
                   <a href="#cash.z.wallet.sdk.rpc.YellowbackActivation"><span class="badge">M</span>YellowbackActivation</a>
-                </li>
-              
-                <li>
-                  <a href="#cash.z.wallet.sdk.rpc.YellowbackActivationHistory"><span class="badge">M</span>YellowbackActivationHistory</a>
-                </li>
-              
-                <li>
-                  <a href="#cash.z.wallet.sdk.rpc.YellowbackActivationState"><span class="badge">M</span>YellowbackActivationState</a>
                 </li>
               
                 <li>
@@ -1832,7 +1856,7 @@ The block can be specified by either height or hash.</p></td>
       <div class="file-heading">
         <h2 id="yellowback.proto">yellowback.proto</h2><a href="#title">Top</a>
       </div>
-      <p>Yellowback (YED) light-client service: a second, separate gRPC service beside</p><p>CompactTxStreamer (service.proto, which is not edited). Every method is a thin proxy of a</p><p>read-only yed_* RPC on the node this server already talks to; the server adds no rule and</p><p>holds no Yellowback state. Field names are the JSON names of the node's RPC contract</p><p>(ycash-dd/doc/yellowback-rpc-contract.json, rpcversion 4) so the contract's example values</p><p>are the test fixtures and the JSON result unmarshals straight into these messages; a message</p><p>may carry a subset of a result's fields (unknown JSON fields are ignored), never a renamed one.</p><p>Plan: docs/plans/yellowback-lightwalletd-plan.md section 4.1.</p>
+      <p>Yellowback (YED) light-client service: a second, separate gRPC service beside</p><p>CompactTxStreamer (service.proto, which is not edited). Every method is a thin proxy of a</p><p>read-only yed_* RPC (or, since rpcversion 5, a read-only set_* / vault_* RPC of the vault</p><p>primitive YED runs on) on the node this server already talks to; the server adds no rule and</p><p>holds no Yellowback state. Field names are the JSON names of the node's RPC contract</p><p>(ycash-dd/doc/yellowback-rpc-contract.json, rpcversion 5) so the contract's example values</p><p>are the test fixtures and the JSON result unmarshals straight into these messages; a message</p><p>may carry a subset of a result's fields (unknown JSON fields are ignored), never a renamed one.</p><p>Plan: docs/plans/yellowback-lightwalletd-plan.md section 4.1.</p>
 
       
         <h3 id="cash.z.wallet.sdk.rpc.HeightFilter">HeightFilter</h3>
@@ -1844,6 +1868,664 @@ The block can be specified by either height or hash.</p></td>
               <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
             </thead>
             <tbody>
+              
+                <tr>
+                  <td>height</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.VaultDbTip">VaultDbTip</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>hash</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>height</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.VaultInfo">VaultInfo</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>branchid</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>activationheight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>active</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>height</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>dbtip</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.VaultDbTip">VaultDbTip</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>sets</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>vaults</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>intents</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>lockedvalue</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>statehash</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.VaultOutput">VaultOutput</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>txid</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>vout</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>outpoint</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>kind</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>valuezat</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>height</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>script</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>tag</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>tagtext</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>setid</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>cancelsetid</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>delay</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ownerkey</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ownerheight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>appheight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>kind vault </p></td>
+                </tr>
+              
+                <tr>
+                  <td>recipienthash</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>vaulthash</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>matureheight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>mature</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>cancellable</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>origin</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>kind intent </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.VaultOutputFilter">VaultOutputFilter</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>tag</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>setid</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>owner</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>kind</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.VaultSet">VaultSet</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>setid</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>height</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>seats</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>unlockthreshold</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>cancelthreshold</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>slashthreshold</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>open</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ratelimitbps</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ratewindow</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>livenesswindow</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bondmin</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bondlockmin</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>maturity</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>admitkey</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>createheight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>winddownheight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>lockedvalue</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>epoch</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>epochbasis</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>epochused</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>unlockavailable</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p>present when the set is rate limited </p></td>
+                </tr>
+              
+                <tr>
+                  <td>members</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>active</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>current</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>dormant</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>released</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>memberlist</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.VaultSetMember">VaultSetMember</a></td>
+                  <td>repeated</td>
+                  <td><p>GetSet only (set_list omits it) </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.VaultSetMember">VaultSetMember</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>status</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>current</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>live</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>joinheight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>lastact</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bondoutpoint</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bondvalue</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bondlocktime</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bondfrozen</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.VaultSetQuery">VaultSetQuery</h3>
+        <p>The primitive's read RPCs (docs/plans/yellowback-upgrade-plan.md section 15.8), proxied like the</p><p>yed_* ones. Field names are the node's JSON names (all lower case there); YEC amounts are the</p><p>node's decimal YEC numbers (hence double), `valuezat` is zatoshi. The node's `wallet` fields</p><p>(whether ITS wallet holds a key) are never carried: they describe the server's node, not the client.</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>setid</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
               
                 <tr>
                   <td>height</td>
@@ -2128,6 +2810,20 @@ The block can be specified by either height or hash.</p></td>
                   <td><a href="#string">string</a></td>
                   <td></td>
                   <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>lastAct</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bondFrozen</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>rpcversion 5 (P4-b): the attestor set&#39;s member state </p></td>
                 </tr>
               
             </tbody>
@@ -3300,13 +3996,6 @@ The block can be specified by either height or hash.</p></td>
                 </tr>
               
                 <tr>
-                  <td>signal</td>
-                  <td><a href="#bool">bool</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
                   <td>sourceMask</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
@@ -3738,6 +4427,13 @@ The block can be specified by either height or hash.</p></td>
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>reopenedVaults</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YedOutpoint">YedOutpoint</a></td>
+                  <td>repeated</td>
+                  <td><p>rpcversion 5: the vault an attestor-set cancel re-created </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -4059,13 +4755,6 @@ The block can be specified by either height or hash.</p></td>
                 </tr>
               
                 <tr>
-                  <td>sweepBefore</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
                   <td>termClass</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
@@ -4105,6 +4794,20 @@ The block can be specified by either height or hash.</p></td>
                   <td><a href="#uint32">uint32</a></td>
                   <td></td>
                   <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>scriptPubKey</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>intents</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YedVaultIntent">YedVaultIntent</a></td>
+                  <td>repeated</td>
+                  <td><p>rpcversion 5: the V template (hex); intents while CLAIMING </p></td>
                 </tr>
               
             </tbody>
@@ -4152,8 +4855,8 @@ The block can be specified by either height or hash.</p></td>
 
         
       
-        <h3 id="cash.z.wallet.sdk.rpc.YellowbackActivation">YellowbackActivation</h3>
-        <p></p>
+        <h3 id="cash.z.wallet.sdk.rpc.YedVaultIntent">YedVaultIntent</h3>
+        <p>rpcversion 5: a CLAIMING vault's claim intents (claimant / residual), released by vault_release at releaseHeight.</p>
 
         
           <table class="field-table">
@@ -4163,133 +4866,25 @@ The block can be specified by either height or hash.</p></td>
             <tbody>
               
                 <tr>
-                  <td>activateHeight</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>enforceUntilHeight</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>enforcementFloor</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>enforcementResume</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>enforcementSuspended</td>
-                  <td><a href="#bool">bool</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>enforcing</td>
-                  <td><a href="#bool">bool</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>history</td>
-                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackActivationHistory">YellowbackActivationHistory</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>lockInHeight</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>mintHalted</td>
-                  <td><a href="#bool">bool</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>participationFloor</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>signalCount</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>status</td>
+                  <td>txid</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
               
                 <tr>
-                  <td>sunset</td>
-                  <td><a href="#bool">bool</a></td>
+                  <td>vout</td>
+                  <td><a href="#uint32">uint32</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
               
                 <tr>
-                  <td>threshold</td>
-                  <td><a href="#int64">int64</a></td>
+                  <td>role</td>
+                  <td><a href="#string">string</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
-              
-                <tr>
-                  <td>valveTripped</td>
-                  <td><a href="#bool">bool</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>window</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="cash.z.wallet.sdk.rpc.YellowbackActivationHistory">YellowbackActivationHistory</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
               
                 <tr>
                   <td>height</td>
@@ -4299,7 +4894,7 @@ The block can be specified by either height or hash.</p></td>
                 </tr>
               
                 <tr>
-                  <td>signalCount</td>
+                  <td>releaseHeight</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -4312,8 +4907,8 @@ The block can be specified by either height or hash.</p></td>
 
         
       
-        <h3 id="cash.z.wallet.sdk.rpc.YellowbackActivationState">YellowbackActivationState</h3>
-        <p></p>
+        <h3 id="cash.z.wallet.sdk.rpc.YellowbackActivation">YellowbackActivation</h3>
+        <p>rpcversion 5: yed_getactivation reports the vault network upgrade YED is a consensus module of</p><p>(status "pending" | "active"); the signalling, lock-in, enforcement, valve and sunset fields are gone.</p>
 
         
           <table class="field-table">
@@ -4323,27 +4918,6 @@ The block can be specified by either height or hash.</p></td>
             <tbody>
               
                 <tr>
-                  <td>activateHeight</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>lockInHeight</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>signalCount</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
                   <td>status</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
@@ -4351,8 +4925,43 @@ The block can be specified by either height or hash.</p></td>
                 </tr>
               
                 <tr>
-                  <td>window</td>
+                  <td>activationHeight</td>
                   <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>attestorSetId</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>branchId</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>claimDelay</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>height</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -4608,20 +5217,6 @@ The block can be specified by either height or hash.</p></td>
             <tbody>
               
                 <tr>
-                  <td>abandoned</td>
-                  <td><a href="#bool">bool</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>activation</td>
-                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackActivationState">YellowbackActivationState</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
                   <td>attest</td>
                   <td><a href="#cash.z.wallet.sdk.rpc.YellowbackAttestState">YellowbackAttestState</a></td>
                   <td></td>
@@ -4644,13 +5239,6 @@ The block can be specified by either height or hash.</p></td>
               
                 <tr>
                   <td>enabled</td>
-                  <td><a href="#bool">bool</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>enforcing</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -4699,22 +5287,8 @@ The block can be specified by either height or hash.</p></td>
                 </tr>
               
                 <tr>
-                  <td>sunset</td>
-                  <td><a href="#bool">bool</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
                   <td>unhealthyReason</td>
                   <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>valveTripped</td>
-                  <td><a href="#bool">bool</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -4747,6 +5321,13 @@ The block can be specified by either height or hash.</p></td>
                   <td><p>rpcversion 4 (hardening H-1): a mint needs the price ARMED </p></td>
                 </tr>
               
+                <tr>
+                  <td>upgrade</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackActivation">YellowbackActivation</a></td>
+                  <td></td>
+                  <td><p>rpcversion 5: the yed_getactivation object </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -4765,13 +5346,6 @@ The block can be specified by either height or hash.</p></td>
             <tbody>
               
                 <tr>
-                  <td>abandonBlocks</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
                   <td>attest</td>
                   <td><a href="#cash.z.wallet.sdk.rpc.YellowbackAttestParams">YellowbackAttestParams</a></td>
                   <td></td>
@@ -4782,13 +5356,6 @@ The block can be specified by either height or hash.</p></td>
                   <td>classes</td>
                   <td><a href="#cash.z.wallet.sdk.rpc.YellowbackClassParams">YellowbackClassParams</a></td>
                   <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>enforceUntilHeight</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
                   <td><p> </p></td>
                 </tr>
               
@@ -4874,6 +5441,20 @@ The block can be specified by either height or hash.</p></td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>attestorSetId</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>claimDelay</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>rpcversion 5: the YED attestor set (a vault primitive set id), CLAIM_DELAY </p></td>
                 </tr>
               
             </tbody>
@@ -5191,6 +5772,34 @@ The block can be specified by either height or hash.</p></td>
                 <td>GetChainInfo</td>
                 <td><a href="#cash.z.wallet.sdk.rpc.Empty">Empty</a></td>
                 <td><a href="#cash.z.wallet.sdk.rpc.YedChainInfo">YedChainInfo</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>GetVaultInfo</td>
+                <td><a href="#cash.z.wallet.sdk.rpc.Empty">Empty</a></td>
+                <td><a href="#cash.z.wallet.sdk.rpc.VaultInfo">VaultInfo</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>ListSets</td>
+                <td><a href="#cash.z.wallet.sdk.rpc.Empty">Empty</a></td>
+                <td><a href="#cash.z.wallet.sdk.rpc.VaultSet">VaultSet</a> stream</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>GetSet</td>
+                <td><a href="#cash.z.wallet.sdk.rpc.VaultSetQuery">VaultSetQuery</a></td>
+                <td><a href="#cash.z.wallet.sdk.rpc.VaultSet">VaultSet</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>ListVaultOutputs</td>
+                <td><a href="#cash.z.wallet.sdk.rpc.VaultOutputFilter">VaultOutputFilter</a></td>
+                <td><a href="#cash.z.wallet.sdk.rpc.VaultOutput">VaultOutput</a> stream</td>
                 <td><p></p></td>
               </tr>
             

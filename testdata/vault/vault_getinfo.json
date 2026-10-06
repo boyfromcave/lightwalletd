@@ -1,0 +1,15 @@
+{
+  "branchid": "6d5b7a31",
+  "activationheight": 103,
+  "active": true,
+  "height": 202,
+  "dbtip": {
+    "hash": "0b11e27c8ca8a1db121c1033221f92d5ced198903dd70ed1d53031842ac41c5c",
+    "height": 202
+  },
+  "sets": 2,
+  "vaults": 1,
+  "intents": 1,
+  "lockedvalue": 6.00000000,
+  "statehash": "12d425308c606d40ae8d16846ea8984e9b9ba6a92b78145cdc8ce33dc8554d0a"
+}

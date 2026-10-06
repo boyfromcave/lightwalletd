@@ -29,8 +29,11 @@ import (
 const ServerVersion = "0.2-yec-lightwalletd"
 
 // KnownRPCVersion is the node contract this server was written against
-// (ycash-dd/doc/yellowback-rpc-contract.json "rpcversion").
-const KnownRPCVersion = 4
+// (ycash-dd/doc/yellowback-rpc-contract.json "rpcversion"). 5 is the vault network upgrade
+// (docs/plans/yellowback-upgrade-plan.md section 15.10): YED is a consensus module, the yed_*
+// commands exist exactly where the upgrade and a YED attestor set are configured, and the
+// activation/enforcement fields are gone.
+const KnownRPCVersion = 5
 
 // YedMethods is the allow-list: every node RPC the service may call, and nothing else.
 // The offline test asserts this set against the contract: every yed_* method there is either
@@ -66,6 +69,40 @@ var StockMethods = map[string]bool{
 	"getblockchaininfo": true,
 }
 
+// VaultMethods is the third allow-list: the vault primitive's read-only, node-context RPCs
+// (docs/plans/yellowback-upgrade-plan.md section 15.8; ycash-dd/doc/vault-rpc.md, copied to
+// testdata/vault/vault-rpc.md). YED runs on the primitive from rpcversion 5, so a light client
+// sees its attestor set and claim intents here. vault_list's "mine" filter is wallet context
+// and is never sent; the node's "wallet" result fields are never carried.
+var VaultMethods = map[string]bool{
+	"vault_getinfo": true,
+	"set_list":      true,
+	"set_getinfo":   true,
+	"vault_list":    true,
+}
+
+// NotOfferedVault is NotOffered for the primitive's RPCs: every set_* / vault_* command of
+// vault-rpc.md is in VaultMethods or here (TestVaultAllowListCoversDoc).
+var NotOfferedVault = map[string]string{
+	"vault_decodescript": "clients parse the fixed templates locally (upgrade plan section 15.3)",
+	"set_create":         "wallet",
+	"set_join":           "wallet",
+	"set_heartbeat":      "wallet",
+	"set_buildact":       "wallet",
+	"set_signact":        "wallet",
+	"set_sendact":        "wallet",
+	"set_equivocation":   "wallet",
+	"vault_lock":         "wallet",
+	"vault_buildunlock":  "wallet",
+	"set_signunlock":     "wallet",
+	"vault_buildcancel":  "wallet",
+	"set_signcancel":     "wallet",
+	"vault_send":         "wallet",
+	"vault_release":      "wallet",
+	"vault_ownerspend":   "wallet",
+	"vault_app":          "wallet",
+}
+
 // NotOffered lists the contract's other node-context RPCs and why the service does not proxy
 // them; wallet-context RPCs need the node's keys and are never candidates. Adding a method to
 // the service means moving it from here to YedMethods, a proto change and a row in the plan.
@@ -87,7 +124,6 @@ var NotOffered = map[string]string{
 	"yed_sendmany":           "wallet",
 	"yed_redeem":             "wallet",
 	"yed_claim":              "wallet",
-	"yed_sweep":              "wallet",
 	"yed_claimnotice":        "wallet",
 	"yed_sweepcarriers":      "wallet",
 	"yed_registerattestor":   "wallet",
@@ -107,37 +143,31 @@ var NotOffered = map[string]string{
 
 // YellowbackCapability is what ProbeYellowback learned about the node.
 type YellowbackCapability struct {
-	Enabled    bool   // "yellowback" is among the node's experimental features
+	Enabled    bool   // the node serves yed_getinfo (rpcversion 5: the vault upgrade and a YED attestor set are configured)
 	RPCVersion int64  // yed_getinfo.rpcversion
 	Network    string // yed_getinfo.network
 }
 
-// ProbeYellowback asks the node whether Yellowback is enabled and which contract it speaks.
-// A stock node (no "yellowback" feature) yields Enabled=false and no error; a transport
-// failure or an unknown rpcversion is an error. The caller registers the service only on
-// (Enabled && err == nil).
+// rpcMethodNotFound is JSON-RPC's "Method not found" (RPC_METHOD_NOT_FOUND), which btcd's
+// rpcclient renders as "-32601: ...".
+const rpcMethodNotFound = "-32601"
+
+// ProbeYellowback asks the node whether Yellowback is live and which contract it speaks.
+// rpcversion 5 retired the "yellowback" experimental feature (upgrade plan finding (31)): the node
+// registers the yed_* commands exactly when the vault upgrade and a YED attestor set are
+// configured, so the probe is yed_getinfo itself. A node without them (Method not found) yields
+// Enabled=false and no error; any other failure or an unknown rpcversion is an error. The caller
+// registers the service only on (Enabled && err == nil).
 func ProbeYellowback() (YellowbackCapability, error) {
 	var capability YellowbackCapability
-	raw, err := RawRequest("getexperimentalfeatures", nil)
+	raw, err := RawRequest("yed_getinfo", nil)
 	if err != nil {
-		return capability, fmt.Errorf("getexperimentalfeatures: %v", err)
-	}
-	var features []string
-	if err := json.Unmarshal(raw, &features); err != nil {
-		return capability, fmt.Errorf("getexperimentalfeatures: unexpected result %s", string(raw))
-	}
-	for _, f := range features {
-		if f == "yellowback" {
-			capability.Enabled = true
+		if parts := strings.SplitN(err.Error(), ":", 2); len(parts) == 2 && strings.TrimSpace(parts[0]) == rpcMethodNotFound {
+			return capability, nil
 		}
-	}
-	if !capability.Enabled {
-		return capability, nil
-	}
-	raw, err = RawRequest("yed_getinfo", nil)
-	if err != nil {
 		return capability, fmt.Errorf("yed_getinfo: %v", err)
 	}
+	capability.Enabled = true
 	var info struct {
 		RPCVersion int64  `json:"rpcversion"`
 		Network    string `json:"network"`
@@ -187,7 +217,7 @@ func ctxStatus(ctx context.Context, method string) error {
 	return status.Errorf(codes.Canceled, "%s: %v", method, ctx.Err())
 }
 
-// CallYed forwards one allow-listed RPC (YedMethods or StockMethods). params are already-encoded JSON values.
+// CallYed forwards one allow-listed RPC (YedMethods, StockMethods or VaultMethods). params are already-encoded JSON values.
 // Errors are gRPC statuses (plan section 3.3): a node RPC error is FAILED_PRECONDITION carrying
 // the node's message verbatim (the contract's error identifiers are its first word); a
 // transport failure is UNAVAILABLE; a method outside the allow-list is INTERNAL, because that
@@ -195,7 +225,7 @@ func ctxStatus(ctx context.Context, method string) error {
 // handler's context plus YedCallTimeout): DEADLINE_EXCEEDED or CANCELED when it ends first,
 // RESOURCE_EXHAUSTED when every in-flight slot stays busy for yedQueueWait.
 func CallYed(ctx context.Context, method string, params ...json.RawMessage) (json.RawMessage, error) {
-	if !YedMethods[method] && !StockMethods[method] {
+	if !YedMethods[method] && !StockMethods[method] && !VaultMethods[method] {
 		return nil, status.Errorf(codes.Internal, "%s is not an allow-listed Yellowback RPC", method)
 	}
 	if ctx == nil {

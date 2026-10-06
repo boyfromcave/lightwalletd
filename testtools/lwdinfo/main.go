@@ -120,6 +120,7 @@ func probeYellowback(conn *grpc.ClientConn, timeout time.Duration) map[string]st
 			result["GetYellowbackInfo#serverVersion"] = info.ServerVersion
 			result["GetYellowbackInfo#height"] = fmt.Sprint(info.Height)
 			result["GetYellowbackInfo#mintRequiresArmed"] = fmt.Sprint(info.MintRequiresArmed)
+			result["GetYellowbackInfo#upgrade"] = info.GetUpgrade().GetName() + " " + info.GetUpgrade().GetBranchId() + " " + info.GetUpgrade().GetStatus()
 		}
 		return err
 	})
@@ -130,6 +131,22 @@ func probeYellowback(conn *grpc.ClientConn, timeout time.Duration) map[string]st
 			result["GetChainInfo#nextBlockBranchId"] = info.NextBlockBranchId
 		}
 		return err
+	})
+	call("GetVaultInfo", func(ctx context.Context) error {
+		info, err := y.GetVaultInfo(ctx, &walletrpc.Empty{})
+		if err == nil {
+			result["GetVaultInfo#active"] = fmt.Sprint(info.Active)
+			result["GetVaultInfo#sets"] = fmt.Sprint(info.Sets)
+		}
+		return err
+	})
+	call("ListSets", func(ctx context.Context) error {
+		s, err := y.ListSets(ctx, &walletrpc.Empty{})
+		return drain("ListSets", func() (interface{}, error) { return s.Recv() }, err)
+	})
+	call("ListVaultOutputs", func(ctx context.Context) error {
+		s, err := y.ListVaultOutputs(ctx, &walletrpc.VaultOutputFilter{})
+		return drain("ListVaultOutputs", func() (interface{}, error) { return s.Recv() }, err)
 	})
 	call("GetPrice", func(ctx context.Context) error { _, err := y.GetPrice(ctx, &walletrpc.HeightFilter{}); return err })
 	call("GetStats", func(ctx context.Context) error { _, err := y.GetStats(ctx, &walletrpc.Empty{}); return err })

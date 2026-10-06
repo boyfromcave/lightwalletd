@@ -44,7 +44,7 @@ network — containers reach the host from the bridge network, not from 127.0.0.
 
 ```
 docker compose up -d
-docker compose logs -f                              # "Yellowback service started (node rpcversion 4, network …)"
+docker compose logs -f                              # "Yellowback service started (node rpcversion 5, network …)"
 go run -mod=vendor ./testtools/lwdinfo -server 127.0.0.1:9067 -yellowback     # plaintext only (LWD_INSECURE=1)
 docker compose down                                 # add -v to drop the block cache volume
 ```

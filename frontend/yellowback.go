@@ -41,8 +41,8 @@ var txidPattern = regexp.MustCompile(`^[0-9a-fA-F]{64}$`)
 var hexPattern = regexp.MustCompile(`^([0-9a-fA-F]{2})*$`)
 
 // vaultStatuses is yed_listvaults' status filter enum (the contract; yellowback.cpp "status
-// must be ACTIVE, VOID, CLOSED or CLAIMED"), checked at the edge (audit E-5).
-var vaultStatuses = map[string]bool{"": true, "ACTIVE": true, "VOID": true, "CLOSED": true, "CLAIMED": true}
+// must be ACTIVE, CLAIMING, VOID, CLOSED or CLAIMED"; CLAIMING is rpcversion 5), checked at the edge (audit E-5).
+var vaultStatuses = map[string]bool{"": true, "ACTIVE": true, "CLAIMING": true, "VOID": true, "CLOSED": true, "CLAIMED": true}
 
 // yedCacheTTL: the per-tip, parameterless answers (GetYellowbackInfo, GetPrice at the tip,
 // GetStats, GetActivation, ListClaimable, GetAttestations) are identical bytes for every client
@@ -234,7 +234,7 @@ func (y *YellowbackStreamer) ListVaults(in *walletrpc.YedVaultFilter, stream wal
 		return badArg("count must be at most %d", maxListCount)
 	}
 	if !vaultStatuses[in.Status] {
-		return badArg("status must be ACTIVE, VOID, CLOSED or CLAIMED")
+		return badArg("status must be ACTIVE, CLAIMING, VOID, CLOSED or CLAIMED")
 	}
 	// The RPC's positionals: status defaults to "" (all) when count or skip is given.
 	var params []json.RawMessage

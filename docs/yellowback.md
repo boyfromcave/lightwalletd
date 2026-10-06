@@ -11,8 +11,9 @@ re-ported here on 2026-09-24 (plan Phase R0, §10); the design and its evidence 
 ## What it adds
 
 A second gRPC service, `cash.z.wallet.sdk.rpc.YellowbackStreamer` (`walletrpc/yellowback.proto`),
-beside `CompactTxStreamer`. Twenty methods, each a thin, allow-listed proxy of one read-only
-node RPC — nineteen `yed_*` RPCs and the stock `getblockchaininfo` (`GetChainInfo`, below) — on
+beside `CompactTxStreamer`. Twenty-four methods, each a thin, allow-listed proxy of one read-only
+node RPC — nineteen `yed_*` RPCs, the stock `getblockchaininfo` (`GetChainInfo`, below) and, from
+rpcversion 5, four read RPCs of the vault primitive YED runs on (below) — on
 the node this server already talks to: verdicts (`GetTxInfo`,
 `ValidateRawTransaction`), price and collateral (`GetPrice`, `GetStats`, `EstimateCollateral`,
 `EstimateFee`, `GetFeePayee`), vaults (`GetVault`, `ListVaults`, `ListClaimable`, `GetNotice`),
@@ -23,8 +24,10 @@ of any address (`GetAddressTokens` → the node's `yed_listtokens`), `GetActivat
 by the workspace's `make spec`), so results unmarshal straight into the generated messages.
 
 **Switch:** `--yellowback` (cobra/viper, so also `YELLOWBACK=1` or the config file). At startup,
-after `GetLightdInfo`, the server calls `getexperimentalfeatures` and, when `"yellowback"` is
-listed, `yed_getinfo`; it registers the service only when the node speaks `rpcversion 4`. Off,
+after `GetLightdInfo`, the server calls `yed_getinfo`; it registers the service only when the node
+speaks `rpcversion 5`. ("Method not found" means a node without the yed_* commands: rpcversion 5
+retired the `yellowback` experimental feature, and the node registers the commands exactly where
+the vault upgrade and a YED attestor set are configured.) Off,
 or on a stock node, the binary is the baseline in every observable way. With the flag on, the
 taddr RPCs (`GetTaddressTxids`, `GetTaddressBalance`, `GetAddressUtxos`) also accept YED
 addresses (`ye…`/`yt…`/`yr…`), mapped to the transparent form before the baseline's
@@ -36,6 +39,27 @@ addresses (`ye…`/`yt…`/`yr…`), mapped to the transparent form before the b
 `common.NotOffered` (with reasons) together cover every `yed_*` method of the contract, and the
 offline suite fails when one appears in neither. `common.StockMethods` is the separate, one-entry
 allow-list of stock RPCs `CallYed` may also reach (`getblockchaininfo`, for `GetChainInfo`).
+
+**rpcversion 5 (the vault upgrade, `docs/plans/yellowback-upgrade-plan.md` §6, §15.10).** YED is a
+consensus module of the network upgrade `Vault` (branch id `6d5b7a31`), so the messages lost the
+activation, enforcement, sunset, valve and abandonment fields (their numbers are `reserved` in the
+proto), `GetActivation` is the upgrade object (`status`, `activationHeight`, `branchId`,
+`attestorSetId`, `claimDelay`, `height`, `name`; also `GetYellowbackInfo.upgrade`), the parameters
+gain `attestorSetId` and `claimDelay`, a vault row gains `scriptPubKey` (its V template) and, while
+`CLAIMING` (a new `ListVaults` status), `intents[]{txid, vout, role, height, releaseHeight}`;
+`GetTxInfo` gains `reopenedVaults`, attestor rows `lastAct` and `bondFrozen`. `GetChainInfo`'s
+`upgrades` includes `Vault`, and its `nextBlockBranchId` is what a client signs with across the
+activation block.
+
+**The vault primitive (rpcversion 5).** `GetVaultInfo` (`vault_getinfo`), `ListSets` (`set_list`),
+`GetSet` (`set_getinfo setid [height]`) and `ListVaultOutputs` (`vault_list {tag, setid, owner,
+kind}`) proxy the primitive's read RPCs (`ycash-dd/doc/vault-rpc.md`, copied to
+`testdata/vault/vault-rpc.md` with answers captured from a devnet as the fixtures). They go
+through `CallYed` on a third allow-list, `common.VaultMethods`; every other `set_*`/`vault_*`
+command is in `common.NotOfferedVault` with a reason, and the offline suite fails when a command of
+the document is in neither. `vault_list`'s `mine` filter and the node's `wallet` result fields are
+the node's wallet, so neither is carried. YEC amounts are the node's decimal numbers (`double`),
+`valuezat` is zatoshi.
 
 ## Light-client sync notes (x402 `lwdnext`, 2026-10-04)
 
@@ -196,10 +220,9 @@ against the devnet") runs the same driver with `--up --down`.
 ## Operator runbook
 
 ```
-# node (ycash-dd), a relay's configuration
+# node (ycash-dd on the vault upgrade), a relay's configuration: YED is consensus where the
+# upgrade and the network's YED attestor set are configured; no yellowback flag
 experimentalfeatures=1
-yellowback=1
-yellowbackenforce=0        # a relay follows the chain; enforcement is for miners (v2 plan §3.9)
 insightexplorer=1
 txindex=1
 server=1 rpcuser=… rpcpassword=… rpcbind=127.0.0.1 rpcport=8832
@@ -210,7 +233,7 @@ lightwalletd --zcash-conf-path ycash.conf --data-dir /var/lib/lightwalletd --grp
 ```
 Credentials come from `ycash.conf`: never put `--rpcpassword` on a production command line.
 
-The log says either `Yellowback service started (node rpcversion 4, network …)` or why not.
-**Upgrade order:** node first (`ycash-dd` with `-yellowback`), then the server binary (no change
+The log says either `Yellowback service started (node rpcversion 5, network …)` or why not.
+**Upgrade order:** node first (`ycash-dd` on the vault upgrade), then the server binary (no change
 until the flag), then `--yellowback`. A server ahead of its node, or on a stock node, logs one
 line and serves the baseline surface. `docs/review.md` is the review packet for the maintainers.

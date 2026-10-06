@@ -1,0 +1,43 @@
+{
+  "setid": "fc7cca3f6bef557056dd9445ac0074b66c097b9d63ebb871ca732bec467905a2",
+  "height": 203,
+  "seats": 3,
+  "unlockthreshold": 1,
+  "cancelthreshold": 1,
+  "slashthreshold": 1,
+  "open": false,
+  "ratelimitbps": 5000,
+  "ratewindow": 20,
+  "livenesswindow": 1000,
+  "bondmin": 1.00000000,
+  "bondlockmin": 0,
+  "maturity": 1,
+  "admitkey": "02c4681b70d28967a052cb0b0c0aca90778dd14bd7b1fd6ae042ff534ed3384fd1",
+  "createheight": 177,
+  "winddownheight": 0,
+  "lockedvalue": 6.00000000,
+  "epoch": 10,
+  "epochbasis": 10.00000000,
+  "epochused": 4.00000000,
+  "unlockavailable": 1.00000000,
+  "members": 1,
+  "active": 1,
+  "current": 1,
+  "dormant": false,
+  "released": false,
+  "memberlist": [
+    {
+      "key": "0351e5344c37afbef2362013248866aed4f3726427a6ee5f3b125e17ada1700f62",
+      "status": "active",
+      "current": true,
+      "live": true,
+      "joinheight": 178,
+      "lastact": 180,
+      "bondoutpoint": "3b08dbdbdfc6e5d3e0325f5698be319a11c602c9eee695d9c542b9622b8e7e94:0",
+      "bondvalue": 1.00000000,
+      "bondlocktime": 677,
+      "bondfrozen": false,
+      "wallet": true
+    }
+  ]
+}
