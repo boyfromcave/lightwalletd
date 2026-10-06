@@ -30,7 +30,7 @@ const ServerVersion = "0.2-yec-lightwalletd"
 
 // KnownRPCVersion is the node contract this server was written against
 // (ycash-dd/doc/yellowback-rpc-contract.json "rpcversion").
-const KnownRPCVersion = 3
+const KnownRPCVersion = 4
 
 // YedMethods is the allow-list: every node RPC the service may call, and nothing else.
 // The offline test asserts this set against the contract: every yed_* method there is either

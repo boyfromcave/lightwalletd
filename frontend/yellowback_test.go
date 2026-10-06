@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"reflect"
@@ -333,6 +334,27 @@ func TestUnaryMethodsMatchContract(t *testing.T) {
 	}
 }
 
+// TestUnaryInfoMintRequiresArmed: rpcversion 4's yed_getinfo.mintRequiresArmed (hardening H-1)
+// reaches the client. The contract example is false, which the field-by-field check above cannot
+// tell from a dropped field, so the fake node answers true here.
+func TestUnaryInfoMintRequiresArmed(t *testing.T) {
+	svc, node := newService(t)
+	var info map[string]interface{}
+	if err := json.Unmarshal(node.contract.returns(t, "yed_getinfo"), &info); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := info["mintRequiresArmed"]; !ok {
+		t.Fatal("contract yed_getinfo has no mintRequiresArmed (rpcversion 4)")
+	}
+	info["mintRequiresArmed"] = true
+	encoded, _ := json.Marshal(map[string]interface{}{"returns": info})
+	node.contract["yed_getinfo"] = encoded
+	got, err := svc.GetYellowbackInfo(context.Background(), &walletrpc.Empty{})
+	if err != nil || !got.MintRequiresArmed {
+		t.Fatalf("mintRequiresArmed not passed through: %+v err=%v", got, err)
+	}
+}
+
 // TestStreamingMethodsMatchContract does the same for the four streams.
 func TestStreamingMethodsMatchContract(t *testing.T) {
 	svc, node := newService(t)
@@ -521,11 +543,14 @@ func TestProbe(t *testing.T) {
 	if err != nil || !capability.Enabled || capability.RPCVersion != common.KnownRPCVersion || capability.Network != "regtest" {
 		t.Fatalf("yellowback node: got %+v err=%v", capability, err)
 	}
-	node = newFakeNode(t)
-	install(t, node)
-	node.contract["yed_getinfo"] = json.RawMessage(`{"returns": {"rpcversion": 4, "network": "regtest"}}`)
-	if _, err := common.ProbeYellowback(); err == nil {
-		t.Fatal("rpcversion 4 must be refused")
+	// rpcversion 3 (before hardening H3-c) and a future 5 are both refused: the contract is exact.
+	for _, v := range []int{common.KnownRPCVersion - 1, common.KnownRPCVersion + 1} {
+		node = newFakeNode(t)
+		install(t, node)
+		node.contract["yed_getinfo"] = json.RawMessage(fmt.Sprintf(`{"returns": {"rpcversion": %d, "network": "regtest"}}`, v))
+		if _, err := common.ProbeYellowback(); err == nil {
+			t.Fatalf("rpcversion %d must be refused", v)
+		}
 	}
 	node = newFakeNode(t)
 	install(t, node)

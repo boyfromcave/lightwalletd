@@ -119,6 +119,7 @@ func probeYellowback(conn *grpc.ClientConn, timeout time.Duration) map[string]st
 			result["GetYellowbackInfo#rpcversion"] = fmt.Sprint(info.Rpcversion)
 			result["GetYellowbackInfo#serverVersion"] = info.ServerVersion
 			result["GetYellowbackInfo#height"] = fmt.Sprint(info.Height)
+			result["GetYellowbackInfo#mintRequiresArmed"] = fmt.Sprint(info.MintRequiresArmed)
 		}
 		return err
 	})

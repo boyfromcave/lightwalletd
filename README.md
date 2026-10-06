@@ -78,8 +78,8 @@ If you restart the node on a different network, restart lightwalletd too.
 
 **Yellowback.** `--yellowback` (or `YELLOWBACK=1`, or `yellowback: true` in the config file).
 At startup the server asks the node for `getexperimentalfeatures` and `yed_getinfo` and registers
-the service only when the node speaks Yellowback `rpcversion 3`; the log says
-`Yellowback service started (node rpcversion 3, network …)` or why not. Two operator flags
+the service only when the node speaks Yellowback `rpcversion 4`; the log says
+`Yellowback service started (node rpcversion 4, network …)` or why not. Two operator flags
 belong to it: `--yellowback-max-inflight N` (node calls in flight at once, default 16) and
 `--trusted-proxy-cidr NET` (repeatable; the per-peer rate limiter believes `x-real-ip` /
 `x-forwarded-for` only from these networks — set it when, and only when, a reverse proxy sets
