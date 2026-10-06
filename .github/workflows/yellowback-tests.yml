@@ -77,6 +77,8 @@ jobs:
         run: CGO_ENABLED=0 go build -mod=vendor -o lightwalletd . && go build -mod=vendor -o /dev/null ./testtools/lwdinfo
       - name: Vet
         run: go vet -mod=vendor ./cmd/... ./common/... ./frontend/... ./walletrpc/...
+      - name: Vet the devnet suite (-tags devnet; it runs only from a devnet, so compile it on every push)
+        run: go vet -mod=vendor -tags devnet ./frontend/
       - name: gofmt (files this fork added)
         run: test -z "$(gofmt -l common/yellowback.go frontend/yellowback*.go testtools/lwdinfo)"
       - name: Test (every package but frontend)
