@@ -24,7 +24,7 @@ by the workspace's `make spec`), so results unmarshal straight into the generate
 
 **Switch:** `--yellowback` (cobra/viper, so also `YELLOWBACK=1` or the config file). At startup,
 after `GetLightdInfo`, the server calls `getexperimentalfeatures` and, when `"yellowback"` is
-listed, `yed_getinfo`; it registers the service only when the node speaks `rpcversion 3`. Off,
+listed, `yed_getinfo`; it registers the service only when the node speaks `rpcversion 4`. Off,
 or on a stock node, the binary is the baseline in every observable way. With the flag on, the
 taddr RPCs (`GetTaddressTxids`, `GetTaddressBalance`, `GetAddressUtxos`) also accept YED
 addresses (`ye…`/`yt…`/`yr…`), mapped to the transparent form before the baseline's
@@ -210,7 +210,7 @@ lightwalletd --zcash-conf-path ycash.conf --data-dir /var/lib/lightwalletd --grp
 ```
 Credentials come from `ycash.conf`: never put `--rpcpassword` on a production command line.
 
-The log says either `Yellowback service started (node rpcversion 3, network …)` or why not.
+The log says either `Yellowback service started (node rpcversion 4, network …)` or why not.
 **Upgrade order:** node first (`ycash-dd` with `-yellowback`), then the server binary (no change
 until the flag), then `--yellowback`. A server ahead of its node, or on a stock node, logs one
 line and serves the baseline surface. `docs/review.md` is the review packet for the maintainers.
