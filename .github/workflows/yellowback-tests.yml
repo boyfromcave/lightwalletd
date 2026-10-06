@@ -83,6 +83,27 @@ jobs:
         run: test -z "$(gofmt -l common/yellowback.go frontend/yellowback*.go testtools/lwdinfo)"
       - name: Test (every package but frontend)
         run: go test -mod=vendor ./cmd/... ./common/... ./parser/... ./walletrpc/...
+      - name: The contract fixture equals the node's (ycash-dd at the matching branch)
+        # testdata/yellowback/contract.json is the node's generated contract (the workspace's
+        # `make spec`); the allow-list tests read it, so a fixture that drifted from the node's is a
+        # server tested against a contract the node does not serve. Skipped (with a notice) while
+        # the matching node branch is not on GitHub yet.
+        env:
+          BRANCH: ${{ github.base_ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$BRANCH" in
+            ci/harden*|harden/yellowback) node=harden/yellowback ;;
+            ci/upgrade*|upgrade/vault)    node=upgrade/vault ;;
+            *)                            node=feature/yellowback-price-attest ;;
+          esac
+          url="https://raw.githubusercontent.com/$NODE_REPO_YCASH_DD/$node/doc/yellowback-rpc-contract.json"
+          if ! curl -fsSL -o "$RUNNER_TEMP/node-contract.json" "$url"; then
+            echo "::notice::$NODE_REPO_YCASH_DD has no $node (or no contract there) yet; fixture comparison skipped"
+            exit 0
+          fi
+          cmp testdata/yellowback/contract.json "$RUNNER_TEMP/node-contract.json" \
+            && echo "testdata/yellowback/contract.json = $NODE_REPO_YCASH_DD@$node doc/yellowback-rpc-contract.json"
       - name: "Test (frontend: the Yellowback suite by name)"
         # The baseline's own frontend tests fail and then hang at 187a267 (F-R1: yodl's Ycash
         # regex commit invalidated upstream's t-address test data, after which the RPC stubs run
