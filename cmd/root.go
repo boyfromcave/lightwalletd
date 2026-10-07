@@ -359,7 +359,7 @@ func init() {
 	rootCmd.Flags().String("data-dir", "/var/lib/lightwalletd", "data directory (such as db)")
 	rootCmd.Flags().Bool("ping-very-insecure", false, "allow Ping GRPC for testing")
 	rootCmd.Flags().Bool("darkside-very-insecure", false, "run with GRPC-controllable mock zcashd for integration testing (shuts down after 30 minutes)")
-	rootCmd.Flags().Bool("yellowback", false, "serve the Ycash Yellowback (YED) service when the node runs -yellowback (docs/yellowback.md)")
+	rootCmd.Flags().Bool("yellowback", false, "serve the Ycash Yellowback (YED) service when the node offers yed_* (the vault upgrade; docs/yellowback.md)")
 	rootCmd.Flags().Int("yellowback-max-inflight", common.DefaultYedMaxInFlight, "at most this many Yellowback node calls in flight at once (0: unbounded)")
 	rootCmd.Flags().StringSlice("trusted-proxy-cidr", nil, "reverse-proxy networks whose x-real-ip / x-forwarded-for the Yellowback rate limiter believes (repeatable)")
 	rootCmd.Flags().Int("darkside-timeout", 30, "override 30 minute default darkside timeout")

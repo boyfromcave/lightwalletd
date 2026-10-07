@@ -7,13 +7,17 @@ gains. The design record is the workspace plan (`docs/plans/yellowback-lightwall
 
 ## What this is
 
-Ycash Yellowback (YED) is a dollar-denominated overlay on ordinary transparent outputs, judged
-by the node's index (`ycash-dd`, `-yellowback`). Light clients already see those outputs
+Ycash Yellowback (YED) is a dollar token on ordinary transparent outputs, built on the vaults of
+the proposed Ycash vault upgrade (a network upgrade, branch ID `6d5b7a31`) and judged by the
+node as consensus wherever that upgrade and the network's YED attestor set are configured
+(`ycash-dd` or `ycash6` on `upgrade/vault`; the node needs no Yellowback flag). Light clients already see those outputs
 (`GetTaddressTxids` + `GetTransaction`); what they cannot compute alone is the node's
 **verdict** on a transaction, the **price and collateral** numbers, and the **attestation
 bundle** a mint or claim must carry. This fork adds a **second gRPC service**,
-`cash.z.wallet.sdk.rpc.YellowbackStreamer`, whose nineteen methods are each a thin, allow-listed
-proxy of one read-only `yed_*` RPC on the node the server already talks to. The server holds no
+`cash.z.wallet.sdk.rpc.YellowbackStreamer`, whose twenty-four methods are each a thin,
+allow-listed proxy of one read-only node RPC on the node the server already talks to: nineteen
+`yed_*` RPCs, the stock `getblockchaininfo` (`GetChainInfo`) and four read RPCs of the vault
+primitive (`vault_getinfo`, `set_list`, `set_getinfo`, `vault_list`). The server holds no
 Yellowback state and runs no Yellowback logic. The darkside service is the precedent for a
 second service in this codebase; the new one follows it.
 
@@ -27,11 +31,11 @@ second service in this codebase; the new one follows it.
 | `Dockerfile`, `docker-compose.yml`, `buildenv.sh` | **0** | the same image and binary, one new flag |
 | `go.sum`, `vendor/` | **0** | no dependency added, none bumped |
 
-## What changed in files that existed (≈ 52 lines)
+## What changed in files that existed
 
 | File | Lines | What |
 |---|---|---|
-| `cmd/root.go` | +21 | `--yellowback` (flag, viper bind and default, `Options` field), and after the darkside block: probe the node (`getexperimentalfeatures`, `yed_getinfo.rpcversion == 3`) and register the service only when both hold |
+| `cmd/root.go` | +39 | `--yellowback` (flag, viper bind and default, `Options` field) and the bounds flags, and after the darkside block: probe the node with `yed_getinfo` and register the service only when it answers with `rpcversion == 5` ("Method not found" means a node without the vault upgrade or the attestor set: the baseline surface, no error) |
 | `common/common.go` | +1 | `Options.Yellowback` |
 | `frontend/service.go` | +19 −3 | `YellowbackAddresses` and `taddrOf`: with the flag on, the three taddr RPCs map a YED address (`ye…`/`yt…`/`yr…`, the same key hash under other version bytes) to its transparent form before the existing `checkTaddress`, which stays the last check; off, every path is the baseline's |
 | `Makefile` | +8 | `yellowback.proto` in `GENERATED_FILES`, `proto`, `update-grpc`, `doc`, `simpledoc` |
@@ -59,7 +63,10 @@ observable way.** Proven on a regtest devnet: `GetLightdInfo` byte-identical and
 
 ### The allow-list
 
-`common.YedMethods` names the nineteen node-context, read-only RPCs the service may call.
+`common.YedMethods` names the nineteen node-context, read-only `yed_*` RPCs the service may call;
+`common.StockMethods` (`getblockchaininfo`) and `common.VaultMethods` (the four vault primitive
+reads) are separate allow-lists, and `common.NotOfferedVault` gives the reason for every other
+`set_*` / `vault_*` command.
 `common.NotOffered` names every other `yed_*` RPC of the contract with the reason: every wallet
 RPC (they need the node's keys), `yed_setquote` (miner-local), `yed_addattestation` and
 `yed_signattestation` (RPC-auth only), and the operator/test tooling. The offline suite fails
@@ -79,7 +86,8 @@ busy for 2 s. A node call ends with the client's context or a 15 s deadline
 - **Offline** (`go test -mod=vendor ./frontend/ -run …`, 17 tests): every method compared
   field by field with the node contract's example values through a stubbed `common.RawRequest`
   (the tree's own test pattern); params encoding; error mapping; input validation; allow-list
-  completeness; the probe on a stock node, a wrong `rpcversion`, a transport failure; address
+  completeness; the probe on a node without `yed_*` ("Method not found"), an `rpcversion` other
+than 5, a transport failure; address
   vectors; the rate limiter. `go vet` clean.
 - **Regtest** (`scripts/devnet-test.sh`, a five-node `ycash-dd` devnet, never mainnet): the
   byte-equality gate above; a mint made by node 0's wallet is seen through `GetAddressTokens`
@@ -105,9 +113,11 @@ Yellowback frontend tests by name and every other package in full (`docs/yellowb
 
 ## Node side
 
-The server's node runs `experimentalfeatures=1 yellowback=1 insightexplorer=1 txindex=1` and,
-being a relay, `yellowbackenforce=0`. One node RPC was added for this server, `yed_listtokens`
-(the YED outputs of any address; an index read, zero consensus lines).
+The server's node is a `ycash-dd` or `ycash6` build of `upgrade/vault`. Yellowback needs no node
+flag there; the node runs `insightexplorer=1 txindex=1` for the stock address RPCs, and
+`experimentalfeatures=1` because the node refuses `insightexplorer` without it. One node RPC was
+added for this server, `yed_listtokens` (the YED outputs of any address; an index read, zero
+consensus lines).
 
 ## Trust statement (for the client to show once)
 
@@ -118,6 +128,6 @@ signature it is handed against the seated set it reads from `ListAttestors`.
 
 ## Upgrade order
 
-Node first (`ycash-dd` with `-yellowback`), then the server binary (no behaviour change until
+Node first (`ycash-dd` or `ycash6` on the vault upgrade), then the server binary (no behaviour change until
 the flag), then `--yellowback`. A server upgraded ahead of its node, or pointed at a stock node,
 logs one line and serves the baseline surface.

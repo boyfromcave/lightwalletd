@@ -4,7 +4,8 @@ The working fork of Ycash's lightwalletd for Yellowback. The plan is the workspa
 `docs/plans/yellowback-lightwalletd-plan.md`; this file is the operator and developer record.
 **Baseline:** branch `lightwalletd-legacy` = `yodl/lightwalletd` `master` `187a26765e`
 (2021-07-13: `zcash/lightwalletd` 0.4.6 plus four commits, the last adapting the transparent
-address regex to Ycash's `s…`). Work branch: `feature/yellowback-price-attest`. The service was
+address regex to Ycash's `s…`). Work branch: `upgrade/vault` (the vault upgrade line; `harden/yellowback` keeps the no-upgrade
+line). The service was
 first built and proven on an earlier, different lineage (yecdev's Zecwallet-derived server) and
 re-ported here on 2026-09-24 (plan Phase R0, §10); the design and its evidence are the same.
 
@@ -25,9 +26,9 @@ by the workspace's `make spec`), so results unmarshal straight into the generate
 
 **Switch:** `--yellowback` (cobra/viper, so also `YELLOWBACK=1` or the config file). At startup,
 after `GetLightdInfo`, the server calls `yed_getinfo`; it registers the service only when the node
-speaks `rpcversion 5`. ("Method not found" means a node without the yed_* commands: rpcversion 5
-retired the `yellowback` experimental feature, and the node registers the commands exactly where
-the vault upgrade and a YED attestor set are configured.) Off,
+speaks `rpcversion 5`. ("Method not found" means a node without the yed_* commands: the node
+registers them exactly where the vault upgrade and a YED attestor set are configured; no node flag
+turns them on.) Off,
 or on a stock node, the binary is the baseline in every observable way. With the flag on, the
 taddr RPCs (`GetTaddressTxids`, `GetTaddressBalance`, `GetAddressUtxos`) also accept YED
 addresses (`ye…`/`yt…`/`yr…`), mapped to the transparent form before the baseline's
@@ -41,9 +42,9 @@ offline suite fails when one appears in neither. `common.StockMethods` is the se
 allow-list of stock RPCs `CallYed` may also reach (`getblockchaininfo`, for `GetChainInfo`).
 
 **rpcversion 5 (the vault upgrade, `docs/plans/yellowback-upgrade-plan.md` §6, §15.10).** YED is a
-consensus module of the network upgrade `Vault` (branch id `6d5b7a31`), so the messages lost the
-activation, enforcement, sunset, valve and abandonment fields (their numbers are `reserved` in the
-proto), `GetActivation` is the upgrade object (`status`, `activationHeight`, `branchId`,
+consensus module of the network upgrade `Vault` (branch id `6d5b7a31`), so the messages carry
+no activation-by-signalling or enforcement fields (the numbers those fields used are `reserved` in
+the proto), `GetActivation` is the upgrade object (`status`, `activationHeight`, `branchId`,
 `attestorSetId`, `claimDelay`, `height`, `name`; also `GetYellowbackInfo.upgrade`), the parameters
 gain `attestorSetId` and `claimDelay`, a vault row gains `scriptPubKey` (its V template) and, while
 `CLAIMING` (a new `ListVaults` status), `intents[]{txid, vout, role, height, releaseHeight}`;
@@ -220,8 +221,11 @@ against the devnet") runs the same driver with `--up --down`.
 ## Operator runbook
 
 ```
-# node (ycash-dd on the vault upgrade), a relay's configuration: YED is consensus where the
-# upgrade and the network's YED attestor set are configured; no yellowback flag
+# node (ycash-dd or ycash6 on the vault upgrade). Yellowback needs no node flag: YED is consensus
+# wherever the upgrade and the network's YED attestor set are configured. These three lines are
+# for the stock CompactTxStreamer's address RPCs (GetTaddressTxids, GetTaddressBalance,
+# GetAddressUtxos): -insightexplorer needs -txindex, and the node refuses it without
+# -experimentalfeatures ("Insight explorer requires -experimentalfeatures").
 experimentalfeatures=1
 insightexplorer=1
 txindex=1
@@ -234,6 +238,6 @@ lightwalletd --zcash-conf-path ycash.conf --data-dir /var/lib/lightwalletd --grp
 Credentials come from `ycash.conf`: never put `--rpcpassword` on a production command line.
 
 The log says either `Yellowback service started (node rpcversion 5, network …)` or why not.
-**Upgrade order:** node first (`ycash-dd` on the vault upgrade), then the server binary (no change
+**Upgrade order:** node first (`ycash-dd` or `ycash6` on the vault upgrade), then the server binary (no change
 until the flag), then `--yellowback`. A server ahead of its node, or on a stock node, logs one
 line and serves the baseline surface. `docs/review.md` is the review packet for the maintainers.

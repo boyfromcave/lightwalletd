@@ -11,6 +11,6 @@ rpcuser=ycashrpc
 rpcpassword=change-me
 rpcbind=127.0.0.1
 rpcport=8832
-# Yellowback (YED): a relay follows the chain, enforcement is for miners (docs/yellowback.md).
-yellowback=1
-yellowbackenforce=0
+# Yellowback (YED) needs no key here: the node serves yed_* wherever the vault upgrade and the
+# network's YED attestor set are configured (docs/yellowback.md). experimentalfeatures=1 above is
+# what insightexplorer=1 requires.
