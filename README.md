@@ -6,29 +6,33 @@ lightwalletd is a backend service that gives light wallets a bandwidth-efficient
 interface to the Ycash blockchain: compact blocks, transparent-address lookups, transaction
 broadcast. This tree is the Ycash lineage — [zcash/lightwalletd](https://github.com/zcash/lightwalletd)
 0.4.6 with the Ycash transparent-address regex (`s…`), as maintained at
-[yodl/lightwalletd](https://github.com/yodl/lightwalletd) — plus one addition:
+[yodl/lightwalletd](https://github.com/yodl/lightwalletd) — plus one addition, described next.
 
-**Ycash Yellowback (YED).** Behind the `--yellowback` flag the server offers a second gRPC service,
-`YellowbackStreamer`, whose twenty-four methods are thin, allow-listed proxies of read-only RPCs on
-the node it already follows: the `yed_*` reads (verdicts, price and collateral, vaults, attestation
-bundles, YED token sets), the next block's consensus branch ID (`GetChainInfo`), and the vault
-primitive's `GetVaultInfo`, `ListSets`, `GetSet`, `ListVaultOutputs`. The flag off, or on a node
-without the `yed_*` commands, the binary behaves as the baseline in every observable way; with the
-flag on, the transparent-address RPCs also accept YED addresses.
-[docs/yellowback.md](docs/yellowback.md) is the operator and developer record,
-[docs/review.md](docs/review.md) the review packet. Clients: the YecWallet-lite style desktop
-wallets and the YEW mobile wallet, which vendor `walletrpc/*.proto`.
+## Ycash Yellowback (YED) on this branch
 
-**The node it needs is a network upgrade.** On this branch (`upgrade/vault`) Yellowback is the rule
-module of the **vault network upgrade** (`UPGRADE_VAULT`, consensus branch ID `0x6d5b7a31`), a
-coordinated hard fork of the node ([ycash-dd](https://github.com/boyfromcave/ycash-dd) and
-[ycash6](https://github.com/boyfromcave/ycash6), branch `upgrade/vault`): from its activation height
-YED's rules are consensus, and a node that has not upgraded stops following the chain. lightwalletd
-itself carries no consensus code, so the change here is the service at `rpcversion` 5 and the vault
-reads; compact blocks are unchanged. The upgrade is implemented and tested on regtest and the
-one-laptop devnet only: **mainnet and testnet have no activation height and no YED attestor set**,
-and it is not adopted by the Ycash Foundation, not audited and not activated on any public network.
-The no-upgrade fallback line is `harden/yellowback`.
+This branch (`upgrade/vault`) serves light wallets for a proposed Ycash network upgrade, **the vault
+upgrade**, which adds **vaults** to Ycash: YEC locked on chain under rules every node enforces,
+released only with the approval of a bonded **signer set**. **Ycash Yellowback (YED)** is a dollar
+token built on vaults: lock YEC in a vault to mint YED (`1 YED = 1 US dollar`), return the YED to
+get the YEC back.
+
+- **What the server adds:** with `--yellowback`, a second gRPC service, `YellowbackStreamer`
+  ([walletrpc/yellowback.proto](walletrpc/yellowback.proto)). Its 24 methods only *read*: YED
+  prices, balances, vaults and attestations, the consensus branch ID a wallet must sign for, and the
+  vaults and signer sets of the upgrade. Each is a thin proxy of one read-only node RPC. Compact
+  blocks and the standard `CompactTxStreamer` service are unchanged, and without the flag the
+  binary behaves exactly like upstream. Clients: the YEW mobile wallet and desktop light wallets.
+- **Node it needs:** a ycashd built from the `upgrade/vault` branch of
+  [ycash-dd](https://github.com/boyfromcave/ycash-dd) or
+  [ycash6](https://github.com/boyfromcave/ycash6). Against a stock ycashd the service simply does
+  not start.
+- **Status: proposed, not live.** It runs on a local test network (regtest) only. It has not been
+  adopted by the Ycash Foundation, has not been audited, and has no activation height on mainnet
+  or testnet.
+- **Try it:** with a built ycash-dd checkout beside this one (or `YCASH_DD=<path>`),
+  `scripts/devnet-test.sh --up --down` brings up the node's local test network, starts this server
+  against it and runs the regtest suite (`--help` lists the options; the Python it needs is in
+  the script header). [docs/yellowback.md](docs/yellowback.md) has the operator and developer notes.
 
 # Security disclaimer
 
@@ -37,8 +41,8 @@ features are more stable than others. The code has not been subjected to a thoro
 external auditor. Developers should familiarize themselves with the
 [wallet app threat model](https://zcash.readthedocs.io/en/latest/rtd_pages/wallet_threat_model.html),
 since it contains important information about the security and privacy limitations of light
-wallets that use lightwalletd. The Yellowback service has had an internal audit
-(the workspace's `docs/audits/`), not an external one.
+wallets that use lightwalletd. The Yellowback service has had an internal review, not an
+external audit.
 
 # Building
 
@@ -57,9 +61,8 @@ proto changes.
 
 # Running against ycashd
 
-The node is `ycashd` (Ycash 4.5.0 or later; for the Yellowback service, the Yellowback build on
-the vault network upgrade, where YED is live once the upgrade and a YED attestor set are configured
-— no flag; on regtest `-nuparams=6d5b7a31:<height> -yellowbackattestorset=<setid>`). Its `ycash.conf` must contain:
+The node is `ycashd` (Ycash 4.5.0 or later; for the Yellowback service, the `upgrade/vault` build
+above). Its `ycash.conf` must contain:
 
 ```
 txindex=1
@@ -93,7 +96,8 @@ If you restart the node on a different network, restart lightwalletd too.
 **Yellowback.** `--yellowback` (or `YELLOWBACK=1`, or `yellowback: true` in the config file).
 At startup the server asks the node for `yed_getinfo` and registers the service only when the node
 speaks Yellowback `rpcversion 5` (a node without the yed_* commands answers "Method not found": no
-service, no error); the log says `Yellowback service started (node rpcversion 5, network …)` or why not. Two operator flags
+service, no error); the log says `Yellowback service started (node rpcversion 5, network …)` or
+why not. Two operator flags
 belong to it: `--yellowback-max-inflight N` (node calls in flight at once, default 16) and
 `--trusted-proxy-cidr NET` (repeatable; the per-peer rate limiter believes `x-real-ip` /
 `x-forwarded-for` only from these networks — set it when, and only when, a reverse proxy sets
