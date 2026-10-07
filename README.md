@@ -1,6 +1,6 @@
 # Ycash lightwalletd
 
-[![yellowback-tests](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml/badge.svg?branch=feature/yellowback-price-attest)](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml)
+[![yellowback-tests](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml/badge.svg?branch=upgrade/vault)](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml)
 
 lightwalletd is a backend service that gives light wallets a bandwidth-efficient, Sapling-era
 interface to the Ycash blockchain: compact blocks, transparent-address lookups, transaction
@@ -9,13 +9,26 @@ broadcast. This tree is the Ycash lineage — [zcash/lightwalletd](https://githu
 [yodl/lightwalletd](https://github.com/yodl/lightwalletd) — plus one addition:
 
 **Ycash Yellowback (YED).** Behind the `--yellowback` flag the server offers a second gRPC service,
-`YellowbackStreamer`, whose nineteen methods are thin, allow-listed proxies of the read-only
-`yed_*` RPCs on the node it already follows (verdicts, price and collateral, vaults, attestation
-bundles, YED token sets). The flag off, or on a node without `-yellowback`, the binary behaves as
-the baseline in every observable way; with the flag on, the transparent-address RPCs also accept
-YED addresses. [docs/yellowback.md](docs/yellowback.md) is the operator and developer record,
+`YellowbackStreamer`, whose twenty-four methods are thin, allow-listed proxies of read-only RPCs on
+the node it already follows: the `yed_*` reads (verdicts, price and collateral, vaults, attestation
+bundles, YED token sets), the next block's consensus branch ID (`GetChainInfo`), and the vault
+primitive's `GetVaultInfo`, `ListSets`, `GetSet`, `ListVaultOutputs`. The flag off, or on a node
+without the `yed_*` commands, the binary behaves as the baseline in every observable way; with the
+flag on, the transparent-address RPCs also accept YED addresses.
+[docs/yellowback.md](docs/yellowback.md) is the operator and developer record,
 [docs/review.md](docs/review.md) the review packet. Clients: the YecWallet-lite style desktop
 wallets and the YEW mobile wallet, which vendor `walletrpc/*.proto`.
+
+**The node it needs is a network upgrade.** On this branch (`upgrade/vault`) Yellowback is the rule
+module of the **vault network upgrade** (`UPGRADE_VAULT`, consensus branch ID `0x6d5b7a31`), a
+coordinated hard fork of the node ([ycash-dd](https://github.com/boyfromcave/ycash-dd) and
+[ycash6](https://github.com/boyfromcave/ycash6), branch `upgrade/vault`): from its activation height
+YED's rules are consensus, and a node that has not upgraded stops following the chain. lightwalletd
+itself carries no consensus code, so the change here is the service at `rpcversion` 5 and the vault
+reads; compact blocks are unchanged. The upgrade is implemented and tested on regtest and the
+one-laptop devnet only: **mainnet and testnet have no activation height and no YED attestor set**,
+and it is not adopted by the Ycash Foundation, not audited and not activated on any public network.
+The no-upgrade fallback line is `harden/yellowback`.
 
 # Security disclaimer
 
@@ -46,12 +59,12 @@ proto changes.
 
 The node is `ycashd` (Ycash 4.5.0 or later; for the Yellowback service, the Yellowback build on
 the vault network upgrade, where YED is live once the upgrade and a YED attestor set are configured
-— no flag). Its `ycash.conf` must contain:
+— no flag; on regtest `-nuparams=6d5b7a31:<height> -yellowbackattestorset=<setid>`). Its `ycash.conf` must contain:
 
 ```
 txindex=1
 insightexplorer=1
-experimentalfeatures=1
+experimentalfeatures=1   # required by insightexplorer; nothing Yellowback-related
 rpcuser=…
 rpcpassword=…
 rpcport=8832          # 18832 on testnet and regtest
