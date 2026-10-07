@@ -26,7 +26,7 @@ cp .env.example .env     # .env is gitignored
 |---|---|
 | `YCASHD_RPC_HOST` / `_PORT` / `_USER` / `_PASSWORD` | the node, passed as `--rpchost/--rpcport/--rpcuser/--rpcpassword`. `host.docker.internal` is the Docker host. Port 8832 mainnet, 18832 testnet/regtest, or your `rpcport=`. |
 | *(`YCASHD_RPC_HOST` empty)* | read a mounted `ycash.conf` instead: uncomment the `LWD_CONF_FILE` volume in `docker-compose.yml`; `docker/ycash.conf.example` shows the keys. |
-| `LWD_YELLOWBACK=1` | `--yellowback`: serve the Yellowback (YED) service when the node runs `-yellowback` ([yellowback.md](yellowback.md)) |
+| `LWD_YELLOWBACK=1` | `--yellowback`: serve the Yellowback (YED) service when the node is on the vault upgrade with a YED attestor set ([yellowback.md](yellowback.md)) |
 | `LWD_YELLOWBACK_MAX_INFLIGHT`, `LWD_TRUSTED_PROXY_CIDRS` | `--yellowback-max-inflight`, `--trusted-proxy-cidr` (space-separated) |
 | `LWD_INSECURE=1` | `--no-tls-very-insecure`. Regtest, or a reverse proxy that terminates TLS, only. |
 | *(`LWD_INSECURE` unset)* | TLS from `/etc/lightwalletd/tls/cert.pem` and `cert.key`: uncomment the `LWD_TLS_DIR` volume. `docker/gen_cert.sh` makes a self-signed pair for a local server. |
@@ -36,7 +36,7 @@ cp .env.example .env     # .env is gitignored
 [docker/entrypoint.sh](../docker/entrypoint.sh) turns these into flags; arguments to the container
 are appended, so `docker run --rm ycash/lightwalletd:local --help` prints the full flag list.
 
-The node needs `txindex=1`, `insightexplorer=1`, `experimentalfeatures=1`, `rpcuser`/`rpcpassword`
+The node needs `txindex=1`, `insightexplorer=1`, `experimentalfeatures=1` (for the stock address RPCs; the node refuses `insightexplorer` without it; Yellowback itself needs no node flag), `rpcuser`/`rpcpassword`
 (lightwalletd does not read the RPC cookie), and an `rpcallowip`/`rpcbind` that admits the Docker
 network — containers reach the host from the bridge network, not from 127.0.0.1.
 
