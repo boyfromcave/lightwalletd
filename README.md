@@ -95,7 +95,8 @@ If you restart the node on a different network, restart lightwalletd too.
 
 **Yellowback.** `--yellowback` (or `YELLOWBACK=1`, or `yellowback: true` in the config file).
 At startup the server asks the node for `yed_getinfo` and registers the service only when the node
-speaks Yellowback `rpcversion 5` (a node without the yed_* commands answers "Method not found": no
+speaks Yellowback `rpcversion 5` (`rpcversion 6` on the in-term claims line, branch `upgrade/vault-in-term`)
+(a node without the yed_* commands answers "Method not found": no
 service, no error); the log says `Yellowback service started (node rpcversion 5, network …)` or
 why not. Two operator flags
 belong to it: `--yellowback-max-inflight N` (node calls in flight at once, default 16) and

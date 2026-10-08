@@ -27,7 +27,7 @@ name: yellowback-tests
 # CI changes before they merge. lightwalletd-legacy (the pristine baseline) is never pushed to.
 on:
   push:
-    branches: [ harden/yellowback, upgrade/vault, main, feature/yellowback-price-attest, 'ci/**' ]
+    branches: [ harden/yellowback, upgrade/vault, upgrade/vault-in-term, main, feature/yellowback-price-attest, 'ci/**' ]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -94,6 +94,7 @@ jobs:
           set -euo pipefail
           case "$BRANCH" in
             ci/harden*|harden/yellowback) node=harden/yellowback ;;
+            upgrade/vault-in-term) node=upgrade/vault-in-term ;;
             ci/upgrade*|upgrade/vault)    node=upgrade/vault ;;
             *)                            node=feature/yellowback-price-attest ;;
           esac
@@ -201,6 +202,7 @@ jobs:
           if [ -z "$ref" ]; then
             case "$BRANCH" in
               ci/harden*|harden/yellowback) ref=harden/yellowback ;;
+              upgrade/vault-in-term) ref=upgrade/vault-in-term ;;
               ci/upgrade*|upgrade/vault)    ref=upgrade/vault ;;
               *)                            ref=$record ;;
             esac

@@ -62,6 +62,19 @@ the document is in neither. `vault_list`'s `mine` filter and the node's `wallet`
 the node's wallet, so neither is carried. YEC amounts are the node's decimal numbers (`double`),
 `valuezat` is zatoshi.
 
+**rpcversion 6 (in-term claims, branch `upgrade/vault-in-term`; `docs/plans/yellowback-in-term-claims-plan.md`
+§4.1 in the workspace).** A vault can be claimed in term once its collateral is below θ × debt (θ = 125 %), and the
+owner may redeem at any height, paying an early-redeem fee before `lockHeight`. The server speaks exactly 6 on this
+line (5 and 7 are refused, as before). Additive proto fields only: `YellowbackParams` gains `claimThresholdBps`
+(19), `earlyRedeemFeeBps` (20, one per class A/B/C), `sigmaMultMaxBps` (21) and `inTermClaims` (22);
+`YellowbackClassParams` gains `earlyRedeemFeeBps` (5); `YedClaimable` gains `claimable` (15) and `lockHeight` (16).
+`ListClaimable` now streams every ACTIVE vault whose claim branch is open, in term too: a row with
+`claimable: false` is above the threshold and its `underwaterAt` is the claim price (µUSD) below which it becomes
+claimable — a client offers a claim only on `claimable: true` rows. `yed_estimateredeem` (the wallet's quote) is
+wallet context and is not offered; a light client computes the early-redeem fee as
+`params.earlyRedeemFeeBps[class] × collateralZat / 10000` before `lockHeight`. `ListClaimable` sends no `count`, so
+the node's default page (1000 rows) applies.
+
 ## Light-client sync notes (x402 `lwdnext`, 2026-10-04)
 
 What a light client (the x402 agent, YEW) gets from this server for syncing and signing, and what

@@ -563,7 +563,7 @@ func TestProbe(t *testing.T) {
 	if err != nil || !capability.Enabled || capability.RPCVersion != common.KnownRPCVersion || capability.Network != "regtest" {
 		t.Fatalf("yellowback node: got %+v err=%v", capability, err)
 	}
-	// rpcversion 4 (before the vault upgrade) and a future 6 are both refused: the contract is exact.
+	// rpcversion 5 (the upgrade line, before in-term claims) and a future 7 are both refused: the contract is exact.
 	for _, v := range []int{common.KnownRPCVersion - 1, common.KnownRPCVersion + 1} {
 		node = newFakeNode(t)
 		install(t, node)
@@ -938,5 +938,59 @@ func TestStockAllowListIsSeparate(t *testing.T) {
 	}
 	if len(node.calls) != 1 {
 		t.Errorf("node calls = %v, want only getblockchaininfo", node.calls)
+	}
+}
+
+// TestUnaryInfoInTerm: rpcversion 6's yed_getinfo.params additions (in-term plan section 4.1, IT-7 / IT-9)
+// reach the client: inTermClaims, claimThresholdBps, the per-class early-redeem fee (top level and per
+// class row) and sigmaMultMaxBps.
+func TestUnaryInfoInTerm(t *testing.T) {
+	svc, _ := newService(t)
+	info, err := svc.GetYellowbackInfo(context.Background(), &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := info.GetParams()
+	if info.GetRpcversion() != 6 || !p.GetInTermClaims() || p.GetClaimThresholdBps() != 12500 || p.GetSigmaMultMaxBps() != 10000 {
+		t.Errorf("in-term params not passed through: rpcversion %d params %+v", info.GetRpcversion(), p)
+	}
+	if fees := p.GetEarlyRedeemFeeBps(); len(fees) != 3 || fees[0] != 500 || fees[1] != 250 || fees[2] != 100 {
+		t.Errorf("earlyRedeemFeeBps = %v, want [500 250 100]", fees)
+	}
+	if cl := p.GetClasses(); len(cl) == 0 || cl[0].GetEarlyRedeemFeeBps() != 500 {
+		t.Errorf("classes[0].earlyRedeemFeeBps not passed through: %+v", cl)
+	}
+}
+
+// TestStreamingClaimableInTerm: rpcversion 6's yed_listclaimable lists in-term rows, claimable or not;
+// a claimable=false row (above the threshold) keeps its underwaterAt and lockHeight. The contract's
+// example row is claimable=true, so the fake node adds a second row that is not.
+func TestStreamingClaimableInTerm(t *testing.T) {
+	svc, node := newService(t)
+	var rows []map[string]interface{}
+	if err := json.Unmarshal(node.contract.returns(t, "yed_listclaimable"), &rows); err != nil || len(rows) != 1 {
+		t.Fatalf("contract yed_listclaimable: %v", err)
+	}
+	above := map[string]interface{}{}
+	for k, v := range rows[0] {
+		above[k] = v
+	}
+	above["claimable"], above["claimPath"], above["underwaterAt"] = false, "", 123456
+	rows = append(rows, above)
+	encoded, _ := json.Marshal(map[string]interface{}{"returns": rows})
+	node.contract["yed_listclaimable"] = encoded
+	cs := &claimableStream{}
+	if err := svc.ListClaimable(&walletrpc.Empty{}, cs); err != nil {
+		t.Fatal(err)
+	}
+	if len(cs.rows) != 2 {
+		t.Fatalf("streamed %d rows, want 2", len(cs.rows))
+	}
+	first, second := cs.rows[0].(*walletrpc.YedClaimable), cs.rows[1].(*walletrpc.YedClaimable)
+	if !first.GetClaimable() || first.GetLockHeight() != 377 {
+		t.Errorf("claimable row: %+v", first)
+	}
+	if second.GetClaimable() || second.GetUnderwaterAt() != 123456 || second.GetLockHeight() != 377 || second.GetClaimPath() != "" {
+		t.Errorf("claimable=false row: %+v", second)
 	}
 }

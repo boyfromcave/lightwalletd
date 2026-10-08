@@ -285,7 +285,7 @@ func startServer(opts *common.Options) error {
 		case err != nil:
 			common.Log.WithFields(logrus.Fields{"error": err}).Error("Yellowback service not started")
 		case !capability.Enabled:
-			common.Log.Warn("Yellowback service not started: the node has no yed_* commands (rpcversion 5: it needs the vault upgrade and a YED attestor set)")
+			common.Log.Warn("Yellowback service not started: the node has no yed_* commands (rpcversion 5 and later: it needs the vault upgrade and a YED attestor set)")
 		default:
 			service := frontend.NewYellowbackStreamer(capability, common.Log)
 			if err := service.TrustProxies(opts.TrustedProxyCIDRs); err != nil {

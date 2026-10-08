@@ -32,8 +32,12 @@ const ServerVersion = "0.2-yec-lightwalletd"
 // (ycash-dd/doc/yellowback-rpc-contract.json "rpcversion"). 5 is the vault network upgrade
 // (docs/plans/yellowback-upgrade-plan.md section 15.10): YED is a consensus module, the yed_*
 // commands exist exactly where the upgrade and a YED attestor set are configured, and the
-// activation/enforcement fields are gone.
-const KnownRPCVersion = 5
+// activation/enforcement fields are gone. 6 is the in-term claims line (upgrade/vault-in-term,
+// docs/plans/yellowback-in-term-claims-plan.md section 4.1): yed_listclaimable lists every ACTIVE
+// vault whose claim branch is open with claimable true/false (the shape change behind the bump),
+// yed_getinfo.params carries inTermClaims, claimThresholdBps and earlyRedeemFeeBps. The match stays
+// exact: a rpcversion 5 node's rows would read as claimable=false, which is not what it meant.
+const KnownRPCVersion = 6
 
 // YedMethods is the allow-list: every node RPC the service may call, and nothing else.
 // The offline test asserts this set against the contract: every yed_* method there is either
@@ -135,6 +139,7 @@ var NotOffered = map[string]string{
 	"yed_lockcoins":          "wallet",
 	"yed_unlockcoin":         "wallet",
 	"yed_estimatesend":       "wallet",
+	"yed_estimateredeem":     "wallet (vault-not-owned, insufficient-yed); a light client computes the early-redeem fee from params.earlyRedeemFeeBps",
 }
 
 // The node is reached through the package's RawRequest function variable (common.go), which
