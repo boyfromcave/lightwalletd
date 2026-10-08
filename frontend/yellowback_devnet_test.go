@@ -979,3 +979,78 @@ func TestDevnetVaultUpgradeThroughServer(t *testing.T) {
 	t.Logf("vault upgrade %s active from %d; attestor set %s: %d members (%d current); %d sets, %d vault outputs; statehash %s",
 		vaultBranch, vaultUpgrade.ActivationHeight, u.GetAttestorSetId()[:16], set.Members, set.Current, len(sets), len(outs), vi.Statehash[:16])
 }
+
+// ---- rpcversion 6: in-term claims (docs/plans/yellowback-in-term-claims-plan.md section 4.1) ----
+
+// TestDevnetInTermClaimableThroughServer: the in-term parameters and the in-term claimable rows reach a
+// light client exactly as the node answers them. Runs after the mint tests above, so at least one vault
+// is in term; a freshly minted vault is above the threshold, so its row is claimable=false with the
+// price at which it would become claimable (underwaterAt) and its lockHeight above the tip.
+func TestDevnetInTermClaimableThroughServer(t *testing.T) {
+	d := openDevnet(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	y := walletrpc.NewYellowbackStreamerClient(d.fork)
+
+	var nodeInfo struct {
+		Height int64 `json:"height"`
+		Params struct {
+			InTermClaims      bool    `json:"inTermClaims"`
+			ClaimThresholdBps int64   `json:"claimThresholdBps"`
+			EarlyRedeemFeeBps []int64 `json:"earlyRedeemFeeBps"`
+			SigmaMultMaxBps   int64   `json:"sigmaMultMaxBps"`
+		} `json:"params"`
+	}
+	d.rpc(t, &nodeInfo, "yed_getinfo")
+	info, err := y.GetYellowbackInfo(ctx, &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := info.GetParams()
+	if info.Rpcversion != 6 || !p.GetInTermClaims() || !nodeInfo.Params.InTermClaims || p.GetClaimThresholdBps() != nodeInfo.Params.ClaimThresholdBps ||
+		p.GetSigmaMultMaxBps() != nodeInfo.Params.SigmaMultMaxBps || fmt.Sprint(p.GetEarlyRedeemFeeBps()) != fmt.Sprint(nodeInfo.Params.EarlyRedeemFeeBps) {
+		t.Fatalf("in-term params: server %+v, node %+v", p, nodeInfo.Params)
+	}
+
+	type row struct {
+		Vault        string `json:"vault"`
+		Claimable    bool   `json:"claimable"`
+		UnderwaterAt int64  `json:"underwaterAt"`
+		LockHeight   int64  `json:"lockHeight"`
+		ClaimPath    string `json:"claimPath"`
+	}
+	var nodeRows []row
+	d.rpc(t, &nodeRows, "yed_listclaimable")
+	lc, err := y.ListClaimable(ctx, &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var have, want []string
+	inTermAbove := 0
+	for {
+		r, err := lc.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		have = append(have, fmt.Sprintf("%s %v %d %d %q", r.Vault, r.Claimable, r.UnderwaterAt, r.LockHeight, r.ClaimPath))
+		if !r.Claimable && r.LockHeight > nodeInfo.Height && r.UnderwaterAt > 0 {
+			inTermAbove++
+		}
+	}
+	for _, r := range nodeRows {
+		want = append(want, fmt.Sprintf("%s %v %d %d %q", r.Vault, r.Claimable, r.UnderwaterAt, r.LockHeight, r.ClaimPath))
+	}
+	sort.Strings(have)
+	sort.Strings(want)
+	if strings.Join(have, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("ListClaimable != yed_listclaimable:\n server %v\n node   %v", have, want)
+	}
+	if inTermAbove == 0 {
+		t.Fatalf("no in-term claimable=false row (the mint tests leave one in term): %v", have)
+	}
+	t.Logf("in-term: theta %d bps, early-redeem fee %v bps; %d listed rows, %d in term above the threshold",
+		p.GetClaimThresholdBps(), p.GetEarlyRedeemFeeBps(), len(have), inTermAbove)
+}
