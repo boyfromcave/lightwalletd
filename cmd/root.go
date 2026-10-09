@@ -59,6 +59,8 @@ var rootCmd = &cobra.Command{
 			Darkside:            viper.GetBool("darkside-very-insecure"),
 			Yellowback:          viper.GetBool("yellowback"),
 			YellowbackInFlight:  viper.GetInt("yellowback-max-inflight"),
+			YedCacheEntries:     viper.GetInt("yellowback-cache-entries"),
+			YedCacheBytes:       viper.GetInt64("yellowback-cache-bytes"),
 			TrustedProxyCIDRs:   viper.GetStringSlice("trusted-proxy-cidr"),
 			DarksideTimeout:     viper.GetUint64("darkside-timeout"),
 		}
@@ -292,6 +294,12 @@ func startServer(opts *common.Options) error {
 				common.Log.WithFields(logrus.Fields{"error": err}).Fatal("--trusted-proxy-cidr")
 			}
 			common.SetYedMaxInFlight(opts.YellowbackInFlight)
+			// The read cache keys on the ingestor's tip (common/yedcache.go); 0 entries = off.
+			common.YedTipHash = cache.GetLatestHash
+			common.SetYedCache(opts.YedCacheEntries, opts.YedCacheBytes)
+			if on, _, _ := common.YedCacheStats(); on {
+				common.Log.Infof("Yellowback read cache: %d entries, %d bytes, keyed on the chain tip", opts.YedCacheEntries, opts.YedCacheBytes)
+			}
 			walletrpc.RegisterYellowbackStreamerServer(server, service)
 			frontend.YellowbackAddresses = true
 			common.Log.Infof("Yellowback service started (node rpcversion %d, network %s)", capability.RPCVersion, capability.Network)
@@ -361,6 +369,8 @@ func init() {
 	rootCmd.Flags().Bool("darkside-very-insecure", false, "run with GRPC-controllable mock zcashd for integration testing (shuts down after 30 minutes)")
 	rootCmd.Flags().Bool("yellowback", false, "serve the Ycash Yellowback (YED) service when the node offers yed_* (the vault upgrade; docs/yellowback.md)")
 	rootCmd.Flags().Int("yellowback-max-inflight", common.DefaultYedMaxInFlight, "at most this many Yellowback node calls in flight at once (0: unbounded)")
+	rootCmd.Flags().Int("yellowback-cache-entries", common.DefaultYedCacheEntries, "remember at most this many Yellowback node answers per chain tip (0: no cache)")
+	rootCmd.Flags().Int64("yellowback-cache-bytes", common.DefaultYedCacheBytes, "the Yellowback read cache's byte budget")
 	rootCmd.Flags().StringSlice("trusted-proxy-cidr", nil, "reverse-proxy networks whose x-real-ip / x-forwarded-for the Yellowback rate limiter believes (repeatable)")
 	rootCmd.Flags().Int("darkside-timeout", 30, "override 30 minute default darkside timeout")
 
@@ -400,6 +410,10 @@ func init() {
 	viper.SetDefault("yellowback", false)
 	viper.BindPFlag("yellowback-max-inflight", rootCmd.Flags().Lookup("yellowback-max-inflight"))
 	viper.SetDefault("yellowback-max-inflight", common.DefaultYedMaxInFlight)
+	viper.BindPFlag("yellowback-cache-entries", rootCmd.Flags().Lookup("yellowback-cache-entries"))
+	viper.SetDefault("yellowback-cache-entries", common.DefaultYedCacheEntries)
+	viper.BindPFlag("yellowback-cache-bytes", rootCmd.Flags().Lookup("yellowback-cache-bytes"))
+	viper.SetDefault("yellowback-cache-bytes", common.DefaultYedCacheBytes)
 	viper.BindPFlag("trusted-proxy-cidr", rootCmd.Flags().Lookup("trusted-proxy-cidr"))
 	viper.BindPFlag("darkside-timeout", rootCmd.Flags().Lookup("darkside-timeout"))
 	viper.SetDefault("darkside-timeout", 30)

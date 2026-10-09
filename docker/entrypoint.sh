@@ -35,6 +35,7 @@ fi
 
 [ "${LWD_YELLOWBACK:-0}" = "1" ] && add "--yellowback"
 [ -n "${LWD_YELLOWBACK_MAX_INFLIGHT:-}" ] && add "--yellowback-max-inflight ${LWD_YELLOWBACK_MAX_INFLIGHT}"
+[ -n "${LWD_YELLOWBACK_CACHE_ENTRIES:-}" ] && add "--yellowback-cache-entries ${LWD_YELLOWBACK_CACHE_ENTRIES}"
 for cidr in ${LWD_TRUSTED_PROXY_CIDRS:-}; do add "--trusted-proxy-cidr $cidr"; done
 
 add "--grpc-bind-addr 0.0.0.0:${LWD_GRPC_PORT_IN:-9067}"

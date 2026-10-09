@@ -52,6 +52,8 @@ type Options struct {
 	// Yellowback bounds (audit E-2, E-3): the in-flight node-call cap and the reverse-proxy
 	// networks whose forwarded-IP headers the rate limiter believes.
 	YellowbackInFlight int      `json:"yellowback_max_inflight"`
+	YedCacheEntries    int      `json:"yellowback_cache_entries"`
+	YedCacheBytes      int64    `json:"yellowback_cache_bytes"`
 	TrustedProxyCIDRs  []string `json:"trusted_proxy_cidr"`
 }
 

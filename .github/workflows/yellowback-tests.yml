@@ -80,7 +80,7 @@ jobs:
       - name: Vet the devnet suite (-tags devnet; it runs only from a devnet, so compile it on every push)
         run: go vet -mod=vendor -tags devnet ./frontend/
       - name: gofmt (files this fork added)
-        run: test -z "$(gofmt -l common/yellowback.go frontend/yellowback*.go testtools/lwdinfo)"
+        run: test -z "$(gofmt -l common/yellowback.go common/yedcache*.go frontend/yellowback*.go testtools/lwdinfo)"
       - name: Test (every package but frontend)
         run: go test -mod=vendor ./cmd/... ./common/... ./parser/... ./walletrpc/...
       - name: The contract fixture equals the node's (ycash-dd at the matching branch)

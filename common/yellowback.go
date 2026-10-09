@@ -223,6 +223,9 @@ func ctxStatus(ctx context.Context, method string) error {
 }
 
 // CallYed forwards one allow-listed RPC (YedMethods, StockMethods or VaultMethods). params are already-encoded JSON values.
+// A YedCacheable method's successful answer is remembered per (method, params, tip) and served
+// again without a node call while the tip stands (yedcache.go); the result is the caller's to
+// read, not to modify.
 // Errors are gRPC statuses (plan section 3.3): a node RPC error is FAILED_PRECONDITION carrying
 // the node's message verbatim (the contract's error identifiers are its first word); a
 // transport failure is UNAVAILABLE; a method outside the allow-list is INTERNAL, because that
@@ -232,6 +235,12 @@ func ctxStatus(ctx context.Context, method string) error {
 func CallYed(ctx context.Context, method string, params ...json.RawMessage) (json.RawMessage, error) {
 	if !YedMethods[method] && !StockMethods[method] && !VaultMethods[method] {
 		return nil, status.Errorf(codes.Internal, "%s is not an allow-listed Yellowback RPC", method)
+	}
+	// The read cache (yedcache.go): a cacheable method at a known tip is answered from memory
+	// when the node already answered the same question at this tip; a miss or a bypass goes on.
+	key := yedCacheKey(method, params)
+	if raw, ok := yedCacheLookup(method, key); ok {
+		return raw, nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -271,6 +280,7 @@ func CallYed(ctx context.Context, method string, params ...json.RawMessage) (jso
 		return nil, ctxStatus(ctx, method)
 	}
 	if err == nil {
+		yedCacheRemember(key, raw)
 		return raw, nil
 	}
 	// btcd's rpcclient renders a JSON-RPC error as "code: message" (btcjson.RPCError.Error);
