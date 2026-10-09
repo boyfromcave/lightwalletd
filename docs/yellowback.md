@@ -126,6 +126,66 @@ per-tip answers (`GetYellowbackInfo`, `GetPrice` at the tip, `GetStats`, `GetAct
 checked for length and prefix before it is base58-decoded, and one incoming gRPC message is
 at most 2 MiB + 64 KiB (`cmd/root.go`; audit E-1, E-3, E-4).
 
+## The read cache (ycash-infra plan K3b)
+
+`common.CallYed` remembers what the node answered, per **(method, canonical JSON of the
+arguments, chain tip hash)**, and serves a repeat of the same question at the same tip from
+memory (`common/yedcache.go`). It never computes an answer (D-L-2 "proxy, not indexer";
+contract rule 3: the verdict is the node's); it only repeats one the node gave at this tip. The
+tip is the ingestor's (`BlockCache.GetLatestHash`), which the server tracks anyway, so no
+`getbestblockhash` is spent per request; an entry can be at most one ingestor poll (2 s at the
+tip) staler than the node, the bound the 2-second per-tip answers above already had. A new block
+changes the key, so every old entry goes cold and the LRU evicts it; nothing is invalidated by
+hand. Only successful answers are stored: a node error (`vault-not-found`, `tx-not-found`, the
+index unhealthy) reaches the node again every time. Before the ingestor knows a tip, every call
+bypasses the cache.
+
+**Bounds and switches.** In-process LRU, `--yellowback-cache-entries` (default 10 000; 0 = off)
+and `--yellowback-cache-bytes` (default 64 MiB; an answer larger than the budget is passed
+through, not stored); `LWD_YELLOWBACK_CACHE_ENTRIES` in the container. Metrics:
+`lightwalletd_yellowback_cache_requests_total{method, result="hit|miss|bypass"}` on the
+`/metrics` endpoint the server already serves. **Not Redis:** the chart's Redis would let
+replicas share entries, but no Go Redis client is vendored and the plan's D-L-6 says no
+dependency changes; the backend is behind a two-method interface (`yedCacheStore`) with the
+vendoring step named in the TODO (`go get github.com/redis/go-redis/v9 && go mod vendor`, a
+plan decision first). Per-tip keys make a shared cache a convenience, not a correctness need.
+
+**What is cached and what is not** (`common.YedCacheable`; the test
+`TestYedCacheAllowListIsWithinTheOffered` keeps it inside the offered methods):
+
+| Node RPC | Cached | Why |
+|---|---|---|
+| `yed_getinfo`, `yed_getprice`, `yed_getstats`, `yed_getactivation` | yes | the index at the tip and the parameters; `yed_getinfo.miner` is the node's own quote state, which a serving node has none of, and its `attest.poolSize/poolFresh` summary is the only pool-derived field (already served 2 s stale by the per-tip answers) |
+| `yed_gettxinfo` | yes | the TxLog record at the tip; its `mempool`/wallet reads serve only the error and the node's-own-wallet `expired` paths, and once expired a transaction cannot re-enter the mempool |
+| `yed_decodepayload` | yes | a pure function of the hex (cheap, but harmless to remember) |
+| `yed_getvault`, `yed_listvaults`, `yed_listclaimable`, `yed_getnotice` | yes | index state at the tip; `yed_getnotice` reads the block at `notice.height` |
+| `yed_estimatecollateral`, `yed_estimatefee`, `yed_getfeepayee` | yes | the reference snapshot (`tip − REF_LAG`) and the parameters |
+| `yed_listtokens` | yes | the YED UTXO set at the tip — the K1 target: every `GetAddressTokens` was a node call |
+| `getblockchaininfo` | yes | `GetChainInfo` relays only tip-pure fields (`size_on_disk`, which drifts, is not carried) |
+| `vault_getinfo`, `set_list`, `set_getinfo`, `vault_list` | yes | the primitive's state at the tip; the wallet-only `mine` filter is never sent |
+| `yed_validaterawtransaction` | **no** | the dry run is against the mempool (`CCoinsViewMemPool`), which changes between blocks |
+| `yed_buildbundle`, `yed_getselection` | **no** | built from this node's attestation pool (W5, W9), which fills as attestations arrive off-chain; `poolFresh`, `reachable`, `missing` and the bundle hex change within a tip |
+| `yed_getattestations` | **no** | the attestation pool itself |
+| `yed_listattestors` | **no** | each row's `poolFresh` is pool state; kept exact rather than up to a block stale |
+
+**Concurrency note.** A burst of equal requests on a fresh tip all miss together (there is no
+single-flight): with ghz's 50 workers the node saw 50 `yed_listtokens` per tip change, then
+none. Coalescing those is a follow-up if a block boundary ever shows in the node's queue.
+
+**Measured (2026-10-09)** on the kind cluster's regtest node (`ycash-infra`, blocks every
+~6 s), this image built from the worktree and run beside the cluster on the `kind` network
+(`host.docker.internal` stalled the ingestor; the node itself answered in milliseconds), ghz
+n=2000 c=50 with a distinct `x-real-ip` per request (the infra `load/run.sh` invocation, so the
+per-peer bucket is not the ceiling), two runs each after a warm-up:
+
+| Method | cache off | cache on | node calls (6 000 requests) |
+|---|---|---|---|
+| `GetAddressTokens` (one address, 9 700 outputs) | 1 851 / 1 827 rps, p50 26 / 24 ms, p99 38 / 49 ms | 32 512 / 30 825 rps, p50 0.9 / 1.0 ms, p99 2.4 / 2.4 ms | 6 000 → 50 (one burst at the first tip) |
+| `GetPrice` (at the tip) | 29 766 / 22 783 rps, p50 1.0 / 1.1 ms, p99 2.3 / 2.4 ms | 28 937 / 26 882 rps, p50 1.3 / 1.3 ms, p99 2.4 / 2.6 ms | 50 either way: the 2-second per-tip answer already served it |
+
+`GetAddressTokens` goes from the K1 number's order (1 340 rps through the gateway) to the
+other methods' (17× here), because a repeat between blocks is no longer a `yed_listtokens`.
+
 ## Toolchain and generated code
 
 | Tool | Version | Notes |
@@ -146,6 +206,7 @@ change with the protoc release) and comment re-wrapping; CI runs it.
 |---|---|
 | `walletrpc/yellowback.proto` (+ `yellowback.pb.go`, `yellowback_grpc.pb.go`) | the service |
 | `common/yellowback.go` | `ProbeYellowback`, `CallYed`, `YedMethods`, `NotOffered`, error mapping, JSON params |
+| `common/yedcache.go` (+ `yedcache_test.go`) | the tip-hash-keyed read cache: `YedCacheable`, `YedTipHash`, the LRU, the counter |
 | `frontend/yellowback.go` | the handlers (embed `UnimplementedYellowbackStreamerServer`; validate at the edge) |
 | `frontend/yellowback_addr.go`, `taddrOf` in `frontend/service.go` | D-L-4 |
 | `frontend/yellowback_ratelimit.go` | the token bucket |
@@ -155,9 +216,9 @@ change with the protoc release) and comment re-wrapping; CI runs it.
 | `scripts/build-baseline.sh`, `scripts/check-generated.sh`, `scripts/devnet-test.sh` | the baseline binary, the generated-code gate, the regtest driver |
 | `.github/workflows/yellowback-tests.yml` | build, vet, gofmt (the fork's files), tests, generated-code check |
 
-**Changed in files that existed at `187a267`:** `cmd/root.go` (+21: the flag, its bind and
-default, the `Options` field read, the registration block after darkside's), `common/common.go`
-(+1: `Options.Yellowback`), `frontend/service.go` (+19 −3: `YellowbackAddresses`, `taddrOf`, the
+**Changed in files that existed at `187a267`:** `cmd/root.go` (+53: the flags, their binds and
+defaults, the `Options` field reads, the registration block after darkside's, the cache's
+wiring), `common/common.go` (+9: `Options.Yellowback`, the bounds), `frontend/service.go` (+19 −3: `YellowbackAddresses`, `taddrOf`, the
 three call sites), `Makefile` (+8: the proto in every list), `go.mod` (+1: `btcutil` promoted
 from indirect to direct, same version, for `base58`), `README.md` (+2). **Zero:** both original
 `.proto` files and their generated code, `parser/`, `common/cache.go`, the rest of
