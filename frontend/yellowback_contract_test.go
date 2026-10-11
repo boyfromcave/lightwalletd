@@ -60,7 +60,7 @@ var notCarried = map[string]string{
 	"yed_listvaults[].collateral": "decimal twin of collateralZat",
 	// Quantum line (rpcversion 7, the node's Y-B sweep). Not carried yet: carrying them changes
 	// yellowback.proto and so YEW's proto/PIN; a light wallet derives both from what it has.
-	"yed_estimatecollateral.requiredZatFloored": "max(requiredZat, 4 x FEE_MIN) rounded up to 1,000 zat; the wallet floors requiredZat with its own FEE_MIN",
+	"yed_estimatecollateral.requiredZatFloored": "requiredZat rounded up to 1,000 zat (rpcversion 8, MINT-5'); the wallet rounds requiredZat itself",
 	"yed_getinfo.params.addressVersion":         "address version bytes: a light wallet takes them from its network parameters",
 	"yed_getinfo.params.pqAddressVersion":       "address version bytes: a light wallet takes them from its network parameters",
 	"yed_getinfo.params.pq.plainAddressVersion": "address version bytes: a light wallet takes them from its network parameters",

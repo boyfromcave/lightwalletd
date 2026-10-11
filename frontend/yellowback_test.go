@@ -316,10 +316,10 @@ func TestUnaryMethodsMatchContract(t *testing.T) {
 			return svc.EstimateCollateral(ctx, &walletrpc.YedMintQuery{Cents: 100000, LockBlocks: 48})
 		}},
 		{"yed_estimatefee", func() (interface{}, error) {
-			return svc.EstimateFee(ctx, &walletrpc.YedFeeQuery{CollateralZat: 25125628141})
+			return svc.EstimateFee(ctx, &walletrpc.YedFeeQuery{MintedCents: 100000})
 		}},
 		{"yed_getfeepayee", func() (interface{}, error) {
-			return svc.GetFeePayee(ctx, &walletrpc.YedPayeeQuery{RefHeight: 329, CollateralZat: 25125628141})
+			return svc.GetFeePayee(ctx, &walletrpc.YedPayeeQuery{RefHeight: 329})
 		}},
 		{"yed_buildbundle", func() (interface{}, error) {
 			return svc.BuildBundle(ctx, &walletrpc.YedBundleQuery{RefHeight: 329, SelectorHex: ""})
@@ -478,7 +478,7 @@ func TestInputValidation(t *testing.T) {
 			_, err := svc.EstimateCollateral(ctx, &walletrpc.YedMintQuery{Cents: 0, LockBlocks: 1})
 			return err
 		},
-		func() error { _, err := svc.EstimateFee(ctx, &walletrpc.YedFeeQuery{CollateralZat: -1}); return err },
+		func() error { _, err := svc.EstimateFee(ctx, &walletrpc.YedFeeQuery{MintedCents: 0}); return err },
 		func() error {
 			_, err := svc.BuildBundle(ctx, &walletrpc.YedBundleQuery{RefHeight: 1, SelectorHex: strings.Repeat("ab", 37)})
 			return err
@@ -1072,7 +1072,7 @@ func TestUnaryInfoPQ(t *testing.T) {
 		t.Fatal(err)
 	}
 	pq := info.GetParams().GetPq()
-	if info.GetRpcversion() != 7 || common.KnownRPCVersion != 7 || pq == nil {
+	if info.GetRpcversion() != 8 || common.KnownRPCVersion != 8 || pq == nil {
 		t.Fatalf("rpcversion %d (server knows %d), pq %+v", info.GetRpcversion(), common.KnownRPCVersion, pq)
 	}
 	if s := pq.GetSchemes(); len(s) != 1 || s[0] != 1 || pq.GetFalconActive() || pq.GetFalconHeight() != -1 || pq.GetFeeRateZatPerKB() != 100 {
@@ -1148,5 +1148,83 @@ func TestGetAddressTokensPQ(t *testing.T) {
 	want, _ := json.Marshal(addrs)
 	if p := node.params["yed_listtokens"]; len(p) != 1 || string(p[0]) != string(want) {
 		t.Errorf("yed_listtokens params = %s, want %s", p, want)
+	}
+}
+
+// ---- rpcversion 8: the fee structure (docs/plans/yellowback-quantum-fees-spec.md section 3.4) ----
+
+// TestUnaryInfoFees: yed_getinfo.params.fees (the protocol bands, the network fee rates at the
+// attested price and the Yellowback fee cap), maxMintCents and supplyCap reach the client; the flat
+// feeMinZat / feeBps are gone from the message (their numbers reserved).
+func TestUnaryInfoFees(t *testing.T) {
+	svc, _ := newService(t)
+	info, err := svc.GetYellowbackInfo(context.Background(), &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := info.GetParams()
+	if info.GetRpcversion() != 8 || p.GetMaxMintCents() != 10000000 {
+		t.Fatalf("rpcversion %d, maxMintCents %d", info.GetRpcversion(), p.GetMaxMintCents())
+	}
+	f := p.GetFees()
+	bands := f.GetProtocol().GetBands()
+	if len(bands) != 3 || bands[0].GetUptoCents() != 100000 || bands[0].GetBps() != 100 || bands[2].GetUptoCents() != 0 || bands[2].GetBps() != 10 ||
+		f.GetProtocol().GetFloorCents() != 100 || f.GetProtocol().GetPriceSource() != "pMint" || len(f.GetEarlyRedeemFeeBps()) != 3 {
+		t.Errorf("params.fees.protocol = %+v, earlyRedeemFeeBps %v", f.GetProtocol(), f.GetEarlyRedeemFeeBps())
+	}
+	n := f.GetNetwork()
+	if n.GetPriceMicroUsd() <= 0 || n.GetPriceSource() != "tip" || n.GetPlain().GetUsdPerKBMicro() != 20000 || n.GetYellowback().GetUsdPerKBMicro() != 50000 ||
+		n.GetPlain().GetZatPerKB() <= 0 || n.GetYellowback().GetZatPerKB() <= n.GetPlain().GetZatPerKB() ||
+		n.GetYellowback().GetMaxTxFeeCeilingZat() <= 0 || n.GetYellowback().GetMaxTxFeeZat() <= 0 || n.GetFloorZatPerKB() != 5000 || n.GetMaxTxFeeZat() <= 0 {
+		t.Errorf("params.fees.network = %+v", n)
+	}
+	if sc := p.GetSupplyCap(); sc.GetCirculatingZat() <= 0 || sc.GetMaxVaultShareBps() != 1000 || sc.GetVaultShareFloorCents() != 1000000 {
+		t.Errorf("params.supplyCap = %+v", sc)
+	}
+	for _, gone := range []string{"feeMinZat", "feeBps"} {
+		if _, ok := declaredFields(p)[gone]; ok {
+			t.Errorf("YellowbackParams still declares %s", gone)
+		}
+	}
+}
+
+// TestFeeQueriesV8: EstimateFee sends <mintedCents> [priceMicroUsd] and returns the dollar fee, the
+// price and the attestor share; GetFeePayee sends <refHeight> [selectorHex] (no collateralZat) and
+// its answer carries no feeZat; every vault row carries pMint.
+func TestFeeQueriesV8(t *testing.T) {
+	svc, node := newService(t)
+	ctx := context.Background()
+	est, err := svc.EstimateFee(ctx, &walletrpc.YedFeeQuery{MintedCents: 100000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := node.params["yed_estimatefee"]; len(p) != 1 || string(p[0]) != "100000" {
+		t.Errorf("yed_estimatefee params = %s, want [100000]", p)
+	}
+	if est.GetFeeCents() <= 0 || est.GetFeeZat() <= 0 || est.GetPMint() <= 0 || est.GetAttestFeeZat() <= 0 {
+		t.Errorf("yed_estimatefee = %+v", est)
+	}
+	if _, err := svc.EstimateFee(ctx, &walletrpc.YedFeeQuery{MintedCents: 250000, PriceMicroUsd: 18000}); err != nil {
+		t.Fatal(err)
+	}
+	if p := node.params["yed_estimatefee"]; len(p) != 2 || string(p[0]) != "250000" || string(p[1]) != "18000" {
+		t.Errorf("yed_estimatefee params = %s, want [250000 18000]", p)
+	}
+	if _, err := svc.GetFeePayee(ctx, &walletrpc.YedPayeeQuery{RefHeight: 329, SelectorHex: "ab"}); err != nil {
+		t.Fatal(err)
+	}
+	if p := node.params["yed_getfeepayee"]; len(p) != 2 || string(p[0]) != "329" || string(p[1]) != `"ab"` {
+		t.Errorf("yed_getfeepayee params = %s, want [329 \"ab\"]", p)
+	}
+	if _, ok := declaredFields(&walletrpc.YedPayee{})["feeZat"]; ok {
+		t.Error("YedPayee still declares feeZat")
+	}
+	v, err := svc.GetVault(ctx, &walletrpc.YedTxid{Txid: exampleTxid})
+	if err != nil || v.GetPMint() <= 0 {
+		t.Errorf("yed_getvault pMint = %d (%v)", v.GetPMint(), err)
+	}
+	ce, err := svc.EstimateCollateral(ctx, &walletrpc.YedMintQuery{Cents: 100000, LockBlocks: 48})
+	if err != nil || ce.GetProtocolFeeCents() <= 0 || ce.GetProtocolFeeZat() <= 0 {
+		t.Errorf("yed_estimatecollateral protocol fee = %d cents / %d zat (%v)", ce.GetProtocolFeeCents(), ce.GetProtocolFeeZat(), err)
 	}
 }

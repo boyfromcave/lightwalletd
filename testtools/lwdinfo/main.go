@@ -188,11 +188,11 @@ func probeYellowback(conn *grpc.ClientConn, timeout time.Duration) map[string]st
 		return err
 	})
 	call("EstimateFee", func(ctx context.Context) error {
-		_, err := y.EstimateFee(ctx, &walletrpc.YedFeeQuery{CollateralZat: 100000000})
+		_, err := y.EstimateFee(ctx, &walletrpc.YedFeeQuery{MintedCents: 10000})
 		return err
 	})
 	call("GetFeePayee", func(ctx context.Context) error {
-		_, err := y.GetFeePayee(ctx, &walletrpc.YedPayeeQuery{RefHeight: 1, CollateralZat: 100000000})
+		_, err := y.GetFeePayee(ctx, &walletrpc.YedPayeeQuery{RefHeight: 1})
 		return err
 	})
 	call("BuildBundle", func(ctx context.Context) error {
