@@ -528,7 +528,7 @@
                 </li>
               
                 <li>
-                  <a href="#cash.z.wallet.sdk.rpc.YellowbackFees"><span class="badge">M</span>YellowbackFees</a>
+                  <a href="#cash.z.wallet.sdk.rpc.YellowbackFeeParams"><span class="badge">M</span>YellowbackFeeParams</a>
                 </li>
               
                 <li>
@@ -536,7 +536,7 @@
                 </li>
               
                 <li>
-                  <a href="#cash.z.wallet.sdk.rpc.YellowbackNetworkFees"><span class="badge">M</span>YellowbackNetworkFees</a>
+                  <a href="#cash.z.wallet.sdk.rpc.YellowbackNetworkFee"><span class="badge">M</span>YellowbackNetworkFee</a>
                 </li>
               
                 <li>
@@ -552,7 +552,7 @@
                 </li>
               
                 <li>
-                  <a href="#cash.z.wallet.sdk.rpc.YellowbackProtocolFees"><span class="badge">M</span>YellowbackProtocolFees</a>
+                  <a href="#cash.z.wallet.sdk.rpc.YellowbackProtocolFee"><span class="badge">M</span>YellowbackProtocolFee</a>
                 </li>
               
                 <li>
@@ -3192,6 +3192,13 @@ The block can be specified by either height or hash.</p></td>
                 </tr>
               
                 <tr>
+                  <td>pMint</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>rpcversion 8: the vault&#39;s pMint; feeZat is FEE-1&#39; of the debt at it </p></td>
+                </tr>
+              
+                <tr>
                   <td>claimable</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
@@ -3204,13 +3211,6 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>pMint</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p>rpcversion 8: feeZat is the protocol fee of the debt at this price (RED-3&#39;) </p></td>
                 </tr>
               
             </tbody>
@@ -3353,7 +3353,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                   <td>protocolFeeZat</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p>rpcversion 8: the mint&#39;s FEE-1&#39; fee at the estimate&#39;s pMint </p></td>
+                  <td><p>rpcversion 8: FEE-1&#39; of the debt at pMint </p></td>
                 </tr>
               
             </tbody>
@@ -3364,7 +3364,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
         
       
         <h3 id="cash.z.wallet.sdk.rpc.YedFeeEstimate">YedFeeEstimate</h3>
-        <p>rpcversion 8: the FEE-1' protocol fee of a debt (feeCents), in zat at pMint, and the attestor share</p><p>(feeZat, pMint and attestFeeZat are JSON null, 0 here, when no price is defined).</p>
+        <p>rpcversion 8: FEE-1' of the debt in cents, in zat at pMint (0 when undefined), and AFEE-1''s share</p>
 
         
           <table class="field-table">
@@ -3375,6 +3375,13 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
               
                 <tr>
                   <td>feeZat</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>attestFeeZat</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -3394,13 +3401,6 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                   <td><p> </p></td>
                 </tr>
               
-                <tr>
-                  <td>attestFeeZat</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
             </tbody>
           </table>
 
@@ -3409,7 +3409,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
         
       
         <h3 id="cash.z.wallet.sdk.rpc.YedFeeQuery">YedFeeQuery</h3>
-        <p>rpcversion 8 (the fee structure): yed_estimatefee <mintedCents> [priceMicroUsd]; the fee is a dollar</p><p>amount of the debt, no longer a share of the collateral (priceMicroUsd 0 = the node's reference price).</p>
+        <p>rpcversion 8: yed_estimatefee <mintedCents> [priceMicroUsd] (the protocol fee of a debt); collateralZat is gone</p>
 
         
           <table class="field-table">
@@ -4906,7 +4906,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                   <td>pMint</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p>rpcversion 8: the vault&#39;s stored mint price (micro-USD), every later fee&#39;s price </p></td>
+                  <td><p>rpcversion 8: the stored mint price (µUSD/YEC) every fee of the vault is struck at </p></td>
                 </tr>
               
             </tbody>
@@ -5309,7 +5309,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                   <td>earlyRedeemFeeBps</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p>rpcversion 6 (in-term IT-9), a redeem before lockHeight; rpcversion 8: of the debt at pMint (IT-9&#39;) </p></td>
+                  <td><p>rpcversion 6 (in-term IT-9): of the collateral, a redeem before lockHeight </p></td>
                 </tr>
               
             </tbody>
@@ -5320,7 +5320,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
         
       
         <h3 id="cash.z.wallet.sdk.rpc.YellowbackFeeBand">YellowbackFeeBand</h3>
-        <p>rpcversion 8 (the fee structure, docs/plans/yellowback-quantum-fees-spec.md section 3.4): one FEE-1'</p><p>bracket of the protocol fee; uptoCents is JSON null (0 here) for the last, unbounded band.</p>
+        <p>rpcversion 8 (the fee structure, fees spec section 3.4): params.fees, params.supplyCap. A JSON null</p><p>(the last band's uptoCents, an undefined price or cap) is 0 here.</p>
 
         
           <table class="field-table">
@@ -5330,14 +5330,14 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
             <tbody>
               
                 <tr>
-                  <td>uptoCents</td>
+                  <td>bps</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
               
                 <tr>
-                  <td>bps</td>
+                  <td>uptoCents</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -5350,7 +5350,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
 
         
       
-        <h3 id="cash.z.wallet.sdk.rpc.YellowbackFees">YellowbackFees</h3>
+        <h3 id="cash.z.wallet.sdk.rpc.YellowbackFeeParams">YellowbackFeeParams</h3>
         <p></p>
 
         
@@ -5361,13 +5361,6 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
             <tbody>
               
                 <tr>
-                  <td>protocol</td>
-                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackProtocolFees">YellowbackProtocolFees</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
                   <td>earlyRedeemFeeBps</td>
                   <td><a href="#int64">int64</a></td>
                   <td>repeated</td>
@@ -5376,7 +5369,14 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
               
                 <tr>
                   <td>network</td>
-                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackNetworkFees">YellowbackNetworkFees</a></td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackNetworkFee">YellowbackNetworkFee</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>protocol</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackProtocolFee">YellowbackProtocolFee</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -5517,8 +5517,8 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
 
         
       
-        <h3 id="cash.z.wallet.sdk.rpc.YellowbackNetworkFees">YellowbackNetworkFees</h3>
-        <p>The network fees of post-quantum (plain) and Yellowback/vault transactions at the attested tip price</p><p>(priceMicroUsd, 0 = JSON null when undefined; priceSource "tip" or "fallback"), the relay floor, the</p><p>-pqfeerate fallback rate, the wallet's flat fee and the plain -maxtxfee cap.</p>
+        <h3 id="cash.z.wallet.sdk.rpc.YellowbackNetworkFee">YellowbackNetworkFee</h3>
+        <p></p>
 
         
           <table class="field-table">
@@ -5526,41 +5526,6 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
               <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
             </thead>
             <tbody>
-              
-                <tr>
-                  <td>priceMicroUsd</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>priceSource</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>plain</td>
-                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackNetworkRate">YellowbackNetworkRate</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>yellowback</td>
-                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackNetworkRate">YellowbackNetworkRate</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>floorZatPerKB</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
               
                 <tr>
                   <td>fallbackZatPerKB</td>
@@ -5577,8 +5542,43 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                 </tr>
               
                 <tr>
+                  <td>floorZatPerKB</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
                   <td>maxTxFeeZat</td>
                   <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>plain</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackNetworkRate">YellowbackNetworkRate</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>priceMicroUsd</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>priceSource</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>yellowback</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackNetworkRate">YellowbackNetworkRate</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -5591,7 +5591,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
         
       
         <h3 id="cash.z.wallet.sdk.rpc.YellowbackNetworkRate">YellowbackNetworkRate</h3>
-        <p>One network-fee target (dollars per 1000 bytes, micro-USD) and the rate it gives at the attested price.</p><p>The yellowback rate also carries the Yellowback fee cap: maxTxFeeUsdMicro ($2) at the price, bounded by</p><p>maxTxFeeCeilingZat (-yellowbackmaxtxfee), giving maxTxFeeZat.</p>
+        <p></p>
 
         
           <table class="field-table">
@@ -5601,14 +5601,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
             <tbody>
               
                 <tr>
-                  <td>usdPerKBMicro</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>zatPerKB</td>
+                  <td>maxTxFeeCeilingZat</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -5622,14 +5615,21 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                 </tr>
               
                 <tr>
-                  <td>maxTxFeeCeilingZat</td>
+                  <td>maxTxFeeZat</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
               
                 <tr>
-                  <td>maxTxFeeZat</td>
+                  <td>usdPerKBMicro</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>zatPerKB</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -5832,15 +5832,15 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                 </tr>
               
                 <tr>
-                  <td>maxMintCents</td>
-                  <td><a href="#int64">int64</a></td>
+                  <td>fees</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackFeeParams">YellowbackFeeParams</a></td>
                   <td></td>
-                  <td><p>rpcversion 8 (the fee structure): the largest single debt ($100,000, D-Q-24), the fee schedule, the supply cap&#39;s base. </p></td>
+                  <td><p> </p></td>
                 </tr>
               
                 <tr>
-                  <td>fees</td>
-                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackFees">YellowbackFees</a></td>
+                  <td>maxMintCents</td>
+                  <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -5849,7 +5849,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                   <td>supplyCap</td>
                   <td><a href="#cash.z.wallet.sdk.rpc.YellowbackSupplyCap">YellowbackSupplyCap</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>rpcversion 8 </p></td>
                 </tr>
               
             </tbody>
@@ -5859,8 +5859,8 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
 
         
       
-        <h3 id="cash.z.wallet.sdk.rpc.YellowbackProtocolFees">YellowbackProtocolFees</h3>
-        <p>The protocol fee in dollars, tiered by the vault's debt, with a per-action floor, struck at priceSource</p><p>("pMint": the vault's stored mint price); attestFeeBps is the attestor share of it (AFEE-1').</p>
+        <h3 id="cash.z.wallet.sdk.rpc.YellowbackProtocolFee">YellowbackProtocolFee</h3>
+        <p></p>
 
         
           <table class="field-table">
@@ -5868,6 +5868,13 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
               <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
             </thead>
             <tbody>
+              
+                <tr>
+                  <td>attestFeeBps</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
               
                 <tr>
                   <td>bands</td>
@@ -5878,13 +5885,6 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
               
                 <tr>
                   <td>floorCents</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>attestFeeBps</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -6062,7 +6062,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
         
       
         <h3 id="cash.z.wallet.sdk.rpc.YellowbackSupplyCap">YellowbackSupplyCap</h3>
-        <p>rpcversion 8 (D-Q-25, D-Q-23a): the supply cap's base, the circulating YEC supply at the tip valued at</p><p>the attested price, and the per-mint share of the cap (capCents, maxVaultCents 0 = JSON null when undefined).</p>
+        <p></p>
 
         
           <table class="field-table">
@@ -6070,6 +6070,13 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
               <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
             </thead>
             <tbody>
+              
+                <tr>
+                  <td>capCents</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
               
                 <tr>
                   <td>circulatingZat</td>
@@ -6086,14 +6093,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                 </tr>
               
                 <tr>
-                  <td>priceMicroUsd</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>capCents</td>
+                  <td>maxVaultCents</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -6107,14 +6107,14 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                 </tr>
               
                 <tr>
-                  <td>vaultShareFloorCents</td>
+                  <td>priceMicroUsd</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
               
                 <tr>
-                  <td>maxVaultCents</td>
+                  <td>vaultShareFloorCents</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>

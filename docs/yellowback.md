@@ -115,8 +115,8 @@ fails a test instead of disappearing.
 by the vault's debt and struck at the vault's stored mint price `pMint`; network fees of post-quantum and Yellowback
 transactions are dollars per KB at the attested tip price. The server speaks exactly 8 on this line (7 is refused:
 `yed_estimatefee` and `yed_getfeepayee` changed their arguments, so a 7 node would misread the requests). Proto changes:
-- `YellowbackParams`: `feeBps` (5), `feeMinZat` (6) reserved; `maxMintCents` (24), `fees` (25) and `supplyCap` (26)
-  added. `fees` = `YellowbackFees {protocol {bands[] {uptoCents (0 = the unbounded last band, JSON null), bps},
+- `YellowbackParams`: `feeBps` (5), `feeMinZat` (6) reserved; `fees` (24), `maxMintCents` (25) and `supplyCap` (26)
+  added. `fees` = `YellowbackFeeParams {protocol {bands[] {uptoCents (0 = the unbounded last band, JSON null), bps},
   floorCents, attestFeeBps, priceSource}, earlyRedeemFeeBps[], network {priceMicroUsd (0 = no price), priceSource
   ("tip" | "fallback"), plain, yellowback (each {usdPerKBMicro, zatPerKB}; yellowback also maxTxFeeUsdMicro,
   maxTxFeeCeilingZat, maxTxFeeZat), floorZatPerKB, fallbackZatPerKB, flatZat, maxTxFeeZat}}`. A light wallet
@@ -126,8 +126,8 @@ transactions are dollars per KB at the attested tip price. The server speaks exa
 - `YedVault` (`GetVault`, `ListVaults`) `pMint` (30), `YedClaimable` `pMint` (17): the price every later fee of the
   vault is struck at. `YedCollateralEstimate` gains `protocolFeeCents` (17), `protocolFeeZat` (18).
 - `EstimateFee`: `YedFeeQuery.collateralZat` (1) reserved; `mintedCents` (2), `priceMicroUsd` (3, optional) sent as
-  `yed_estimatefee <mintedCents> [priceMicroUsd]`; `YedFeeEstimate` gains `feeCents` (2), `pMint` (3),
-  `attestFeeZat` (4).
+  `yed_estimatefee <mintedCents> [priceMicroUsd]`; `YedFeeEstimate` gains `attestFeeZat` (2), `feeCents` (3), `pMint` (4)
+  (field numbers shared with YEW's proto copy).
 - `GetFeePayee`: `YedPayeeQuery.collateralZat` (2) and `YedPayee.feeZat` (3) reserved; the call is
   `yed_getfeepayee <refHeight> [selectorHex]`.
 
