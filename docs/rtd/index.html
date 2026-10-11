@@ -528,6 +528,10 @@
                 </li>
               
                 <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YellowbackPQParams"><span class="badge">M</span>YellowbackPQParams</a>
+                </li>
+              
+                <li>
                   <a href="#cash.z.wallet.sdk.rpc.YellowbackParams"><span class="badge">M</span>YellowbackParams</a>
                 </li>
               
@@ -1856,7 +1860,7 @@ The block can be specified by either height or hash.</p></td>
       <div class="file-heading">
         <h2 id="yellowback.proto">yellowback.proto</h2><a href="#title">Top</a>
       </div>
-      <p>Yellowback (YED) light-client service: a second, separate gRPC service beside</p><p>CompactTxStreamer (service.proto, which is not edited). Every method is a thin proxy of a</p><p>read-only yed_* RPC (or, since rpcversion 5, a read-only set_* / vault_* RPC of the vault</p><p>primitive YED runs on) on the node this server already talks to; the server adds no rule and</p><p>holds no Yellowback state. Field names are the JSON names of the node's RPC contract</p><p>(ycash-dd/doc/yellowback-rpc-contract.json, rpcversion 5) so the contract's example values</p><p>are the test fixtures and the JSON result unmarshals straight into these messages; a message</p><p>may carry a subset of a result's fields (unknown JSON fields are ignored), never a renamed one.</p><p>Plan: docs/plans/yellowback-lightwalletd-plan.md section 4.1.</p>
+      <p>Yellowback (YED) light-client service: a second, separate gRPC service beside</p><p>CompactTxStreamer (service.proto, which is not edited). Every method is a thin proxy of a</p><p>read-only yed_* RPC (or, since rpcversion 5, a read-only set_* / vault_* RPC of the vault</p><p>primitive YED runs on) on the node this server already talks to; the server adds no rule and</p><p>holds no Yellowback state. Field names are the JSON names of the node's RPC contract</p><p>(ycash-dd/doc/yellowback-rpc-contract.json, rpcversion 7 on upgrade/quantum-vaults) so the contract's example values</p><p>are the test fixtures and the JSON result unmarshals straight into these messages; a message</p><p>may carry a subset of a result's fields (unknown JSON fields are ignored), never a renamed one.</p><p>Plan: docs/plans/yellowback-lightwalletd-plan.md section 4.1.</p>
 
       
         <h3 id="cash.z.wallet.sdk.rpc.HeightFilter">HeightFilter</h3>
@@ -2103,13 +2107,6 @@ The block can be specified by either height or hash.</p></td>
                 </tr>
               
                 <tr>
-                  <td>ownerkey</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
                   <td>ownerheight</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
@@ -2165,6 +2162,20 @@ The block can be specified by either height or hash.</p></td>
                   <td><p>kind intent </p></td>
                 </tr>
               
+                <tr>
+                  <td>owner</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ownerscheme</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>rpcversion 7: the owner&#39;s pqkeyid (scheme || key hash) and scheme </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -2173,7 +2184,7 @@ The block can be specified by either height or hash.</p></td>
         
       
         <h3 id="cash.z.wallet.sdk.rpc.VaultOutputFilter">VaultOutputFilter</h3>
-        <p></p>
+        <p>"" = any; kind vault|intent; owner (rpcversion 7) a pqkeyid: 66 hex digits, the scheme byte 01|02 then the key hash</p>
 
         
           <table class="field-table">
@@ -2542,7 +2553,7 @@ The block can be specified by either height or hash.</p></td>
         
       
         <h3 id="cash.z.wallet.sdk.rpc.YedAddressList">YedAddressList</h3>
-        <p></p>
+        <p>YED addresses (P2PKH or, rpcversion 7, the 53-character post-quantum form; mainnet yb, testnet yt, regtest yr) or</p><p>transparent forms; 1..100</p>
 
         
           <table class="field-table">
@@ -3156,6 +3167,21 @@ The block can be specified by either height or hash.</p></td>
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>claimable</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>rpcversion 6 (in-term claims, IT-7): every ACTIVE vault whose claim branch is open is listed, in term
+too; claimable is false while it is above theta, and underwaterAt is then the price at which it becomes so. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>lockHeight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -3704,13 +3730,6 @@ The block can be specified by either height or hash.</p></td>
                 </tr>
               
                 <tr>
-                  <td>ownerPubKey</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
                   <td>reason</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
@@ -3749,7 +3768,21 @@ The block can be specified by either height or hash.</p></td>
                   <td>version</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
+                  <td><p>version: 4 for a MINT, 3 otherwise </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ownerScheme</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
                   <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ownerHash</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>rpcversion 7 (MINT): the owner&#39;s scheme and 32-byte key hash (hex) </p></td>
                 </tr>
               
             </tbody>
@@ -4723,21 +4756,7 @@ The block can be specified by either height or hash.</p></td>
                   <td>ownerAddress</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>ownerKeyId</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>ownerPubKey</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
+                  <td><p>rpcversion 7: the owner&#39;s post-quantum address (53 characters) </p></td>
                 </tr>
               
                 <tr>
@@ -4808,6 +4827,20 @@ The block can be specified by either height or hash.</p></td>
                   <td><a href="#cash.z.wallet.sdk.rpc.YedVaultIntent">YedVaultIntent</a></td>
                   <td>repeated</td>
                   <td><p>rpcversion 5: the V template (hex); intents while CLAIMING </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ownerScheme</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ownerHash</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>rpcversion 7: the post-quantum owner (scheme; 32-byte key hash, hex) </p></td>
                 </tr>
               
             </tbody>
@@ -5074,6 +5107,13 @@ The block can be specified by either height or hash.</p></td>
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>mintPayloadVersion</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>rpcversion 7: a MINT&#39;s payload version (4); payloadVersion (3) is every other type&#39;s </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -5197,6 +5237,13 @@ The block can be specified by either height or hash.</p></td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>earlyRedeemFeeBps</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>rpcversion 6 (in-term IT-9): of the collateral, a redeem before lockHeight </p></td>
                 </tr>
               
             </tbody>
@@ -5335,6 +5382,51 @@ The block can be specified by either height or hash.</p></td>
 
         
       
+        <h3 id="cash.z.wallet.sdk.rpc.YellowbackPQParams">YellowbackPQParams</h3>
+        <p>rpcversion 7 (post-quantum vault owners, quantum spec section 6.2): the signature schemes a vault owner</p><p>may use at the next block (1 SLH-DSA-SHA2-128s; 2 FN-DSA-512 once Falcon is active), the Falcon</p><p>activation height (-1 = none) and the node's size-priced fee rate (-pqfeerate, zatoshi per 1000 bytes).</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>schemes</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>falconActive</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>falconHeight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>feeRateZatPerKB</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="cash.z.wallet.sdk.rpc.YellowbackParams">YellowbackParams</h3>
         <p></p>
 
@@ -5455,6 +5547,42 @@ The block can be specified by either height or hash.</p></td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p>rpcversion 5: the YED attestor set (a vault primitive set id), CLAIM_DELAY </p></td>
+                </tr>
+              
+                <tr>
+                  <td>claimThresholdBps</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>rpcversion 6 (in-term claims, IT-7 / IT-9): the claim threshold theta, the early-redeem fee per class
+(A, B, C), the sigma multiplier&#39;s cap (10000 = pinned at 1) and whether a claim is valid in term. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>earlyRedeemFeeBps</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>sigmaMultMaxBps</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>inTermClaims</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>pq</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YellowbackPQParams">YellowbackPQParams</a></td>
+                  <td></td>
+                  <td><p>rpcversion 7 </p></td>
                 </tr>
               
             </tbody>

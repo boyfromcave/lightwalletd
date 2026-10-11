@@ -18,7 +18,11 @@ import (
 	"github.com/zcash/lightwalletd/walletrpc"
 )
 
-var pubkeyPattern = regexp.MustCompile(`^0[23][0-9a-fA-F]{64}$`)
+// pqkeyidPattern: vault_list's owner filter from rpcversion 7, a pqkeyid (ycash-dd doc/vault-rpc.md):
+// the scheme byte 01 (SLH-DSA-SHA2-128s) or 02 (FN-DSA-512) then the 32-byte key hash. A 02/03
+// compressed public key has the same length and is refused, not passed on: "02…" would be read as
+// a Falcon key id (quantum spec section 6.2, why the type was renamed rather than reused).
+var pqkeyidPattern = regexp.MustCompile(`^0[12][0-9a-fA-F]{64}$`)
 var tagHexPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}$`)
 var tagTextPattern = regexp.MustCompile(`^[\x21-\x7e]{1,4}$`)
 
@@ -66,7 +70,9 @@ func (y *YellowbackStreamer) GetSet(ctx context.Context, in *walletrpc.VaultSetQ
 }
 
 // ListVaultOutputs proxies vault_list [{tag, setid, owner, kind}] as a stream: the unspent vault
-// and intent outputs. The node's "mine" filter is wallet context and has no field here.
+// and intent outputs. The node's "mine" filter is wallet context and has no field here. The owner
+// filter is a pqkeyid only; the node also takes a PQ address there, a form this server leaves to
+// the client to decode (the address carries scheme || key hash, the pqkeyid's bytes).
 func (y *YellowbackStreamer) ListVaultOutputs(in *walletrpc.VaultOutputFilter, stream walletrpc.YellowbackStreamer_ListVaultOutputsServer) error {
 	if err := y.limited(stream.Context(), yedCostHeavy); err != nil {
 		return err
@@ -88,8 +94,8 @@ func (y *YellowbackStreamer) ListVaultOutputs(in *walletrpc.VaultOutputFilter, s
 		filter["setid"] = in.Setid
 	}
 	if in.Owner != "" {
-		if !pubkeyPattern.MatchString(in.Owner) {
-			return badArg("owner must be a compressed public key (66 hex characters)")
+		if !pqkeyidPattern.MatchString(in.Owner) {
+			return badArg("owner must be a pqkeyid: 66 hex characters, the scheme byte 01 or 02 then the key hash")
 		}
 		filter["owner"] = in.Owner
 	}

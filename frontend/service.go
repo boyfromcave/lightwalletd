@@ -48,18 +48,23 @@ func NewDarksideStreamer(cache *common.BlockCache) (walletrpc.DarksideStreamerSe
 }
 
 // YellowbackAddresses is set by main when the Yellowback service is registered: the taddr RPCs
-// then also accept YED addresses (ye…/yt…/yr…), the same key hash under other version bytes
+// then also accept YED addresses (yb…/yt…/yr…), the same key hash under other version bytes
 // (yellowback_addr.go; docs/yellowback.md D-L-4). Off, every path below is the baseline's.
 var YellowbackAddresses bool
 
-// taddrOf returns the transparent form of a YED address when the service is on, else the input.
-func taddrOf(addr string) string {
+// taddrOf returns the transparent form of a YED address when the service is on, else the input;
+// a post-quantum YED address is refused with errPQYedAddress (the caller's regex would otherwise
+// answer an opaque "Invalid address").
+func taddrOf(addr string) (string, error) {
 	if YellowbackAddresses {
 		if t, ok := yedToTransparent(addr); ok {
-			return t
+			return t, nil
+		}
+		if isYedPQAddress(addr) {
+			return "", errPQYedAddress
 		}
 	}
-	return addr
+	return addr, nil
 }
 
 // Test to make sure Address is a single s address
@@ -86,7 +91,11 @@ func (s *lwdStreamer) GetLatestBlock(ctx context.Context, placeholder *walletrpc
 // GetTaddressTxids is a streaming RPC that returns transaction IDs that have
 // the given transparent address (taddr) as either an input or output.
 func (s *lwdStreamer) GetTaddressTxids(addressBlockFilter *walletrpc.TransparentAddressBlockFilter, resp walletrpc.CompactTxStreamer_GetTaddressTxidsServer) error {
-	addressBlockFilter.Address = taddrOf(addressBlockFilter.Address)
+	taddr, err := taddrOf(addressBlockFilter.Address)
+	if err != nil {
+		return err
+	}
+	addressBlockFilter.Address = taddr
 	if err := checkTaddress(addressBlockFilter.Address); err != nil {
 		return err
 	}
@@ -345,7 +354,11 @@ func (s *lwdStreamer) SendTransaction(ctx context.Context, rawtx *walletrpc.RawT
 
 func getTaddressBalanceZcashdRpc(addressList []string) (*walletrpc.Balance, error) {
 	for i, addr := range addressList {
-		addressList[i] = taddrOf(addr)
+		taddr, err := taddrOf(addr)
+		if err != nil {
+			return &walletrpc.Balance{}, err
+		}
+		addressList[i] = taddr
 		if err := checkTaddress(addressList[i]); err != nil {
 			return &walletrpc.Balance{}, err
 		}
@@ -528,7 +541,11 @@ func MempoolFilter(items, exclude []string) []string {
 
 func getAddressUtxos(arg *walletrpc.GetAddressUtxosArg, f func(*walletrpc.GetAddressUtxosReply) error) error {
 	for i, a := range arg.Addresses {
-		arg.Addresses[i] = taddrOf(a)
+		taddr, err := taddrOf(a)
+		if err != nil {
+			return err
+		}
+		arg.Addresses[i] = taddr
 		if err := checkTaddress(arg.Addresses[i]); err != nil {
 			return err
 		}

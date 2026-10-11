@@ -75,6 +75,41 @@ wallet context and is not offered; a light client computes the early-redeem fee 
 `params.earlyRedeemFeeBps[class] × collateralZat / 10000` before `lockHeight`. `ListClaimable` sends no `count`, so
 the node's default page (1000 rows) applies.
 
+**rpcversion 7 (post-quantum vault owners, branch `upgrade/quantum-vaults`; `docs/plans/yellowback-quantum-spec.md`
+§4 and §6.2 in the workspace).** Every vault's owner is a post-quantum key (scheme 1 SLH-DSA-SHA2-128s; scheme 2
+FN-DSA-512 once Falcon is active), named by its scheme and 32-byte key hash; no owner public key is on chain. The
+server speaks exactly 7 on this line: 6 is refused because its owner fields would be dropped silently (their
+numbers are reserved below) and its `vault_list` owner filter takes a `02`/`03` public key, the same 66 hex
+digits as a Falcon key id; 8 is refused as before. Node, server and wallets deploy in lockstep (clients survey
+C-11). Proto changes:
+- `YedPayload`: `ownerPubKey` (5) reserved; `ownerScheme` (12), `ownerHash` (13) added. A MINT's `version` is 4;
+  every other payload type stays 3.
+- `YedVault` (`GetVault`, `ListVaults`): `ownerKeyId` (15), `ownerPubKey` (16) reserved; `ownerScheme` (28),
+  `ownerHash` (29) added; `ownerAddress` (14) is the owner's 53-character post-quantum address.
+  `YedClaimable.ownerAddress` likewise.
+- `VaultOutput` (`ListVaultOutputs`): `ownerkey` (14) reserved; `owner` (23, the `pqkeyid`: scheme byte `01`/`02`
+  then the key hash, 66 hex digits) and `ownerscheme` (24) added. `VaultOutputFilter.owner` is a `pqkeyid`
+  (`^0[12][0-9a-fA-F]{64}$`); a `03…` public key is refused at the edge. A `02…` value is a Falcon key id: the
+  node renamed the type rather than reusing it so a key is never read as a key id. The node also takes a PQ address
+  there; this server takes the `pqkeyid` only (the address carries the same bytes).
+- `YellowbackParams.pq` (23) = `YellowbackPQParams {schemes, falconActive, falconHeight, feeRateZatPerKB}`: the
+  owner schemes valid at the next block, the Falcon height (-1 = none), and the node's `-pqfeerate` (a wallet's
+  fee for a PQ spend is `max(DEFAULT_FEE, rate × size / 1000)` on ycash-dd). `YellowbackAttestParams.mintPayloadVersion`
+  (14) = 4.
+
+Addresses: a YED address is P2PKH (35 characters) or post-quantum (53 characters, `Base58Check(pqVersion ‖ scheme
+‖ keyHash)`). Mainnet is `yb…` (owner decision D-Q-21: P2PKH `0x1FDD`, PQ `0x56AB`; the earlier `ye…` `0x1FE4` no
+longer maps), testnet `yt…` (`0x2007`, PQ `0x571E`), regtest `yr…` (`0x2002`, PQ `0x5710`). `GetAddressTokens`
+takes either form (the node resolves both). The taddr RPCs (`GetTaddressTxids`, `GetTaddressBalance`,
+`GetAddressUtxos`) map a P2PKH YED address to its transparent twin as before and refuse a PQ one with
+INVALID_ARGUMENT "PQ YED address: use GetAddressTokens": a `TX_PQPKH` output has no transparent twin and is not in
+the node's address index (quantum spec A-11). The O(1) length-and-prefix pre-check (audit E-1) covers both lengths.
+`vault_getnewowner` (a new PQ key of the node's wallet) is wallet context and not offered. The offline suite has
+reverse checks (`TestContractFieldsAreDeclared`, `TestVaultContractFieldsAreDeclared`): every field of an offered
+method's node contract (and, for the primitive, the node's `doc/vault-rpc-contract.json`, copied to
+`testdata/vault/`) is declared in the proto or listed in `notCarried` with a reason, so a field the node renames
+fails a test instead of disappearing.
+
 ## Light-client sync notes (x402 `lwdnext`, 2026-10-04)
 
 What a light client (the x402 agent, YEW) gets from this server for syncing and signing, and what

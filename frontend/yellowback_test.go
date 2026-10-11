@@ -78,9 +78,10 @@ func newFakeNode(t *testing.T) *fakeNode {
 	return &fakeNode{t: t, contract: loadContract(t), params: map[string][]json.RawMessage{}, fail: map[string]error{}}
 }
 
-// vaultFixture is a set_* / vault_* answer captured from a ycash-dd upgrade/vault devnet
-// (testdata/vault/<method>.json): the primitive's RPCs have no JSON contract, their document
-// (vault-rpc.md, copied beside the fixtures) is prose, so real answers are the fixtures.
+// vaultFixture is a set_* / vault_* answer captured from a ycash-dd node
+// (testdata/vault/<method>.json; on upgrade/quantum-vaults a regtest node at rpcversion 7). The
+// answers are the fixtures; the node's machine-readable contract (vault-rpc-contract.json, copied
+// beside them with vault-rpc.md) backs the reverse check in yellowback_contract_test.go.
 func vaultFixture(t *testing.T, method string) json.RawMessage {
 	t.Helper()
 	data, err := ioutil.ReadFile("../testdata/vault/" + method + ".json")
@@ -563,7 +564,7 @@ func TestProbe(t *testing.T) {
 	if err != nil || !capability.Enabled || capability.RPCVersion != common.KnownRPCVersion || capability.Network != "regtest" {
 		t.Fatalf("yellowback node: got %+v err=%v", capability, err)
 	}
-	// rpcversion 5 (the upgrade line, before in-term claims) and a future 7 are both refused: the contract is exact.
+	// rpcversion 6 (the in-term line, EC vault owners) and a future 8 are both refused: the contract is exact.
 	for _, v := range []int{common.KnownRPCVersion - 1, common.KnownRPCVersion + 1} {
 		node = newFakeNode(t)
 		install(t, node)
@@ -589,11 +590,12 @@ func TestProbe(t *testing.T) {
 // TestYedToTransparent: known-answer vectors. The regtest pair is from a ycash-dd regtest node
 // (yed_getnewaddress / yed_validateaddress, 2026-09-23); the mainnet and testnet pairs from an
 // independent base58check implementation over the key hash 1f2e…d3c4 with the version bytes of
-// ycash-dd/src/yellowback/params.cpp and ref/ycash/src/chainparams.cpp.
+// ycash-dd/src/yellowback/params.cpp and ref/ycash/src/chainparams.cpp. Mainnet is yb… (0x1FDD,
+// owner decision D-Q-21); the retired ye… (0x1FE4) no longer maps.
 func TestYedToTransparent(t *testing.T) {
 	vectors := map[string]string{
 		"yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij": "smFv3B1FhYXS2ZU1e54x9sdLfq7e46YhxVT", // regtest, from the node
-		"ye5AFsECVAfVbGza52vizHE2p1wpsg7hdWq": "s1Q3cZRF4QCVySdHFdrJJhMpiKhX62RnGoD", // mainnet
+		"ybFo2yU7UCQFTYxbTrzPktM8JcR2GmuypZg": "s1Q3cZRF4QCVySdHFdrJJhMpiKhX62RnGoD", // mainnet (yb, D-Q-21)
 		"yt9zNL2da1yiFuAT6tcP9FcZM3bqtc53TR7": "smFtMtFjTns1UasUhJac3Z2VTvgbubcg77f", // testnet
 		"yr9JMQV98U5PsozkfmWiYpzCQu5ZB2quPEn": "smFtMtFjTns1UasUhJac3Z2VTvgbubcg77f", // regtest, same hash
 	}
@@ -606,6 +608,8 @@ func TestYedToTransparent(t *testing.T) {
 	for _, notYed := range []string{
 		"smFv3B1FhYXS2ZU1e54x9sdLfq7e46YhxVT",                                    // already transparent: unchanged, false
 		"yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ii",                                    // bad checksum
+		"ye5AFsECVAfVbGza52vizHE2p1wpsg7hdWq",                                    // the retired mainnet ye… version
+		"yr2Tp5VfX9aERxy2khaRBpd7c3FY7nnPNXFgWE9ix6TPjLE4fqeRP",                  // post-quantum (no transparent twin)
 		"ys1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq", // shielded
 		"", "yr",
 	} {
@@ -620,19 +624,80 @@ func TestYedToTransparent(t *testing.T) {
 // baseline's checkTaddress sees exactly what it always saw.
 func TestTaddrOfMapsYedAddresses(t *testing.T) {
 	YellowbackAddresses = false
-	if got := taddrOf("yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij"); got != "yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij" {
-		t.Fatalf("switch off must not map: %q", got)
+	if got, err := taddrOf("yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij"); err != nil || got != "yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij" {
+		t.Fatalf("switch off must not map: %q %v", got, err)
 	}
 	YellowbackAddresses = true
 	defer func() { YellowbackAddresses = false }()
-	if got := taddrOf("yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij"); got != "smFv3B1FhYXS2ZU1e54x9sdLfq7e46YhxVT" {
-		t.Fatalf("mapping: %q", got)
+	if got, err := taddrOf("yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij"); err != nil || got != "smFv3B1FhYXS2ZU1e54x9sdLfq7e46YhxVT" {
+		t.Fatalf("mapping: %q %v", got, err)
 	}
-	if got := taddrOf("smFv3B1FhYXS2ZU1e54x9sdLfq7e46YhxVT"); got != "smFv3B1FhYXS2ZU1e54x9sdLfq7e46YhxVT" {
-		t.Fatalf("transparent input must pass unchanged: %q", got)
+	if got, err := taddrOf("smFv3B1FhYXS2ZU1e54x9sdLfq7e46YhxVT"); err != nil || got != "smFv3B1FhYXS2ZU1e54x9sdLfq7e46YhxVT" {
+		t.Fatalf("transparent input must pass unchanged: %q %v", got, err)
 	}
-	if err := checkTaddress(taddrOf("yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij")); err != nil {
+	mapped, _ := taddrOf("yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij")
+	if err := checkTaddress(mapped); err != nil {
 		t.Fatalf("the mapped address must satisfy the baseline regex: %v", err)
+	}
+}
+
+// pqAddressVectors: post-quantum YED addresses (rpcversion 7, quantum spec section 4): Base58Check of
+// the PQ version || scheme || key hash a1b2…8f90, from an independent base58check implementation
+// (the workspace venv's Python) with the versions of D-Q-21 (mainnet yb 0x56AB) and spec F-4
+// (testnet yt 0x571E, regtest yr 0x5710); the last is the node's own (aa0fd3812), re-derived identically.
+var pqAddressVectors = []string{
+	"yb5u8LCGfU3hYYhhAqvYzR3ZQuNFEUWzx5dmLiGjPW8Gqto3xqqCc", // mainnet, scheme 1
+	"yb5w55NW7Vu8DmqWkYq8cQzt1gHMrCAhnxRQQpWt5Q7vrHHZiW4bg", // mainnet, scheme 2
+	"yt6ae5ki7bj4McDDWSdwgy4SRXLMFUeBYoSQL4WaGy9whGruyVkhs", // testnet, scheme 1
+	"yt6capvwZdaV2qM369YXJy1m2JFTsCHtPgE3QAkixs9bhfMSj4ja8", // testnet, scheme 2
+	"yr2Tp5VfX9aERxy2khaRBpd7c3FY7nnPNXFgWE9ix6TPjLE4fqeRP", // regtest, scheme 1
+	"yr2VkpftyBRf7C6rLQUzopaSCpAejWS6DQ3KaLPsdzT3jiihq7N9u", // regtest, scheme 2
+	"yr2UU5D3MMKpAahQX9ugwKzJgYgeg6WXYfj3YWKf6jsaFn9BS23nZ", // regtest, from the node: vault_getnewowner, key hash f7f8…89e2 (testdata/vault)
+}
+
+// TestTaddrOfRefusesPQAddresses: a post-quantum YED address has no transparent twin, so the taddr
+// RPCs refuse it with INVALID_ARGUMENT naming GetAddressTokens (not the baseline's opaque "Invalid
+// address"), before any node call; malformed near-misses (bad checksum, unregistered scheme, the
+// retired ye… PQ version) are not PQ addresses and fall through to the baseline regex.
+func TestTaddrOfRefusesPQAddresses(t *testing.T) {
+	_, node := newService(t)
+	YellowbackAddresses = true
+	defer func() { YellowbackAddresses = false }()
+	for _, a := range pqAddressVectors {
+		if len(a) != yedPQAddressLen || !isYedPQAddress(a) {
+			t.Errorf("%s: not recognised as a PQ YED address", a)
+			continue
+		}
+		if _, err := taddrOf(a); status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "GetAddressTokens") {
+			t.Errorf("%s: taddrOf = %v, want INVALID_ARGUMENT naming GetAddressTokens", a, err)
+		}
+		if _, err := getTaddressBalanceZcashdRpc([]string{a}); status.Code(err) != codes.InvalidArgument {
+			t.Errorf("%s: GetTaddressBalance = %v", a, err)
+		}
+		if err := getAddressUtxos(&walletrpc.GetAddressUtxosArg{Addresses: []string{a}}, nil); status.Code(err) != codes.InvalidArgument {
+			t.Errorf("%s: GetAddressUtxos = %v", a, err)
+		}
+	}
+	for _, notPQ := range []string{
+		"yr2Tp5VfX9aERxy2khaRBpd7c3FY7nnPNXFgWE9ix6TPjLE4fqeRQ", // bad checksum
+		"yr2XhZr8RDH5nREfv7PaRpXkob5mME5o4GpxeSe2KtShk7DKFopSv", // scheme 3 (unregistered)
+		"ye3VjmRUey82J33xXuSSrLXT9t4GHAtRVLUDwuMfHKhM5XR1uq4Az", // the retired mainnet ye… PQ version 0x56BF
+		"yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij",                   // P2PKH
+		"y" + strings.Repeat("z", 52),
+	} {
+		if isYedPQAddress(notPQ) {
+			t.Errorf("%s must not be a PQ YED address", notPQ)
+		}
+	}
+	if _, err := getTaddressBalanceZcashdRpc([]string{"yr2XhZr8RDH5nREfv7PaRpXkob5mME5o4GpxeSe2KtShk7DKFopSv"}); err == nil || err.Error() != "Invalid address" {
+		t.Errorf("a malformed PQ-length address must meet the baseline regex, got %v", err)
+	}
+	if len(node.calls) != 0 {
+		t.Fatalf("a refused address reached the node: %v", node.calls)
+	}
+	YellowbackAddresses = false
+	if got, err := taddrOf(pqAddressVectors[4]); err != nil || got != pqAddressVectors[4] {
+		t.Errorf("switch off: taddrOf must leave a PQ address to the baseline, got %q %v", got, err)
 	}
 }
 
@@ -848,7 +913,7 @@ func TestTaddrOfRejectsLongGarbageCheaply(t *testing.T) {
 	defer func() { YellowbackAddresses = false }()
 	garbage := "y" + strings.Repeat("z", 1<<20)
 	start := time.Now()
-	if got := taddrOf(garbage); got != garbage {
+	if got, err := taddrOf(garbage); err != nil || got != garbage {
 		t.Fatalf("garbage must pass through unchanged")
 	}
 	if elapsed := time.Since(start); elapsed > 50*time.Millisecond {
@@ -951,7 +1016,7 @@ func TestUnaryInfoInTerm(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := info.GetParams()
-	if info.GetRpcversion() != 6 || !p.GetInTermClaims() || p.GetClaimThresholdBps() != 12500 || p.GetSigmaMultMaxBps() != 10000 {
+	if info.GetRpcversion() != common.KnownRPCVersion || !p.GetInTermClaims() || p.GetClaimThresholdBps() != 12500 || p.GetSigmaMultMaxBps() != 10000 {
 		t.Errorf("in-term params not passed through: rpcversion %d params %+v", info.GetRpcversion(), p)
 	}
 	if fees := p.GetEarlyRedeemFeeBps(); len(fees) != 3 || fees[0] != 500 || fees[1] != 250 || fees[2] != 100 {
@@ -992,5 +1057,96 @@ func TestStreamingClaimableInTerm(t *testing.T) {
 	}
 	if second.GetClaimable() || second.GetUnderwaterAt() != 123456 || second.GetLockHeight() != 377 || second.GetClaimPath() != "" {
 		t.Errorf("claimable=false row: %+v", second)
+	}
+}
+
+// ---- rpcversion 7: post-quantum vault owners (docs/plans/yellowback-quantum-spec.md section 6.2) ----
+
+// TestUnaryInfoPQ: yed_getinfo.params.pq (the owner schemes, the Falcon activation and the node's
+// size-priced fee rate) and attest.mintPayloadVersion reach the client.
+func TestUnaryInfoPQ(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	info, err := svc.GetYellowbackInfo(ctx, &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pq := info.GetParams().GetPq()
+	if info.GetRpcversion() != 7 || common.KnownRPCVersion != 7 || pq == nil {
+		t.Fatalf("rpcversion %d (server knows %d), pq %+v", info.GetRpcversion(), common.KnownRPCVersion, pq)
+	}
+	if s := pq.GetSchemes(); len(s) != 1 || s[0] != 1 || pq.GetFalconActive() || pq.GetFalconHeight() != -1 || pq.GetFeeRateZatPerKB() != 100 {
+		t.Errorf("params.pq = %+v, want schemes [1], Falcon inactive at -1, 100 zat/kB", pq)
+	}
+	if a := info.GetParams().GetAttest(); a.GetMintPayloadVersion() != 4 || a.GetPayloadVersion() != 3 {
+		t.Errorf("attest payload versions: mint %d, others %d; want 4 and 3", a.GetMintPayloadVersion(), a.GetPayloadVersion())
+	}
+	// Falcon active: the contract example cannot show it, so a fresh fake node answers it (a fresh
+	// service too: the first answer is in the service's short-lived cache).
+	svc, node := newService(t)
+	var raw map[string]interface{}
+	if err := json.Unmarshal(node.contract.returns(t, "yed_getinfo"), &raw); err != nil {
+		t.Fatal(err)
+	}
+	raw["params"].(map[string]interface{})["pq"] = map[string]interface{}{"schemes": []int{1, 2}, "falconActive": true, "falconHeight": 250, "feeRateZatPerKB": 300}
+	encoded, _ := json.Marshal(map[string]interface{}{"returns": raw})
+	node.contract["yed_getinfo"] = encoded
+	info, err = svc.GetYellowbackInfo(ctx, &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pq := info.GetParams().GetPq(); len(pq.GetSchemes()) != 2 || pq.GetSchemes()[1] != 2 || !pq.GetFalconActive() || pq.GetFalconHeight() != 250 || pq.GetFeeRateZatPerKB() != 300 {
+		t.Errorf("Falcon-active params.pq = %+v", pq)
+	}
+}
+
+// TestUnaryOwnerFieldsPQ: the post-quantum owner (scheme, 32-byte key hash) reaches the client on
+// yed_decodepayload (a MINT, payload version 4), yed_getvault and yed_listvaults; the EC owner
+// fields of rpcversion 6 are gone from the messages (their numbers reserved).
+func TestUnaryOwnerFieldsPQ(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	const hash = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+	p, err := svc.DecodePayload(ctx, &walletrpc.YedHex{Hex: "59420401"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.GetVersion() != 4 || p.GetOwnerScheme() != 1 || p.GetOwnerHash() != hash {
+		t.Errorf("yed_decodepayload: version %d owner %d/%s", p.GetVersion(), p.GetOwnerScheme(), p.GetOwnerHash())
+	}
+	v, err := svc.GetVault(ctx, &walletrpc.YedTxid{Txid: exampleTxid})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.GetOwnerScheme() != 1 || v.GetOwnerHash() != hash || v.GetOwnerAddress() == "" {
+		t.Errorf("yed_getvault owner: %d/%s/%s", v.GetOwnerScheme(), v.GetOwnerHash(), v.GetOwnerAddress())
+	}
+	vs := &vaultStream{}
+	if err := svc.ListVaults(&walletrpc.YedVaultFilter{}, vs); err != nil || len(vs.rows) == 0 {
+		t.Fatalf("yed_listvaults: %v", err)
+	}
+	if row := vs.rows[0].(*walletrpc.YedVault); row.GetOwnerScheme() != 1 || row.GetOwnerHash() != hash {
+		t.Errorf("yed_listvaults owner: %d/%s", row.GetOwnerScheme(), row.GetOwnerHash())
+	}
+	for _, msg := range []interface{}{p, v, vs.rows[0]} {
+		for _, gone := range []string{"ownerPubKey", "ownerKeyId"} {
+			if _, ok := declaredFields(msg)[gone]; ok {
+				t.Errorf("%T still declares %s", msg, gone)
+			}
+		}
+	}
+}
+
+// TestGetAddressTokensPQ: GetAddressTokens takes the 53-character post-quantum YED address (the one
+// address RPC that does: yed_listtokens resolves either form) and hands it to the node unchanged.
+func TestGetAddressTokensPQ(t *testing.T) {
+	svc, node := newService(t)
+	addrs := append([]string{"yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij"}, pqAddressVectors[4:]...)
+	if err := svc.GetAddressTokens(&walletrpc.YedAddressList{Addresses: addrs}, &tokenStream{}); err != nil {
+		t.Fatal(err)
+	}
+	want, _ := json.Marshal(addrs)
+	if p := node.params["yed_listtokens"]; len(p) != 1 || string(p[0]) != string(want) {
+		t.Errorf("yed_listtokens params = %s, want %s", p, want)
 	}
 }

@@ -5,7 +5,8 @@
 // Offline tests of the vault primitive's read RPCs on the YellowbackStreamer
 // (yellowback_vault.go) and of the rpcversion 5 shapes that come with the vault upgrade. The
 // fake node answers set_* / vault_* from testdata/vault/<method>.json, real answers captured from
-// a ycash-dd upgrade/vault devnet (a set with one member, a TEST vault unlocked into an intent).
+// a ycash-dd upgrade/quantum-vaults regtest node (rpcversion 7, aa0fd3812): a rate-limited set with
+// one member, a TEST vault with a wallet SLH-DSA owner (vault_getnewowner) unlocked into an intent.
 package frontend
 
 import (
@@ -76,7 +77,7 @@ func TestVaultMethodsMatchFixtures(t *testing.T) {
 		t.Errorf("vault_getinfo: %+v", info)
 	}
 
-	set, err := svc.GetSet(ctx, &walletrpc.VaultSetQuery{Setid: "fc7cca3f6bef557056dd9445ac0074b66c097b9d63ebb871ca732bec467905a2"})
+	set, err := svc.GetSet(ctx, &walletrpc.VaultSetQuery{Setid: "7141e8bb06239e92fbd709f222d2dd2553defb4a8e3a0c78b08210939f53d83c"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,8 +123,16 @@ func TestVaultMethodsMatchFixtures(t *testing.T) {
 		assertNonZeroFieldsPresent(t, "vault_list", vs.rows[i], outRows[i])
 	}
 	intent := vs.rows[0].(*walletrpc.VaultOutput)
-	if intent.Kind != "intent" || intent.Matureheight != 207 || !intent.Cancellable || intent.Valuezat != 400000000 || intent.Origin == "" {
+	if intent.Kind != "intent" || intent.Matureheight != 215 || !intent.Cancellable || intent.Valuezat != 400000000 || intent.Origin == "" {
 		t.Errorf("intent row: %+v", intent)
+	}
+	// rpcversion 7: both rows carry the post-quantum owner (pqkeyid and scheme), never an EC ownerkey.
+	const owner = "01f7f881ae1bda8bc3deecb36ce00179cedc0c8b6866c607830b1f7adda2a989e2"
+	for _, row := range vs.rows {
+		out := row.(*walletrpc.VaultOutput)
+		if out.Owner != owner || out.Ownerscheme != 1 || hasKey(encodedOf(t, out), "ownerkey") {
+			t.Errorf("%s row owner: %q scheme %d", out.Kind, out.Owner, out.Ownerscheme)
+		}
 	}
 	if p := node.params["vault_list"]; len(p) != 0 {
 		t.Errorf("an empty filter must send no params, sent %s", p)
@@ -141,14 +150,17 @@ func TestVaultMethodsMatchFixtures(t *testing.T) {
 func TestVaultParamsAndValidation(t *testing.T) {
 	svc, node := newService(t)
 	ctx := context.Background()
-	setid := "fc7cca3f6bef557056dd9445ac0074b66c097b9d63ebb871ca732bec467905a2"
+	setid := "7141e8bb06239e92fbd709f222d2dd2553defb4a8e3a0c78b08210939f53d83c"
 	if _, err := svc.GetSet(ctx, &walletrpc.VaultSetQuery{Setid: setid, Height: 300}); err != nil {
 		t.Fatal(err)
 	}
 	if p := node.params["set_getinfo"]; len(p) != 2 || string(p[0]) != `"`+setid+`"` || string(p[1]) != "300" {
 		t.Errorf("set_getinfo params = %s", p)
 	}
-	owner := "0379f92647dcfb38dcfcc3a6f0df13bf2083e0c618d8655dca7b61542f1646f1b5"
+	owner := "01a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90" // a pqkeyid (rpcversion 7)
+	if err := svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Owner: "02" + owner[2:]}, &vaultOutputStream{}); err != nil {
+		t.Errorf("a scheme-2 (FN-DSA-512) pqkeyid: %v", err)
+	}
 	if err := svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Tag: "YED", Setid: setid, Owner: owner, Kind: "intent"}, &vaultOutputStream{}); err != nil {
 		t.Fatal(err)
 	}
@@ -182,6 +194,18 @@ func TestVaultParamsAndValidation(t *testing.T) {
 		},
 		func() error {
 			return svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Owner: "04" + owner[2:]}, &vaultOutputStream{})
+		},
+		func() error { // a compressed public key (rpcversion 6's owner filter): refused, never read as a key id
+			return svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Owner: "03" + owner[2:]}, &vaultOutputStream{})
+		},
+		func() error { // scheme 00 and 03 are not registered
+			return svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Owner: "00" + owner[2:]}, &vaultOutputStream{})
+		},
+		func() error { // the bare 32-byte key hash, without the scheme byte
+			return svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Owner: owner[2:]}, &vaultOutputStream{})
+		},
+		func() error { // a PQ address: the node takes it, this server's filter field is a pqkeyid
+			return svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Owner: "yr2Tp5VfX9aERxy2khaRBpd7c3FY7nnPNXFgWE9ix6TPjLE4fqeRP"}, &vaultOutputStream{})
 		},
 		func() error {
 			return svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Kind: "bond"}, &vaultOutputStream{})

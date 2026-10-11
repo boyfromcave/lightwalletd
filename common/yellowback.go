@@ -35,9 +35,16 @@ const ServerVersion = "0.2-yec-lightwalletd"
 // activation/enforcement fields are gone. 6 is the in-term claims line (upgrade/vault-in-term,
 // docs/plans/yellowback-in-term-claims-plan.md section 4.1): yed_listclaimable lists every ACTIVE
 // vault whose claim branch is open with claimable true/false (the shape change behind the bump),
-// yed_getinfo.params carries inTermClaims, claimThresholdBps and earlyRedeemFeeBps. The match stays
-// exact: a rpcversion 5 node's rows would read as claimable=false, which is not what it meant.
-const KnownRPCVersion = 6
+// yed_getinfo.params carries inTermClaims, claimThresholdBps and earlyRedeemFeeBps. 7 is the
+// post-quantum line (upgrade/quantum-vaults, docs/plans/yellowback-quantum-spec.md section 6.2):
+// every vault owner is a post-quantum key, so ownerPubKey/ownerKeyId (yed_getvault, yed_listvaults,
+// yed_decodepayload) and vault_list's ownerkey are gone, replaced by ownerScheme/ownerHash and
+// owner/ownerscheme; vault_list's owner filter is a pqkeyid; a MINT payload is version 4;
+// yed_getinfo.params carries pq and attest.mintPayloadVersion. The match stays exact: a rpcversion
+// 5 node's rows would read as claimable=false, which is not what it meant, and a rpcversion 6
+// node's owner fields would be dropped silently by this proto (their numbers are reserved) while
+// its owner filter takes a 02/03 public key, the same 66 hex digits as a pqkeyid.
+const KnownRPCVersion = 7
 
 // YedMethods is the allow-list: every node RPC the service may call, and nothing else.
 // The offline test asserts this set against the contract: every yed_* method there is either
@@ -97,6 +104,7 @@ var NotOfferedVault = map[string]string{
 	"set_sendact":        "wallet",
 	"set_equivocation":   "wallet",
 	"vault_lock":         "wallet",
+	"vault_getnewowner":  "wallet (a new post-quantum key of the node's wallet, rpcversion 7)",
 	"vault_buildunlock":  "wallet",
 	"set_signunlock":     "wallet",
 	"vault_buildcancel":  "wallet",
