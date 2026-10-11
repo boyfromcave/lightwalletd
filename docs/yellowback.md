@@ -110,6 +110,36 @@ method's node contract (and, for the primitive, the node's `doc/vault-rpc-contra
 `testdata/vault/`) is declared in the proto or listed in `notCarried` with a reason, so a field the node renames
 fails a test instead of disappearing.
 
+**rpcversion 8 (the fee structure, branch `upgrade/quantum-vaults`; `docs/plans/yellowback-quantum-fees-spec.md`
+§1–§3 and the node's `doc/yellowback-rpc.md` in the workspace).** The pool fee is a protocol fee in dollars, tiered
+by the vault's debt and struck at the vault's stored mint price `pMint`; network fees of post-quantum and Yellowback
+transactions are dollars per KB at the attested tip price. The server speaks exactly 8 on this line (7 is refused:
+`yed_estimatefee` and `yed_getfeepayee` changed their arguments, so a 7 node would misread the requests). Proto changes:
+- `YellowbackParams`: `feeBps` (5), `feeMinZat` (6) reserved; `maxMintCents` (24), `fees` (25) and `supplyCap` (26)
+  added. `fees` = `YellowbackFees {protocol {bands[] {uptoCents (0 = the unbounded last band, JSON null), bps},
+  floorCents, attestFeeBps, priceSource}, earlyRedeemFeeBps[], network {priceMicroUsd (0 = no price), priceSource
+  ("tip" | "fallback"), plain, yellowback (each {usdPerKBMicro, zatPerKB}; yellowback also maxTxFeeUsdMicro,
+  maxTxFeeCeilingZat, maxTxFeeZat), floorZatPerKB, fallbackZatPerKB, flatZat, maxTxFeeZat}}`. A light wallet
+  prices a post-quantum transaction by size at `plain.zatPerKB` and a vault or YED transaction at
+  `yellowback.zatPerKB` (never under `flatZat`), within `yellowback.maxTxFeeZat`. `params.pq.feeRateZatPerKB` now equals
+  `fees.network.plain.zatPerKB`. `earlyRedeemFeeBps` (here and on each class) is of the debt at `pMint`.
+- `YedVault` (`GetVault`, `ListVaults`) `pMint` (30), `YedClaimable` `pMint` (17): the price every later fee of the
+  vault is struck at. `YedCollateralEstimate` gains `protocolFeeCents` (17), `protocolFeeZat` (18).
+- `EstimateFee`: `YedFeeQuery.collateralZat` (1) reserved; `mintedCents` (2), `priceMicroUsd` (3, optional) sent as
+  `yed_estimatefee <mintedCents> [priceMicroUsd]`; `YedFeeEstimate` gains `feeCents` (2), `pMint` (3),
+  `attestFeeZat` (4).
+- `GetFeePayee`: `YedPayeeQuery.collateralZat` (2) and `YedPayee.feeZat` (3) reserved; the call is
+  `yed_getfeepayee <refHeight> [selectorHex]`.
+
+**SendTransaction and the fee ceiling (review M-2).** A transaction priced at the published rate can pay more than
+the node's `-maxtxfee`, which `sendrawtransaction` refuses as "absurdly high". On such a refusal, and only when the
+node serves `yed_getinfo` at rpcversion 8, the server establishes the fee — from the node's message (ycash-dd states
+it) or by computing it from the transaction and `gettxout` (ycash6 does not) — and resubmits with
+`allowhighfees = true` when it is at most `params.fees.network.yellowback.maxTxFeeCeilingZat` (`-yellowbackmaxtxfee`,
+default 10 YEC); above it the answer keeps the node's error code and names the fee and the ceiling. When the fee
+cannot be established (an unparsable transaction, an unknown prevout) or the node has no Yellowback service, the
+node's refusal stands. The first submission is the stock one, so a transaction under `-maxtxfee` costs nothing more.
+
 ## Light-client sync notes (x402 `lwdnext`, 2026-10-04)
 
 What a light client (the x402 agent, YEW) gets from this server for syncing and signing, and what
