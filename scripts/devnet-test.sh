@@ -8,7 +8,7 @@
 #               use the one already at DIR
 #   --down      tear it down afterwards (`down --wipe`)
 #   --dir       devnet directory (default ~/yb-devnet-lwd); --portseed (default 8) with --up
-#   env: YCASH_DD (node repo; ycash6 for the 6.x line), LWD_PYTHON, LWD_FORK_BIN (where the fork
+#   env: YCASH_DD (node repo or a worktree of it; ycash6 for the 6.x line), LWD_PYTHON, LWD_FORK_BIN (where the fork
 #        binary is built), LWD_FORK_PORT / LWD_BASELINE_PORT (9067 / 9068), LWD_RAWMINT (default
 #        the node repo's contrib/yellowback/devnet/lwd-rawmint; rpcversion 5 passes it --attestor-set)
 #
@@ -21,6 +21,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE="$(dirname "$ROOT")"
+[ "$(basename "$WORKSPACE")" = wt ] && WORKSPACE="$(dirname "$WORKSPACE")"   # a worktree: wt/<name>/ -> the workspace
 NODE_REPO="${YCASH_DD:-$WORKSPACE/ycash-dd}"
 PY="${LWD_PYTHON:-$WORKSPACE/.venv/bin/python}"
 DEVNET="$NODE_REPO/contrib/yellowback/devnet/yellowback-devnet"
@@ -49,7 +50,9 @@ say "baseline binary"
 # yellowback-devnet looks up the baseline at <parent of ycash-dd>/wt/lightwalletd-legacy-bin.
 # That is this script's default only when the two repos are siblings. CI clones lightwalletd
 # under RUNNER_TEMP, so the binary has to be written where the devnet script will open it.
-BASE_OUT="$(dirname "$NODE_REPO")/wt/lightwalletd-legacy-bin"
+NODE_PARENT="$(dirname "$NODE_REPO")"
+[ "$(basename "$NODE_PARENT")" = wt ] && NODE_PARENT="$(dirname "$NODE_PARENT")"   # the devnet script's own worktree rule
+BASE_OUT="$NODE_PARENT/wt/lightwalletd-legacy-bin"
 "$ROOT/scripts/build-baseline.sh" "$BASE_OUT"
 say "fork binary"
 FORK_BIN="${LWD_FORK_BIN:-$WORKSPACE/wt/lightwalletd-dd-bin/lightwalletd}"

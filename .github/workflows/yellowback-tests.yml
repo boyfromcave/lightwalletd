@@ -25,9 +25,11 @@ name: yellowback-tests
 # The branch list lives once, here: pull_request is unfiltered (every PR runs), push runs on the
 # hardening and upgrade lines, the branch of record (AGENTS.md) and the ci/* branches that carry
 # CI changes before they merge. lightwalletd-legacy (the pristine baseline) is never pushed to.
+# upgrade/quantum-vaults (rpcversion 7) is local-only for now (quantum plan D-Q-17): listed and mapped
+# to the node's branch of the same name so the file is consistent when it is pushed.
 on:
   push:
-    branches: [ harden/yellowback, upgrade/vault, upgrade/vault-in-term, main, feature/yellowback-price-attest, 'ci/**' ]
+    branches: [ harden/yellowback, upgrade/vault, upgrade/vault-in-term, upgrade/quantum-vaults, main, feature/yellowback-price-attest, 'ci/**' ]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -95,6 +97,7 @@ jobs:
           case "$BRANCH" in
             ci/harden*|harden/yellowback) node=harden/yellowback ;;
             upgrade/vault-in-term) node=upgrade/vault-in-term ;;
+            upgrade/quantum-vaults) node=upgrade/quantum-vaults ;;
             ci/upgrade*|upgrade/vault)    node=upgrade/vault ;;
             *)                            node=feature/yellowback-price-attest ;;
           esac
@@ -110,7 +113,7 @@ jobs:
         # regex commit invalidated upstream's t-address test data, after which the RPC stubs run
         # out of order and TestGetBlockRange waits forever). They are not this fork's to fix; the
         # Yellowback tests run by name so the package is still covered.
-        run: go test -mod=vendor -count=1 -timeout 120s -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit|CallYed|ListVaults|TipAnswers|ConfDefaultPorts|NewZRPCFromConf|ChainInfo|Vault' ./frontend/
+        run: go test -mod=vendor -count=1 -timeout 120s -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit|CallYed|ListVaults|TipAnswers|ConfDefaultPorts|NewZRPCFromConf|ChainInfo|Vault|PQ|ContractFields' ./frontend/
 
   generated-code:
     runs-on: ubuntu-24.04
@@ -203,6 +206,7 @@ jobs:
             case "$BRANCH" in
               ci/harden*|harden/yellowback) ref=harden/yellowback ;;
               upgrade/vault-in-term) ref=upgrade/vault-in-term ;;
+              upgrade/quantum-vaults) ref=upgrade/quantum-vaults ;;
               ci/upgrade*|upgrade/vault)    ref=upgrade/vault ;;
               *)                            ref=$record ;;
             esac

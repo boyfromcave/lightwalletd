@@ -453,8 +453,9 @@ func TestDevnetRawMintThroughServer(t *testing.T) {
 		t.Fatalf("lwd-rawmint: %v", err)
 	}
 	var built struct {
-		Hex, Txid, OwnerPubKey string
-		CarrierTxid            *string
+		Hex, Txid   string
+		OwnerPubKey string // rpcversion 7: the post-quantum owner id, scheme || key hash (66 hex), under lwd-rawmint's old key name
+		CarrierTxid *string
 	}
 	if err := json.Unmarshal(out, &built); err != nil {
 		t.Fatalf("lwd-rawmint output: %v: %s", err, out)
@@ -501,7 +502,101 @@ func TestDevnetRawMintThroughServer(t *testing.T) {
 	if !found {
 		t.Fatalf("raw mint %s:1 not in GetAddressTokens(%s)", built.Txid, addr)
 	}
+	d.checkPQOwner(t, ctx, y, built.Txid, built.OwnerPubKey)
 	t.Logf("raw mint %s (carrier %v): validated, sent and confirmed through the server with verdict ok", built.Txid, built.CarrierTxid)
+}
+
+// checkPQOwner (rpcversion 7): the post-quantum owner of the vault minted in txid reaches the client
+// identically on every surface: the MINT payload (version 4), GetVault, the primitive's
+// ListVaultOutputs filtered by the owner's pqkeyid, and the 53-character owner address, which
+// GetAddressTokens accepts and the taddr RPCs refuse with a pointer to it.
+func (d *devnet) checkPQOwner(t *testing.T, ctx context.Context, y walletrpc.YellowbackStreamerClient, txid, owner string) {
+	t.Helper()
+	if !pqkeyidPattern.MatchString(owner) {
+		t.Fatalf("lwd-rawmint's owner %q is not a pqkeyid", owner)
+	}
+	scheme, hash := int64(owner[1]-'0'), owner[2:]
+	v, err := y.GetVault(ctx, &walletrpc.YedTxid{Txid: txid})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.OwnerScheme != scheme || v.OwnerHash != hash || len(v.OwnerAddress) != yedPQAddressLen || !isYedPQAddress(v.OwnerAddress) {
+		t.Fatalf("GetVault owner %d/%s/%s, want %d/%s and a PQ address", v.OwnerScheme, v.OwnerHash, v.OwnerAddress, scheme, hash)
+	}
+	var nodeVault struct {
+		OwnerScheme  int64  `json:"ownerScheme"`
+		OwnerHash    string `json:"ownerHash"`
+		OwnerAddress string `json:"ownerAddress"`
+	}
+	d.rpc(t, &nodeVault, "yed_getvault", txid)
+	if nodeVault.OwnerScheme != v.OwnerScheme || nodeVault.OwnerHash != v.OwnerHash || nodeVault.OwnerAddress != v.OwnerAddress {
+		t.Fatalf("GetVault owner differs from yed_getvault: %+v", nodeVault)
+	}
+	var raw struct {
+		Vout []struct {
+			ScriptPubKey struct {
+				Hex string `json:"hex"`
+			} `json:"scriptPubKey"`
+		} `json:"vout"`
+	}
+	d.rpc(t, &raw, "getrawtransaction", txid, 1)
+	var payload *walletrpc.YedPayload
+	for _, o := range raw.Vout {
+		if strings.HasPrefix(o.ScriptPubKey.Hex, "6a") {
+			if p, err := y.DecodePayload(ctx, &walletrpc.YedHex{Hex: o.ScriptPubKey.Hex}); err == nil && p.Type == "mint" {
+				payload = p
+			}
+		}
+	}
+	if payload == nil || payload.Version != 4 || payload.OwnerScheme != scheme || payload.OwnerHash != hash {
+		t.Fatalf("DecodePayload of the MINT: %+v", payload)
+	}
+	lo, err := y.ListVaultOutputs(ctx, &walletrpc.VaultOutputFilter{Owner: owner, Kind: "vault"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for {
+		row, err := lo.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if row.Owner != owner || row.Ownerscheme != scheme {
+			t.Fatalf("ListVaultOutputs(owner %s) streamed a row of owner %s/%d", owner, row.Owner, row.Ownerscheme)
+		}
+		found = found || row.Txid == txid
+	}
+	if !found {
+		t.Fatalf("ListVaultOutputs(owner %s) has no vault of %s", owner, txid)
+	}
+	ts, err := y.GetAddressTokens(ctx, &walletrpc.YedAddressList{Addresses: []string{v.OwnerAddress}})
+	if err != nil {
+		t.Fatalf("GetAddressTokens(PQ owner address): %v", err)
+	}
+	for {
+		if _, err := ts.Recv(); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatalf("GetAddressTokens(PQ owner address): %v", err)
+		}
+	}
+	_, err = walletrpc.NewCompactTxStreamerClient(d.fork).GetTaddressBalance(ctx, &walletrpc.AddressList{Addresses: []string{v.OwnerAddress}})
+	if st, _ := status.FromError(err); st.Code() != codes.InvalidArgument || !strings.Contains(st.Message(), "GetAddressTokens") {
+		t.Fatalf("GetTaddressBalance(PQ address): want INVALID_ARGUMENT naming GetAddressTokens, got %v", err)
+	}
+	var fresh struct {
+		Address string `json:"address"`
+		Owner   string `json:"owner"`
+	}
+	d.rpc(t, &fresh, "vault_getnewowner")
+	if !isYedPQAddress(fresh.Address) || !pqkeyidPattern.MatchString(fresh.Owner) {
+		t.Fatalf("vault_getnewowner %+v: not recognised by this server", fresh)
+	}
+	t.Logf("PQ owner %s (%s) seen through GetVault, DecodePayload (v4), ListVaultOutputs; GetAddressTokens takes the address, the taddr RPCs refuse it; node vector %s",
+		owner[:10], v.OwnerAddress, fresh.Address)
 }
 
 func mustHex(t *testing.T, s string) []byte {
@@ -1007,7 +1102,7 @@ func TestDevnetInTermClaimableThroughServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := info.GetParams()
-	if info.Rpcversion != 6 || !p.GetInTermClaims() || !nodeInfo.Params.InTermClaims || p.GetClaimThresholdBps() != nodeInfo.Params.ClaimThresholdBps ||
+	if info.Rpcversion != common.KnownRPCVersion || !p.GetInTermClaims() || !nodeInfo.Params.InTermClaims || p.GetClaimThresholdBps() != nodeInfo.Params.ClaimThresholdBps ||
 		p.GetSigmaMultMaxBps() != nodeInfo.Params.SigmaMultMaxBps || fmt.Sprint(p.GetEarlyRedeemFeeBps()) != fmt.Sprint(nodeInfo.Params.EarlyRedeemFeeBps) {
 		t.Fatalf("in-term params: server %+v, node %+v", p, nodeInfo.Params)
 	}
