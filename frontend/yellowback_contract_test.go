@@ -58,6 +58,12 @@ var notCarried = map[string]string{
 	// only where the prototype had one); the proto carries the exact integer.
 	"yed_getvault.collateral":     "decimal twin of collateralZat",
 	"yed_listvaults[].collateral": "decimal twin of collateralZat",
+	// Quantum line (rpcversion 7, the node's Y-B sweep). Not carried yet: carrying them changes
+	// yellowback.proto and so YEW's proto/PIN; a light wallet derives both from what it has.
+	"yed_estimatecollateral.requiredZatFloored": "max(requiredZat, 4 x FEE_MIN) rounded up to 1,000 zat; the wallet floors requiredZat with its own FEE_MIN",
+	"yed_getinfo.params.addressVersion":         "address version bytes: a light wallet takes them from its network parameters",
+	"yed_getinfo.params.pqAddressVersion":       "address version bytes: a light wallet takes them from its network parameters",
+	"yed_getinfo.params.pq.plainAddressVersion": "address version bytes: a light wallet takes them from its network parameters",
 }
 
 // fieldByJSON finds a message's field by its JSON name or its proto name.
