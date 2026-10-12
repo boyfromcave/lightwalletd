@@ -44,7 +44,7 @@ const ServerVersion = "0.2-yec-lightwalletd"
 // 5 node's rows would read as claimable=false, which is not what it meant, and a rpcversion 6
 // node's owner fields would be dropped silently by this proto (their numbers are reserved) while
 // its owner filter takes a 02/03 public key, the same 66 hex digits as a pqkeyid.
-const KnownRPCVersion = 7
+const KnownRPCVersion = 8
 
 // YedMethods is the allow-list: every node RPC the service may call, and nothing else.
 // The offline test asserts this set against the contract: every yed_* method there is either

@@ -421,7 +421,7 @@ func TestDevnetRawMintThroughServer(t *testing.T) {
 	args := []string{rawmint, "--dir", d.dir, "--cents", fmt.Sprint(cents), "--lock-blocks", fmt.Sprint(lockBlocks),
 		"--ref-height", fmt.Sprint(est.RefHeight), "--collateral-zat", fmt.Sprint(est.RequiredZat),
 		"--attestor-set", info.GetParams().GetAttestorSetId()}
-	if payee, err := y.GetFeePayee(ctx, &walletrpc.YedPayeeQuery{RefHeight: uint32(est.RefHeight), CollateralZat: est.RequiredZat}); err == nil {
+	if payee, err := y.GetFeePayee(ctx, &walletrpc.YedPayeeQuery{RefHeight: uint32(est.RefHeight)}); err == nil {
 		addr := payee.Preferred
 		if addr == "" && payee.Default != nil {
 			addr = payee.Default.PayoutAddress

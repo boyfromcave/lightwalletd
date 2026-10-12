@@ -323,6 +323,16 @@ func (s *lwdStreamer) SendTransaction(ctx context.Context, rawtx *walletrpc.RawT
 	}
 	params[0] = txJSON
 	result, rpcErr := common.RawRequest("sendrawtransaction", params)
+	// rpcversion 8 (review M-2): a post-quantum or Yellowback transaction priced at the published
+	// dollar-per-KB rate may exceed -maxtxfee; resubmit with allowhighfees = true when its fee is
+	// within the Yellowback ceiling, refuse it naming the ceiling when it is not (sendfee.go).
+	var refusal string
+	if rpcErr != nil {
+		var allow bool
+		if allow, refusal = highFeeVerdict(rawtx.Data, rpcErr); allow {
+			result, rpcErr = common.RawRequest("sendrawtransaction", append(params, json.RawMessage("true")))
+		}
+	}
 
 	var errCode int64
 	var errMsg string
@@ -334,6 +344,9 @@ func (s *lwdStreamer) SendTransaction(ctx context.Context, rawtx *walletrpc.RawT
 			return nil, errors.New("SendTransaction couldn't parse error code")
 		}
 		errMsg = strings.TrimSpace(errParts[1])
+		if refusal != "" {
+			errMsg = refusal
+		}
 		errCode, err = strconv.ParseInt(errParts[0], 10, 32)
 		if err != nil {
 			// This should never happen. We can't panic here, but it's that class of error.

@@ -308,27 +308,33 @@ func (y *YellowbackStreamer) EstimateCollateral(ctx context.Context, in *walletr
 	return out, y.call(ctx, out, "yed_estimatecollateral", params...)
 }
 
-// EstimateFee proxies yed_estimatefee <collateralZat>.
+// EstimateFee proxies yed_estimatefee <mintedCents> [priceMicroUsd] (rpcversion 8: the FEE-1'
+// protocol fee of a debt, in dollars and in zat at pMint; priceMicroUsd 0 = the node's reference price).
 func (y *YellowbackStreamer) EstimateFee(ctx context.Context, in *walletrpc.YedFeeQuery) (*walletrpc.YedFeeEstimate, error) {
 	if err := y.limited(ctx, yedCostLight); err != nil {
 		return nil, err
 	}
-	if in == nil || in.CollateralZat <= 0 {
-		return nil, badArg("collateralZat must be positive")
+	if in == nil || in.MintedCents == 0 {
+		return nil, badArg("mintedCents must be positive")
+	}
+	params := []json.RawMessage{common.JSONNumber(int64(in.MintedCents))}
+	if in.PriceMicroUsd != 0 {
+		params = append(params, common.JSONNumber(int64(in.PriceMicroUsd)))
 	}
 	out := &walletrpc.YedFeeEstimate{}
-	return out, y.call(ctx, out, "yed_estimatefee", common.JSONNumber(in.CollateralZat))
+	return out, y.call(ctx, out, "yed_estimatefee", params...)
 }
 
-// GetFeePayee proxies yed_getfeepayee <refHeight> <collateralZat> [selectorHex].
+// GetFeePayee proxies yed_getfeepayee <refHeight> [selectorHex] (rpcversion 8: no collateralZat, no
+// feeZat; the fee is quoted by EstimateFee / EstimateCollateral).
 func (y *YellowbackStreamer) GetFeePayee(ctx context.Context, in *walletrpc.YedPayeeQuery) (*walletrpc.YedPayee, error) {
 	if err := y.limited(ctx, yedCostLight); err != nil {
 		return nil, err
 	}
-	if in == nil || in.CollateralZat <= 0 {
-		return nil, badArg("refHeight and a positive collateralZat are required")
+	if in == nil {
+		return nil, badArg("refHeight is required")
 	}
-	params := []json.RawMessage{common.JSONNumber(int64(in.RefHeight)), common.JSONNumber(in.CollateralZat)}
+	params := []json.RawMessage{common.JSONNumber(int64(in.RefHeight))}
 	if in.SelectorHex != "" {
 		if err := checkHex("selectorHex", in.SelectorHex, maxSelectorLen); err != nil {
 			return nil, err
