@@ -28,15 +28,29 @@ checks live answers against it. Edit this document, then regenerate.
 - **Owners**: a vault's owner is a post-quantum key (docs/plans/yellowback-quantum-plan.md §4.3),
   named by its `pqkeyid` (`scheme || SHA256(scheme || pk)`, scheme 1 SLH-DSA-SHA2-128s or 2
   FN-DSA-512) or, as a parameter, by its PQ Yellowback address (`yb…`/`yt…`/`yr…`, 53
-  characters). Until the node wallet holds post-quantum keys the owner is named explicitly and
-  owner spends are signed outside the node.
+  characters) or its plain-YEC PQ address (`sq…`/`tq…`/`rq…`, 53 characters, D-Q-20). The node
+  wallet holds post-quantum keys (`vault_getnewowner`, `getnewaddress "" "pq"`, or one imported
+  with `z_importpqkey`) and signs owner spends; an external owner is named explicitly.
+- **Addresses**: every `address` parameter (recipients, `vault_release`, `vault_ownerspend`) takes
+  a transparent `s1…`/`t…` address or a plain-YEC PQ address `sq…`/`tq…`/`rq…` (a `TX_PQPKH`
+  output, the same script as the PQ `yb…` of that key). A 66-hex `pqkeyid` is not an address:
+  `vault_release` refuses one as its recipient ("pass the address or the script, not a pqkeyid").
+  Inputs spending such outputs carry no address in `getblockdeltas`/`getspentinfo`/
+  `getrawtransaction` (the insight index keys spends by Hash160; `getaddressdeltas` names them), and
+  a `-insightexplorer`/`-lightwalletd` node synced before this build needs one `-reindex` to index
+  them (doc/yellowback-rpc.md, "Plain-YEC PQ addresses").
 - **Amounts** are YEC (decimal) like every other Ycash RPC, the set's rate fields
   (`lockedvalue`, `epochbasis`, `epochused`, `unlockavailable`) and `bondmin` included, although
   the set state stores zatoshi (plan §15.4); `valuezat` fields are zatoshi.
 - **Fees**: every transaction these RPCs build pays a flat 10,000 zatoshi from the wallet's
   confirmed transparent P2PKH coins (change to a new wallet address). Coins chosen are locked in
   the wallet (`lockunspent` semantics) so that a following build does not reuse them before the
-  first transaction confirms.
+  first transaction confirms. `vault_ownerspend` prices its owner spend instead (below). Every
+  transaction these RPCs broadcast must pay a network fee within the vault/Yellowback cap,
+  min(max(`-maxtxfee`, `-yellowbackmaxtxfeeusd` (default $2) at the attested price),
+  `-yellowbackmaxtxfee` (default 10 YEC)), never below max(`-yellowbackfee`, 10,000 zat); the
+  node submits them without the `-maxtxfee` absurd-fee check, so it enforces that cap itself and
+  refuses one above it with `-26` `absurdly-high-fee: … exceeds the vault/Yellowback cap …`.
 - **Heights**: unless stated, rules are evaluated at the next block (`tip + 1`) against the set
   state after the tip, exactly as the mempool does (plan U-17).
 - **Errors**: RPC error `-8` (invalid parameter), `-5` (unknown set / outpoint / address),
@@ -152,8 +166,14 @@ Result: `{"txid": hash, "setid": hash, "admitkey": key}`
 
 `seats` 1–15; defaults: `cancelthreshold` 1, `slashthreshold` = `unlockthreshold`, `open`
 false, `ratelimitbps` 0 (no limit), `ratewindow` 144, `livenesswindow` 1000, `bondmin` 1,
-`bondlockmin` 0, `maturity` 0, `admitkey` a new wallet key. Funded, signed, broadcast. The set
+`bondlockmin` 0, `maturity` the network's minimum, `admitkey` a new wallet key. Funded, signed, broadcast. The set
 exists from the block after the one it confirms in.
+
+**D-Q-31 (owner, 2026-10-11): every set has at least a 14-day exit window.** `maturity` (the bond exit delay and
+the joiners' wait) must be at least `MIN_SET_MATURITY` = 16,128 blocks on mainnet and testnet (2 on regtest);
+a smaller value is refused here (`RPC_INVALID_PARAMETER`) and a `SET_CREATE` carrying one is
+`bad-vault-act-params`. A bridge set's members therefore wait at least 14 days for their bonds after leaving,
+and stay slashable for those 14 days.
 
 ### `set_join "setid" bondamount bondlocktime ( "memberkey" )`
 Params: `["setid": hash, "bondamount": yec, "bondlocktime": height, "memberkey"?: key]`
@@ -166,12 +186,41 @@ admit key while the set has fewer than `slashthreshold` current members, current
 keys after that; none for an open set). Complete → signed and broadcast (`txid` present);
 otherwise the partially signed `hex` is returned.
 
+A join into a set that already has `seats` ACTIVE members is refused (`bad-vault-act-seats`) —
+unless a registered module governs the set (the module displacement hook, owner 2026-10-11) and
+names a member to displace: that member becomes `REMOVED` in `set_getinfo` (its bond **not**
+frozen, still spendable at its locktime) and the join is admitted in the same transaction. Only the
+YED module governs a set (the network's attestor set, when OPEN with 15 seats); its rule is in
+`doc/yellowback-attestor.md`. Every other set refuses a join when full, as before.
+
 ### `set_heartbeat "setid" ( "memberkey" )`
 Params: `["setid": hash, "memberkey"?: key]`
 
 Result: `{"txid": hash, "memberkey": key}`
 
 A `SET_HEARTBEAT` for a current member key of this wallet (default: the first), broadcast.
+
+### `set_leave "setid" ( "memberkey" )`
+Params: `["setid": hash, "memberkey"?: key]`
+
+Result: `{"txid": hash, "memberkey": key, "exitheight": height, "bondspendableat": height}`
+
+**The bond exit delay (owner 2026-10-11).** A member bond is spendable only after its member has left
+the set without a freeze and the set's `maturity` has passed since: from `exitHeight + maturity`
+(`bad-vault-bond-locked` before; a frozen bond never). A member leaves by its own `SET_REMOVE`
+(signed by its key alone, `burn` 0, no cosigners: the one removal a member can do alone), by a
+`SET_REMOVE` of the set without burn, or by the module displacement hook (`set_join`); each records
+`exitHeight` on the bond. During the delay the member is still slashable (`SET_EQUIVOCATION`, the
+module ejection hook) and the bond is then frozen. `set_leave` builds, signs and broadcasts the
+member's own `SET_REMOVE` for an ACTIVE member key of this wallet (default the first one);
+`exitheight` is the next block, `bondspendableat` = `exitheight + maturity`. The bond script's CLTV
+(`bondlockmin`) still applies on top, so a set may keep it at 0.
+
+**No slash escape through the delay (seats review B1/A1, 2026-10-11).** A key whose previous bond in the set is
+still unspent (in its exit delay, or frozen) cannot join that set again (`bad-vault-act-join`), so the member
+record always names the key's one unspent bond and every slash reaches it. A `SET_REMOVE` with burn, cosigned by
+`slashthreshold` current members, of a member that already left (`REMOVED`) and whose bond is in its exit delay
+freezes that bond (the member stays `REMOVED`); a frozen key never rejoins the set.
 
 ### `set_buildact "type" {params}`
 Params: `["type": ActType, "params": {"setid"?: hash, "memberkey"?: key, "bondamount"?: yec, "bondlocktime"?: height, "burn"?: bool, "prevout"?: outpoint, "rolea"?: int, "sighasha"?: hash, "siga"?: hex, "roleb"?: int, "sighashb"?: hash, "sigb"?: hex, "seats"?: int, "unlockthreshold"?: int, "cancelthreshold"?: int, "slashthreshold"?: int, "open"?: bool, "ratelimitbps"?: int, "ratewindow"?: int, "livenesswindow"?: int, "bondmin"?: yec, "bondlockmin"?: int, "maturity"?: int, "admitkey"?: key}]`
@@ -293,8 +342,11 @@ Result: `hash`
 The RELEASE (selector 1, `nSequence = delay`) of a matured intent, paying its value to the
 recipient (an address or a script in hex), fee from this wallet. The intent commits only
 `SHA256(recipient script)`, so the recipient is the argument, or a script this node built the
-intent for, or one of this wallet's P2PKH scripts. Error `-1` "matures at height h" before
-`coinHeight + delay`. Result: the txid.
+intent for, or one of this wallet's P2PKH scripts, or the `TX_PQPKH` script of a post-quantum
+key this wallet holds — so an owner releases its own residual (quantum spec F-3) without passing
+the script, e.g. after a restart. Error `-1` "matures at height h" before
+`coinHeight + delay`; error `-8` "pass the address or the script, not a pqkeyid" when the argument
+is a 66-hex pqkeyid that is not the recipient script. Result: the txid.
 
 ### `vault_ownerspend "outpoint" "address"`
 Params: `["outpoint": outpoint, "address": address]`
@@ -305,7 +357,12 @@ Spends a vault with its owner key (in this wallet) to `address`, less the fee: s
 `nLockTime = ownerheight` once the next block is above `ownerheight`, else selector 3 when the
 set is released (dormant or wound down). An intent has only selector 3. The owner is a
 post-quantum key this wallet must hold (an external owner signs outside the node); the fee is
-max(10,000 zat, `-pqfeerate` × size) (quantum plan §4.5).
+max(10,000 zat, the vault/Yellowback rate × size), capped at the vault/Yellowback cap (above):
+the rate is `-yellowbackfeeusdperkb` (default $0.05/KB) at the attested price -- the highest of the
+Yellowback index tip's window medians, none while a halt bit is set -- never below
+max(5,000 zat/KB, `-pqfeerate`); without an attested price (no Yellowback index, below its start,
+under a halt) it is `-pqfeerate` (quantum plan §4.5, D-Q-23 (b), D-Q-26;
+`yed_getinfo.params.fees.network` reports the values in force).
 
 ### `vault_app "outpoint" ( [{"address"|"script", "amount"}, ...] )`
 Params: `["outpoint": outpoint, "recipients"?: [Recipient]]`
@@ -326,7 +383,7 @@ code. `qa/rpc-tests/vault_rpc_contract.py` provokes each one.
 | -8 | `the set parameters are out of range` | `set_create`, `set_buildact` | `seats` 16 |
 | -5 | `unknown set` | `set_getinfo`, `set_join`, `set_heartbeat`, `set_buildact`, `vault_lock` | `set_getinfo` of a random id |
 | -4 | `this wallet holds no current member key of the set` | `set_heartbeat` | a heartbeat for a set with no members |
-| -26 | `bad-vault-act-seats` | `set_join`, `set_sendact` | a join to a full set |
+| -26 | `bad-vault-act-seats` | `set_join`, `set_sendact` | a join to a full set (a set a registered module governs may instead displace a member, below) |
 | -8 | `unknown act type` | `set_buildact` | type `"bogus"` |
 | -8 | `the transaction carries no YV act` | `set_signact`, `set_sendact` | `set_signact` of a vault spend |
 | -8 | `kind must be vault or intent` | `vault_list` | `{"kind": "coin"}` |
@@ -351,7 +408,7 @@ code. `qa/rpc-tests/vault_rpc_contract.py` provokes each one.
 ## Example flow (regtest, three nodes A, B, C)
 
 ```
-A: set_create '{"seats":3,"unlockthreshold":2,"cancelthreshold":1,"slashthreshold":2,"maturity":2}'
+A: set_create '{"seats":3,"unlockthreshold":2,"cancelthreshold":1,"slashthreshold":2,"maturity":8}'
    -> {"setid": S, "admitkey": K}                                   ; mine 1
 A: set_join S 1 <h+500>                       -> complete (A holds the admit key)
 B: set_join S 1 <h+500>                       -> {"hex": J, "complete": false}
