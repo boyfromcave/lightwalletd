@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/rpcclient"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -509,7 +510,7 @@ func TestDevnetRawMintThroughServer(t *testing.T) {
 // checkPQOwner (rpcversion 7): the post-quantum owner of the vault minted in txid reaches the client
 // identically on every surface: the MINT payload (version 4), GetVault, the primitive's
 // ListVaultOutputs filtered by the owner's pqkeyid, and the 53-character owner address, which
-// GetAddressTokens accepts and the taddr RPCs refuse with a pointer to it.
+// GetAddressTokens and the taddr RPCs accept.
 func (d *devnet) checkPQOwner(t *testing.T, ctx context.Context, y walletrpc.YellowbackStreamerClient, txid, owner string) {
 	t.Helper()
 	if !pqkeyidPattern.MatchString(owner) {
@@ -583,9 +584,15 @@ func (d *devnet) checkPQOwner(t *testing.T, ctx context.Context, y walletrpc.Yel
 			t.Fatalf("GetAddressTokens(PQ owner address): %v", err)
 		}
 	}
-	_, err = walletrpc.NewCompactTxStreamerClient(d.fork).GetTaddressBalance(ctx, &walletrpc.AddressList{Addresses: []string{v.OwnerAddress}})
-	if st, _ := status.FromError(err); st.Code() != codes.InvalidArgument || !strings.Contains(st.Message(), "GetAddressTokens") {
-		t.Fatalf("GetTaddressBalance(PQ address): want INVALID_ARGUMENT naming GetAddressTokens, got %v", err)
+	// The taddr RPCs take the PQ owner address too (mapped to its plain rq… form; the vault output
+	// itself is not a TX_PQPKH output, so this is the owner's plain-YEC balance, as the node says).
+	b, err := walletrpc.NewCompactTxStreamerClient(d.fork).GetTaddressBalance(ctx, &walletrpc.AddressList{Addresses: []string{v.OwnerAddress}})
+	var nodeBalance struct {
+		Balance int64 `json:"balance"`
+	}
+	d.rpc(t, &nodeBalance, "getaddressbalance", map[string][]string{"addresses": {v.OwnerAddress}})
+	if err != nil || b.ValueZat != nodeBalance.Balance {
+		t.Fatalf("GetTaddressBalance(PQ owner address): %v %v, node %d", b, err, nodeBalance.Balance)
 	}
 	var fresh struct {
 		Address string `json:"address"`
@@ -595,7 +602,7 @@ func (d *devnet) checkPQOwner(t *testing.T, ctx context.Context, y walletrpc.Yel
 	if !isYedPQAddress(fresh.Address) || !pqkeyidPattern.MatchString(fresh.Owner) {
 		t.Fatalf("vault_getnewowner %+v: not recognised by this server", fresh)
 	}
-	t.Logf("PQ owner %s (%s) seen through GetVault, DecodePayload (v4), ListVaultOutputs; GetAddressTokens takes the address, the taddr RPCs refuse it; node vector %s",
+	t.Logf("PQ owner %s (%s) seen through GetVault, DecodePayload (v4), ListVaultOutputs; GetAddressTokens and the taddr RPCs take the address; node vector %s",
 		owner[:10], v.OwnerAddress, fresh.Address)
 }
 
@@ -1148,4 +1155,191 @@ func TestDevnetInTermClaimableThroughServer(t *testing.T) {
 	}
 	t.Logf("in-term: theta %d bps, early-redeem fee %v bps; %d listed rows, %d in term above the threshold",
 		p.GetClaimThresholdBps(), p.GetEarlyRedeemFeeBps(), len(have), inTermAbove)
+}
+
+// TestDevnetPQTaddrThroughServer (D-Q-20, Falcon active as on mainnet): node 0's wallet sends YEC to
+// a plain post-quantum address of its own (getnewaddress "" "pq": rq…, FN-DSA-512) and, once
+// confirmed, every transparent-address method of the fork's CompactTxStreamer answers for it
+// exactly as the node's address index does (getaddressbalance, getaddresstxids,
+// getaddressutxos), under the rq… form and under the PQ YED yr… form of the same TX_PQPKH script;
+// the baseline server refuses both, as it always refused anything but s….
+func TestDevnetPQTaddrThroughServer(t *testing.T) {
+	d := openDevnet(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	var falcon struct {
+		Params struct {
+			PQ struct {
+				FalconActive bool `json:"falconActive"`
+			} `json:"pq"`
+		} `json:"params"`
+	}
+	d.rpc(t, &falcon, "yed_getinfo")
+	if !falcon.Params.PQ.FalconActive {
+		t.Fatal("Falcon is not active on this devnet (the default devnet mirrors mainnet: Falcon from the vault activation)")
+	}
+	var rq string
+	d.rpc(t, &rq, "getnewaddress", "", "pq")
+	if !isPlainPQAddress(rq) || rq[:2] != "rq" {
+		t.Fatalf("getnewaddress pq = %q: not a regtest plain PQ address", rq)
+	}
+	var vinfo struct {
+		IsValid   bool   `json:"isvalid"`
+		PQScheme  int    `json:"pqscheme"`
+		PQKeyHash string `json:"pqkeyhash"`
+	}
+	d.rpc(t, &vinfo, "validateaddress", rq)
+	if !vinfo.IsValid || vinfo.PQScheme != 2 {
+		t.Fatalf("validateaddress(%s) = %+v, want a valid scheme-2 (Falcon) address", rq, vinfo)
+	}
+	yr := yedPQOf(t, rq)
+	if got, err := taddrOf(rq); err != nil || got != rq {
+		t.Fatalf("taddrOf(%s) = %q %v", rq, got, err)
+	}
+	var txids []string
+	for _, amount := range []float64{1.5, 0.25} {
+		var txid string
+		d.rpc(t, &txid, "sendtoaddress", rq, amount)
+		d.waitRelayed(t, txid)
+		txids = append(txids, txid)
+	}
+	height := d.mine(t, ctx, 1)
+	sort.Strings(txids)
+
+	c := walletrpc.NewCompactTxStreamerClient(d.fork)
+	var nodeBalance struct {
+		Balance  int64 `json:"balance"`
+		Received int64 `json:"received"`
+	}
+	d.rpc(t, &nodeBalance, "getaddressbalance", map[string][]string{"addresses": {rq}})
+	if nodeBalance.Balance != 175000000 {
+		t.Fatalf("node getaddressbalance(%s) = %+v, want 1.75 YEC", rq, nodeBalance)
+	}
+	var nodeTxids []string
+	d.rpc(t, &nodeTxids, "getaddresstxids", map[string]interface{}{"addresses": []string{rq}, "start": 1, "end": height})
+	sort.Strings(nodeTxids)
+	if strings.Join(nodeTxids, ",") != strings.Join(txids, ",") {
+		t.Fatalf("node getaddresstxids = %v, want %v", nodeTxids, txids)
+	}
+	var nodeUtxos []struct {
+		Address     string `json:"address"`
+		Txid        string `json:"txid"`
+		OutputIndex int32  `json:"outputIndex"`
+		Script      string `json:"script"`
+		Satoshis    int64  `json:"satoshis"`
+		Height      uint64 `json:"height"`
+	}
+	d.rpc(t, &nodeUtxos, "getaddressutxos", map[string][]string{"addresses": {rq}})
+	var want []string
+	for _, u := range nodeUtxos {
+		if !strings.HasPrefix(u.Script, "20") || !strings.HasSuffix(u.Script, "52c2") || len(u.Script) != 70 {
+			t.Fatalf("node utxo script %s is not a Falcon TX_PQPKH script", u.Script)
+		}
+		want = append(want, fmt.Sprintf("%s %s:%d %s %d %d", u.Address, u.Txid, u.OutputIndex, u.Script, u.Satoshis, u.Height))
+	}
+	sort.Strings(want)
+	if len(want) != 2 {
+		t.Fatalf("node getaddressutxos(%s): %v", rq, want)
+	}
+
+	for _, addr := range []string{rq, yr} {
+		b, err := c.GetTaddressBalance(ctx, &walletrpc.AddressList{Addresses: []string{addr}})
+		if err != nil || b.ValueZat != nodeBalance.Balance {
+			t.Fatalf("GetTaddressBalance(%s) = %v %v, node %d", addr, b, err, nodeBalance.Balance)
+		}
+		bs, err := c.GetTaddressBalanceStream(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := bs.Send(&walletrpc.Address{Address: addr}); err != nil {
+			t.Fatal(err)
+		}
+		if b, err := bs.CloseAndRecv(); err != nil || b.ValueZat != nodeBalance.Balance {
+			t.Fatalf("GetTaddressBalanceStream(%s) = %v %v", addr, b, err)
+		}
+		tx, err := c.GetTaddressTxids(ctx, &walletrpc.TransparentAddressBlockFilter{Address: addr,
+			Range: &walletrpc.BlockRange{Start: &walletrpc.BlockID{Height: 1}, End: &walletrpc.BlockID{Height: height}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for {
+			raw, err := tx.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatalf("GetTaddressTxids(%s): %v", addr, err)
+			}
+			if raw.Height != height {
+				t.Fatalf("GetTaddressTxids(%s): height %d, want %d", addr, raw.Height, height)
+			}
+			got = append(got, hashOf(t, d, raw.Data))
+		}
+		sort.Strings(got)
+		if strings.Join(got, ",") != strings.Join(txids, ",") {
+			t.Fatalf("GetTaddressTxids(%s) = %v, node %v", addr, got, txids)
+		}
+		check := func(name string, rows []*walletrpc.GetAddressUtxosReply) {
+			var have []string
+			for _, u := range rows {
+				have = append(have, fmt.Sprintf("%s %x:%d %x %d %d", u.Address, reverse(u.Txid), u.Index, u.Script, u.ValueZat, u.Height))
+			}
+			sort.Strings(have)
+			if strings.Join(have, "\n") != strings.Join(want, "\n") {
+				t.Fatalf("%s(%s):\n server %v\n node   %v", name, addr, have, want)
+			}
+		}
+		r, err := c.GetAddressUtxos(ctx, &walletrpc.GetAddressUtxosArg{Addresses: []string{addr}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		check("GetAddressUtxos", r.AddressUtxos)
+		us, err := c.GetAddressUtxosStream(ctx, &walletrpc.GetAddressUtxosArg{Addresses: []string{addr}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rows []*walletrpc.GetAddressUtxosReply
+		for {
+			u, err := us.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			rows = append(rows, u)
+		}
+		check("GetAddressUtxosStream", rows)
+	}
+	if _, err := walletrpc.NewCompactTxStreamerClient(d.baseline).GetTaddressBalance(ctx, &walletrpc.AddressList{Addresses: []string{rq}}); err == nil {
+		t.Fatalf("the baseline server answered GetTaddressBalance(%s): it predates PQ addresses", rq)
+	}
+	t.Logf("PQ address %s (= %s): balance, txids and UTXOs through the server match the node's index (%d zat, %v)", rq, yr, nodeBalance.Balance, txids)
+}
+
+// yedPQOf is the inverse of yedPQToPlain for a regtest rq… address (the test's own derivation;
+// the unit tests pin the mapping to independent vectors).
+func yedPQOf(t *testing.T, rq string) string {
+	t.Helper()
+	raw := base58.Decode(rq)
+	if len(raw) != 39 || raw[0] != 0x4C || raw[1] != 0x51 {
+		t.Fatalf("%s: not a regtest plain PQ address", rq)
+	}
+	p := append([]byte{0x57, 0x10}, raw[2:35]...)
+	yr := base58.Encode(append(p, checksum4(p)...))
+	if back, ok := yedPQToPlain(yr); !ok || back != rq {
+		t.Fatalf("yr %s maps back to %q, want %s", yr, back, rq)
+	}
+	return yr
+}
+
+// hashOf returns the txid (display order) of a raw transaction, from the node.
+func hashOf(t *testing.T, d *devnet, raw []byte) string {
+	t.Helper()
+	var dec struct {
+		Txid string `json:"txid"`
+	}
+	d.rpc(t, &dec, "decoderawtransaction", fmt.Sprintf("%x", raw))
+	return dec.Txid
 }
