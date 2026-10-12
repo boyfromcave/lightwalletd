@@ -850,7 +850,7 @@ type YellowbackClassParams struct {
 	Class             string `protobuf:"bytes,2,opt,name=class,proto3" json:"class,omitempty"`
 	MaxBlocks         int64  `protobuf:"varint,3,opt,name=maxBlocks,proto3" json:"maxBlocks,omitempty"`
 	MinBlocks         int64  `protobuf:"varint,4,opt,name=minBlocks,proto3" json:"minBlocks,omitempty"`
-	EarlyRedeemFeeBps int64  `protobuf:"varint,5,opt,name=earlyRedeemFeeBps,proto3" json:"earlyRedeemFeeBps,omitempty"` // rpcversion 6 (in-term IT-9): of the collateral, a redeem before lockHeight
+	EarlyRedeemFeeBps int64  `protobuf:"varint,5,opt,name=earlyRedeemFeeBps,proto3" json:"earlyRedeemFeeBps,omitempty"` // rpcversion 6 (in-term IT-9): of the debt at pMint (IT-9', D-Q-23), a redeem before lockHeight
 }
 
 func (x *YellowbackClassParams) Reset() {
