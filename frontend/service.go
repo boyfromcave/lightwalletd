@@ -48,27 +48,32 @@ func NewDarksideStreamer(cache *common.BlockCache) (walletrpc.DarksideStreamerSe
 }
 
 // YellowbackAddresses is set by main when the Yellowback service is registered: the taddr RPCs
-// then also accept YED addresses (yb…/yt…/yr…), the same key hash under other version bytes
-// (yellowback_addr.go; docs/yellowback.md D-L-4). Off, every path below is the baseline's.
+// then also accept YED addresses (yb…/yt…/yr…, P2PKH or post-quantum), the same script under
+// other version bytes (yellowback_addr.go; docs/yellowback.md D-L-4). Off, a YED address meets
+// the baseline's regex.
 var YellowbackAddresses bool
 
-// taddrOf returns the transparent form of a YED address when the service is on, else the input;
-// a post-quantum YED address is refused with errPQYedAddress (the caller's regex would otherwise
-// answer an opaque "Invalid address").
+// taddrOf returns the address the node's index is queried with when the service is on: the
+// transparent form of a YED P2PKH address, the plain sq…/tq…/rq… form of a post-quantum YED
+// address; anything else (and everything when the service is off) is returned unchanged.
 func taddrOf(addr string) (string, error) {
 	if YellowbackAddresses {
 		if t, ok := yedToTransparent(addr); ok {
 			return t, nil
 		}
-		if isYedPQAddress(addr) {
-			return "", errPQYedAddress
+		if p, ok := yedPQToPlain(addr); ok {
+			return p, nil
 		}
 	}
 	return addr, nil
 }
 
-// Test to make sure Address is a single s address
+// Test to make sure Address is a single s address, or a well-formed plain-YEC post-quantum
+// address (sq…/tq…/rq…, D-Q-20: a TX_PQPKH output, which the node's address index covers).
 func checkTaddress(taddr string) error {
+	if isPlainPQAddress(taddr) {
+		return nil
+	}
 	match, err := regexp.Match("\\As[a-zA-Z0-9]{34}\\z", []byte(taddr))
 	if err != nil || !match {
 		return errors.New("Invalid address")

@@ -101,9 +101,17 @@ Addresses: a YED address is P2PKH (35 characters) or post-quantum (53 characters
 ‖ keyHash)`). Mainnet is `yb…` (owner decision D-Q-21: P2PKH `0x1FDD`, PQ `0x56AB`; the earlier `ye…` `0x1FE4` no
 longer maps), testnet `yt…` (`0x2007`, PQ `0x571E`), regtest `yr…` (`0x2002`, PQ `0x5710`). `GetAddressTokens`
 takes either form (the node resolves both). The taddr RPCs (`GetTaddressTxids`, `GetTaddressBalance`,
-`GetAddressUtxos`) map a P2PKH YED address to its transparent twin as before and refuse a PQ one with
-INVALID_ARGUMENT "PQ YED address: use GetAddressTokens": a `TX_PQPKH` output has no transparent twin and is not in
-the node's address index (quantum spec A-11). The O(1) length-and-prefix pre-check (audit E-1) covers both lengths.
+`GetTaddressBalanceStream`, `GetAddressUtxos`, `GetAddressUtxosStream`) map a P2PKH YED address to its transparent
+twin as before, take a plain-YEC post-quantum address (`sq…`/`tq…`/`rq…`, owner decision D-Q-20: PQ versions
+`0x4DD9`/`0x4F61`/`0x4C51`, a `TX_PQPKH` output, which the node's address index covers as `CScript::P2PQPKH`) as
+is, and map a PQ YED address to the plain PQ form of the same script (`yb`→`sq`, `yt`→`tq`, `yr`→`rq`; the mapping
+ycash-infra's yindex makes). The node names a PQ address in its answers (`GetAddressUtxosReply.address`) as asked,
+so a client gets the plain form back, as it gets `s…`/`sm…` for a P2PKH YED address. A plain PQ address is accepted
+with or without `--yellowback` (it is a chain-wide Ycash address on this line); a PQ YED address only with it. The
+O(1) length-and-prefix pre-check (audit E-1) covers both lengths. Unit tests: `TestTaddrOfMapsPQAddresses`,
+`TestPQTaddrMethodsForwardPlainForm` (the node's `pq_standard_tests` mainnet vectors and a regtest node's answers);
+regtest: `TestDevnetPQTaddrThroughServer` (Falcon active: YEC sent to a wallet `rq…` address, every taddr method
+under the `rq…` and `yr…` forms compared with `getaddressbalance`/`getaddresstxids`/`getaddressutxos`).
 `vault_getnewowner` (a new PQ key of the node's wallet) is wallet context and not offered. The offline suite has
 reverse checks (`TestContractFieldsAreDeclared`, `TestVaultContractFieldsAreDeclared`): every field of an offered
 method's node contract (and, for the primitive, the node's `doc/vault-rpc-contract.json`, copied to

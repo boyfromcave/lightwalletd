@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"reflect"
@@ -655,49 +656,165 @@ var pqAddressVectors = []string{
 	"yr2UU5D3MMKpAahQX9ugwKzJgYgeg6WXYfj3YWKf6jsaFn9BS23nZ", // regtest, from the node: vault_getnewowner, key hash f7f8…89e2 (testdata/vault)
 }
 
-// TestTaddrOfRefusesPQAddresses: a post-quantum YED address has no transparent twin, so the taddr
-// RPCs refuse it with INVALID_ARGUMENT naming GetAddressTokens (not the baseline's opaque "Invalid
-// address"), before any node call; malformed near-misses (bad checksum, unregistered scheme, the
-// retired ye… PQ version) are not PQ addresses and fall through to the baseline regex.
-func TestTaddrOfRefusesPQAddresses(t *testing.T) {
-	_, node := newService(t)
+// pqPlainVectors: post-quantum YED address -> the plain-YEC address (sq…/tq…/rq…, D-Q-20) of the
+// same TX_PQPKH script. The mainnet yb… inputs are the node's own (ycash-dd q/attest
+// src/test/pq_standard_tests.cpp: scheme 1|2, keyHash 32×0x5a); the regtest pairs (but the last)
+// are a q/attest regtest node's (Falcon active: vault_getnewowner 1|2 returned the yr… address,
+// validateaddress took the rq… form with the same pqkeyhash and a TX_PQPKH scriptPubKey), the
+// pairs ycash-infra's yindex tests carry (9f46d05); every plain form was re-derived independently
+// (the workspace venv's Python base58check with the version bytes of yellowback_addr.go).
+var pqPlainVectors = [][2]string{
+	{"yb5taumpu5RVtFHRjsEgzLi1T33PqEcM3Ac2MipTj3qcLeGaSRJGu", "sq4couNBfnJoRxqXF89SWjiPh5wktFi5bb5S4F89xMMsCrqRf2L4z"},
+	{"yb5vXex4M7GvZURFKa9GcLfL3oxWSxG3t3PfRq4cQwqGM2mH4L3Kg", "sq4ekeYR7pAE7ByLpq428jfiHrrsVyMnSTs58MNJeFMXDFL63vTbT"},
+	{"yt6a6fLGMD6rhJnx5Tx5gtitTf1VrEjXdtQfM54JcWsHC2LXjqjfL", "tq3uz2dSJQZwKwgiMurAaowUceGWbVkNZQFd9bBy4pwJDEbVRn79A"},
+	{"yr2UGYBxhHb8yzYYCjZ1HtJ8cNHP6tNJawkjC4L1wmRiGdFQVjNy5", "rq5LdfDfyggmkJz71M7AYoVsjiyhZMAMm7S2diguW13RF2d8n2Rc6"}, // SLH-DSA
+	{"yr2VA5rANyC4wfgx6kmvLPy2LxuhHYitwJ8xazzFCdXa1gEZSXSRH", "rq5MXCssfNHhhz8WuNL5bKAmUKc1k1Wx7TpG2fM8ks9Gz5cPeCqKa"}, // Falcon
+	{"yr2UU5D3MMKpAahQX9ugwKzJgYgeg6WXYfj3YWKf6jsaFn9BS23nZ", "rq5LqCEkdkRSvu8yKmTrCFC3ouNy8ZJaiqQLzAgYeyVHEBWvjYKWg"}, // testdata/vault's owner
+}
+
+// TestTaddrOfMapsPQAddresses: a post-quantum YED address maps to the plain sq…/tq…/rq… form of the
+// same TX_PQPKH script (the form the node's address index renders), a plain PQ address passes
+// unchanged, and both satisfy checkTaddress; malformed near-misses (bad checksum, unregistered
+// scheme, the retired ye… PQ version, a P2PKH-length or garbage string) do not.
+func TestTaddrOfMapsPQAddresses(t *testing.T) {
 	YellowbackAddresses = true
 	defer func() { YellowbackAddresses = false }()
 	for _, a := range pqAddressVectors {
 		if len(a) != yedPQAddressLen || !isYedPQAddress(a) {
 			t.Errorf("%s: not recognised as a PQ YED address", a)
-			continue
-		}
-		if _, err := taddrOf(a); status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "GetAddressTokens") {
-			t.Errorf("%s: taddrOf = %v, want INVALID_ARGUMENT naming GetAddressTokens", a, err)
-		}
-		if _, err := getTaddressBalanceZcashdRpc([]string{a}); status.Code(err) != codes.InvalidArgument {
-			t.Errorf("%s: GetTaddressBalance = %v", a, err)
-		}
-		if err := getAddressUtxos(&walletrpc.GetAddressUtxosArg{Addresses: []string{a}}, nil); status.Code(err) != codes.InvalidArgument {
-			t.Errorf("%s: GetAddressUtxos = %v", a, err)
 		}
 	}
-	for _, notPQ := range []string{
+	for _, v := range pqPlainVectors {
+		if got, err := taddrOf(v[0]); err != nil || got != v[1] {
+			t.Errorf("taddrOf(%s) = %q %v, want %s", v[0], got, err, v[1])
+		}
+		if got, err := taddrOf(v[1]); err != nil || got != v[1] {
+			t.Errorf("taddrOf(%s) = %q %v: a plain PQ address passes unchanged", v[1], got, err)
+		}
+		if !isPlainPQAddress(v[1]) || isPlainPQAddress(v[0]) || isYedPQAddress(v[1]) {
+			t.Errorf("%s / %s: plain and YED PQ forms confused", v[0], v[1])
+		}
+		if err := checkTaddress(v[1]); err != nil {
+			t.Errorf("checkTaddress(%s): %v", v[1], err)
+		}
+		if err := checkTaddress(v[0]); err == nil {
+			t.Errorf("checkTaddress(%s): an unmapped YED PQ address must not reach the node", v[0])
+		}
+	}
+	for _, bad := range []string{
 		"yr2Tp5VfX9aERxy2khaRBpd7c3FY7nnPNXFgWE9ix6TPjLE4fqeRQ", // bad checksum
 		"yr2XhZr8RDH5nREfv7PaRpXkob5mME5o4GpxeSe2KtShk7DKFopSv", // scheme 3 (unregistered)
 		"ye3VjmRUey82J33xXuSSrLXT9t4GHAtRVLUDwuMfHKhM5XR1uq4Az", // the retired mainnet ye… PQ version 0x56BF
+		"rq5LdfDfyggmkJz71M7AYoVsjiyhZMAMm7S2diguW13RF2d8n2Rc7", // bad checksum
+		"rq5PXGTPwDkWtSFyHkFsgfPwy5TEQSyCKXUX77YeDfmkDG4jGurKL", // scheme 3 (unregistered)
 		"yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij",                   // P2PKH
 		"y" + strings.Repeat("z", 52),
+		"s" + strings.Repeat("z", 52),
+		"",
 	} {
-		if isYedPQAddress(notPQ) {
-			t.Errorf("%s must not be a PQ YED address", notPQ)
+		if isYedPQAddress(bad) || isPlainPQAddress(bad) {
+			t.Errorf("%s must not be a PQ address", bad)
+		}
+		if len(bad) == yedPQAddressLen {
+			if mapped, _ := taddrOf(bad); checkTaddress(mapped) == nil {
+				t.Errorf("%s: a malformed PQ-length address passed checkTaddress as %s", bad, mapped)
+			}
 		}
 	}
-	if _, err := getTaddressBalanceZcashdRpc([]string{"yr2XhZr8RDH5nREfv7PaRpXkob5mME5o4GpxeSe2KtShk7DKFopSv"}); err == nil || err.Error() != "Invalid address" {
-		t.Errorf("a malformed PQ-length address must meet the baseline regex, got %v", err)
-	}
-	if len(node.calls) != 0 {
-		t.Fatalf("a refused address reached the node: %v", node.calls)
-	}
 	YellowbackAddresses = false
-	if got, err := taddrOf(pqAddressVectors[4]); err != nil || got != pqAddressVectors[4] {
-		t.Errorf("switch off: taddrOf must leave a PQ address to the baseline, got %q %v", got, err)
+	if got, err := taddrOf(pqPlainVectors[3][0]); err != nil || got != pqPlainVectors[3][0] {
+		t.Errorf("switch off: taddrOf must leave a PQ YED address to the baseline, got %q %v", got, err)
+	}
+	if err := checkTaddress(pqPlainVectors[3][1]); err != nil {
+		t.Errorf("switch off: a plain PQ address is chain-wide (D-Q-20) and still valid: %v", err)
+	}
+}
+
+// pqTaddrNode answers the three address-index RPCs with canned values and records their params.
+type pqTaddrNode struct{ params map[string]string }
+
+func (n *pqTaddrNode) RawRequest(method string, params []json.RawMessage) (json.RawMessage, error) {
+	n.params[method] = string(params[0])
+	switch method {
+	case "getaddressbalance":
+		return json.RawMessage(`{"balance":150000000,"received":150000000}`), nil
+	case "getaddressutxos":
+		var req struct{ Addresses []string }
+		_ = json.Unmarshal(params[0], &req)
+		// The node names a PQ address in its answer as the request named it (getAddressFromIndex).
+		return json.RawMessage(fmt.Sprintf(`[{"address":%q,"txid":"%064x","outputIndex":1,"script":"20%064x52c2","satoshis":150000000,"height":205}]`,
+			req.Addresses[0], 7, 9)), nil
+	case "getaddresstxids":
+		return json.RawMessage(`[]`), nil
+	}
+	return nil, fmt.Errorf("unexpected %s", method)
+}
+
+type txidsStream struct{ fakeStream }
+
+func (s *txidsStream) Send(m *walletrpc.RawTransaction) error { return s.fakeStream.Send(m) }
+
+type balanceStream struct {
+	fakeStream
+	in  []string
+	out *walletrpc.Balance
+}
+
+func (s *balanceStream) Recv() (*walletrpc.Address, error) {
+	if len(s.in) == 0 {
+		return nil, io.EOF
+	}
+	a := s.in[0]
+	s.in = s.in[1:]
+	return &walletrpc.Address{Address: a}, nil
+}
+func (s *balanceStream) SendAndClose(b *walletrpc.Balance) error { s.out = b; return nil }
+
+type utxoStream struct{ fakeStream }
+
+func (s *utxoStream) Send(m *walletrpc.GetAddressUtxosReply) error { return s.fakeStream.Send(m) }
+
+// TestPQTaddrMethodsForwardPlainForm: every transparent-address method of CompactTxStreamer
+// (GetTaddressTxids, GetTaddressBalance, GetTaddressBalanceStream, GetAddressUtxos,
+// GetAddressUtxosStream) takes a plain PQ address and a PQ YED address and asks the node with the
+// plain form; P2PKH (and a YED P2PKH address, mapped to s…/sm…) keep working beside them.
+func TestPQTaddrMethodsForwardPlainForm(t *testing.T) {
+	node := &pqTaddrNode{params: map[string]string{}}
+	previous := common.RawRequest
+	common.RawRequest = node.RawRequest
+	defer func() { common.RawRequest = previous }()
+	YellowbackAddresses = true
+	defer func() { YellowbackAddresses = false }()
+	s := &lwdStreamer{}
+	plain, yed := pqPlainVectors[4][1], pqPlainVectors[4][0] // regtest Falcon
+	p2pkh := "smFv3B1FhYXS2ZU1e54x9sdLfq7e46YhxVT"
+	want := fmt.Sprintf(`{"addresses":[%q,%q,%q]}`, plain, plain, p2pkh)
+	for _, in := range [][]string{{plain, yed, "yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ij"}} {
+		b, err := s.GetTaddressBalance(context.Background(), &walletrpc.AddressList{Addresses: append([]string{}, in...)})
+		if err != nil || b.ValueZat != 150000000 || node.params["getaddressbalance"] != want {
+			t.Fatalf("GetTaddressBalance: %v %v, node asked %s, want %s", b, err, node.params["getaddressbalance"], want)
+		}
+		delete(node.params, "getaddressbalance")
+		bs := &balanceStream{in: append([]string{}, in...)}
+		if err := s.GetTaddressBalanceStream(bs); err != nil || bs.out.ValueZat != 150000000 || node.params["getaddressbalance"] != want {
+			t.Fatalf("GetTaddressBalanceStream: %v %v, node asked %s", bs.out, err, node.params["getaddressbalance"])
+		}
+	}
+	for _, a := range []string{plain, yed} {
+		r, err := s.GetAddressUtxos(context.Background(), &walletrpc.GetAddressUtxosArg{Addresses: []string{a}})
+		if err != nil || len(r.AddressUtxos) != 1 || r.AddressUtxos[0].Address != plain || r.AddressUtxos[0].ValueZat != 150000000 ||
+			node.params["getaddressutxos"] != fmt.Sprintf(`{"addresses":[%q]}`, plain) {
+			t.Fatalf("GetAddressUtxos(%s): %v %v, node asked %s", a, r, err, node.params["getaddressutxos"])
+		}
+		us := &utxoStream{}
+		if err := s.GetAddressUtxosStream(&walletrpc.GetAddressUtxosArg{Addresses: []string{a}}, us); err != nil || len(us.rows) != 1 {
+			t.Fatalf("GetAddressUtxosStream(%s): %v %d rows", a, err, len(us.rows))
+		}
+		f := &walletrpc.TransparentAddressBlockFilter{Address: a, Range: &walletrpc.BlockRange{
+			Start: &walletrpc.BlockID{Height: 1}, End: &walletrpc.BlockID{Height: 300}}}
+		if err := s.GetTaddressTxids(f, &txidsStream{}); err != nil || !strings.Contains(node.params["getaddresstxids"], fmt.Sprintf(`[%q]`, plain)) {
+			t.Fatalf("GetTaddressTxids(%s): %v, node asked %s", a, err, node.params["getaddresstxids"])
+		}
 	}
 }
 
