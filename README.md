@@ -1,6 +1,6 @@
 # Ycash lightwalletd
 
-[![yellowback-tests](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml/badge.svg?branch=upgrade/vault)](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml)
+[![yellowback-tests](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml/badge.svg?branch=upgrade/quantum-vaults)](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml)
 
 lightwalletd is a backend service that gives light wallets a bandwidth-efficient, Sapling-era
 interface to the Ycash blockchain: compact blocks, transparent-address lookups, transaction
@@ -8,27 +8,41 @@ broadcast. This tree is the Ycash lineage — [zcash/lightwalletd](https://githu
 0.4.6 with the Ycash transparent-address regex (`s…`), as maintained at
 [yodl/lightwalletd](https://github.com/yodl/lightwalletd) — plus one addition, described next.
 
-## Ycash Yellowback (YED) on this branch
+## Ycash vaults and Yellowback on this branch
 
-This branch (`upgrade/vault`) serves light wallets for a proposed Ycash network upgrade, **the vault
-upgrade**, which adds **vaults** to Ycash: YEC locked on chain under rules every node enforces,
-released only with the approval of a bonded **signer set**. **Ycash Yellowback (YED)** is a dollar
-token built on vaults: lock YEC in a vault to mint YED (`1 YED = 1 US dollar`), return the YED to
-get the YEC back.
+This fork is the light-wallet server of the
+[Ycash vaults and Yellowback](https://github.com/boyfromcave/yellowback) project: a proposed Ycash
+network upgrade that adds **post-quantum vaults** (YEC locked under rules every node checks,
+released only with the approval of a bonded **signer set**), with **Ycash Yellowback (YED)**, a
+dollar backed by YEC in vaults (`1 YED = $1`), as the first application.
+
+> **Status: in development.** It runs on regtest and on a one-laptop devnet only. No activation
+> height is set on mainnet or testnet, the upgrade has not been adopted by the Ycash Foundation,
+> and there is no external audit.
 
 - **What the server adds:** with `--yellowback`, a second gRPC service, `YellowbackStreamer`
   ([walletrpc/yellowback.proto](walletrpc/yellowback.proto)). Its 24 methods only *read*: YED
-  prices, balances, vaults and attestations, the consensus branch ID a wallet must sign for, and the
-  vaults and signer sets of the upgrade. Each is a thin proxy of one read-only node RPC. Compact
-  blocks and the standard `CompactTxStreamer` service are unchanged, and without the flag the
-  binary behaves exactly like upstream. Clients: the YEW mobile wallet and desktop light wallets.
-- **Node it needs:** a ycashd built from the `upgrade/vault` branch of
+  prices, balances, vaults and claims, attestations and the attestor set (bond minimum, seats,
+  evicted members), the fee parameters, the consensus branch ID a wallet must sign for, and the
+  vaults and signer sets of the upgrade. Each is a thin proxy of one read-only node RPC. The one
+  write is the stock `SendTransaction`. Compact blocks and the standard `CompactTxStreamer`
+  service are unchanged, and without the flag the binary behaves exactly like upstream. Clients:
+  the YEW mobile wallet and the x402 agent.
+- **Post-quantum:** vault owners are SLH-DSA keys and YED holders Falcon-512 keys, so a vault row
+  carries the owner's scheme and key hash, and YED addresses come in two lengths: 35 characters
+  (ordinary) and 53 (post-quantum). Mainnet YED addresses start `yb…`, testnet `yt…`, regtest
+  `yr…`. `GetAddressTokens` takes both, and so do the transparent-address calls: they also take
+  plain-YEC post-quantum addresses (`sq…`, testnet `tq…`, regtest `rq…`) and answer for a
+  post-quantum YED address under its `sq…` form.
+- **Fees:** the service publishes the node's fee parameters: the protocol fee in dollars of the
+  debt, and the network fee in dollars per KB at the attested price, which is what a light wallet
+  uses to price a post-quantum or Yellowback transaction by size. `SendTransaction` resubmits a
+  correctly priced Yellowback transaction that the node refuses only for exceeding `-maxtxfee`,
+  up to the node's `-yellowbackmaxtxfee` ceiling (default 10 YEC).
+- **Node it needs:** a `ycashd` built from the `upgrade/quantum-vaults` branch of
   [ycash-dd](https://github.com/boyfromcave/ycash-dd) or
-  [ycash6](https://github.com/boyfromcave/ycash6). Against a stock ycashd the service simply does
-  not start.
-- **Status: proposed, not live.** It runs on a local test network (regtest) only. It has not been
-  adopted by the Ycash Foundation, has not been audited, and has no activation height on mainnet
-  or testnet.
+  [ycash6](https://github.com/boyfromcave/ycash6) (this line joins `upgrade/vault` at release),
+  speaking Yellowback `rpcversion` **8**. Against any other node the service simply does not start.
 - **Try it:** with a built ycash-dd checkout beside this one (or `YCASH_DD=<path>`),
   `scripts/devnet-test.sh --up --down` brings up the node's local test network, starts this server
   against it and runs the regtest suite (`--help` lists the options; the Python it needs is in
@@ -61,7 +75,7 @@ proto changes.
 
 # Running against ycashd
 
-The node is `ycashd` (Ycash 4.5.0 or later; for the Yellowback service, the `upgrade/vault` build
+The node is `ycashd` (Ycash 4.5.0 or later; for the Yellowback service, the `upgrade/quantum-vaults` build
 above). Its `ycash.conf` must contain:
 
 ```
@@ -95,10 +109,8 @@ If you restart the node on a different network, restart lightwalletd too.
 
 **Yellowback.** `--yellowback` (or `YELLOWBACK=1`, or `yellowback: true` in the config file).
 At startup the server asks the node for `yed_getinfo` and registers the service only when the node
-speaks Yellowback `rpcversion 5` (`rpcversion 6` on the in-term claims line, branch `upgrade/vault-in-term`;
-`rpcversion 8`, post-quantum vault owners and the dollar fee structure, on `upgrade/quantum-vaults`)
-(a node without the yed_* commands answers "Method not found": no
-service, no error); the log says `Yellowback service started (node rpcversion 5, network …)` or
+speaks Yellowback `rpcversion 8` exactly (a node without the `yed_*` commands answers "Method not
+found": no service, no error); the log says `Yellowback service started (node rpcversion 8, network …)` or
 why not. Two operator flags
 belong to it: `--yellowback-max-inflight N` (node calls in flight at once, default 16) and
 `--trusted-proxy-cidr NET` (repeatable; the per-peer rate limiter believes `x-real-ip` /
@@ -136,7 +148,7 @@ elsewhere — there is no public Ycash node image — configured by `.env` (copy
 ```
 go build -mod=vendor ./... && go vet -mod=vendor ./cmd/... ./common/... ./frontend/... ./walletrpc/...
 go test -mod=vendor ./cmd/... ./common/... ./parser/... ./walletrpc/...
-go test -mod=vendor -count=1 -timeout 120s -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit|CallYed|ListVaults|TipAnswers' ./frontend/
+go test -mod=vendor -count=1 -timeout 120s -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit|CallYed|ListVaults|TipAnswers|ConfDefaultPorts|NewZRPCFromConf|ChainInfo|Vault|PQ|ContractFields|FeeQueries|SendHighFee' ./frontend/
 scripts/check-generated.sh         # the committed .pb.go files match the protos (pinned generators)
 ```
 
