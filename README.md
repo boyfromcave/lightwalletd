@@ -31,8 +31,9 @@ dollar backed by YEC in vaults (`1 YED = $1`), as the first application.
 - **Post-quantum:** vault owners are SLH-DSA keys and YED holders Falcon-512 keys, so a vault row
   carries the owner's scheme and key hash, and YED addresses come in two lengths: 35 characters
   (ordinary) and 53 (post-quantum). Mainnet YED addresses start `yb…`, testnet `yt…`, regtest
-  `yr…`. `GetAddressTokens` takes both; the transparent-address calls refuse a post-quantum YED
-  address. Plain-YEC post-quantum addresses (`sq…`) are not served yet.
+  `yr…`. `GetAddressTokens` takes both, and so do the transparent-address calls: they also take
+  plain-YEC post-quantum addresses (`sq…`, testnet `tq…`, regtest `rq…`) and answer for a
+  post-quantum YED address under its `sq…` form.
 - **Fees:** the service publishes the node's fee parameters: the protocol fee in dollars of the
   debt, and the network fee in dollars per KB at the attested price, which is what a light wallet
   uses to price a post-quantum or Yellowback transaction by size. `SendTransaction` resubmits a
