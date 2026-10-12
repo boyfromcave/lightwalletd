@@ -99,6 +99,7 @@ var NotOfferedVault = map[string]string{
 	"set_create":         "wallet",
 	"set_join":           "wallet",
 	"set_heartbeat":      "wallet",
+	"set_leave":          "wallet (a member's own SET_REMOVE, the bond exit delay)",
 	"set_buildact":       "wallet",
 	"set_signact":        "wallet",
 	"set_sendact":        "wallet",
