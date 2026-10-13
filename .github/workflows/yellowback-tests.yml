@@ -85,29 +85,53 @@ jobs:
         run: test -z "$(gofmt -l common/yellowback.go common/yedcache*.go frontend/yellowback*.go frontend/sendfee*.go parser/fee.go testtools/lwdinfo)"
       - name: Test (every package but frontend)
         run: go test -mod=vendor ./cmd/... ./common/... ./parser/... ./walletrpc/...
-      - name: The contract fixture equals the node's (ycash-dd at the matching branch)
-        # testdata/yellowback/contract.json is the node's generated contract (the workspace's
-        # `make spec`); the allow-list tests read it, so a fixture that drifted from the node's is a
-        # server tested against a contract the node does not serve. Skipped (with a notice) while
-        # the matching node branch is not on GitHub yet.
+      - name: The contract fixtures equal the node's (ycash-dd at the matching branch)
+        # testdata/yellowback/contract.json and testdata/vault/{vault-rpc-contract.json,vault-rpc.md}
+        # are copies of the node's generated contracts (scripts/sync-node-contracts.sh makes them);
+        # the allow-list and contract-field tests read them, so a fixture that drifted from the
+        # node's is a server tested against a contract the node does not serve. On the lines whose
+        # node branch exists (upgrade/*, harden/*, the quantum line and their ci/* branches) an
+        # unreachable node file FAILS the step (audit 06/L-1); only the default mapping, where the
+        # node side may genuinely not exist yet, skips with a notice.
         env:
           BRANCH: ${{ github.base_ref || github.ref_name }}
         run: |
           set -euo pipefail
           case "$BRANCH" in
-            ci/harden*|harden/yellowback) node=harden/yellowback ;;
-            upgrade/vault-in-term) node=upgrade/vault-in-term ;;
-            ci/q*|upgrade/quantum-vaults|q/*) node=upgrade/quantum-vaults ;;
-            ci/upgrade*|upgrade/vault)    node=upgrade/vault ;;
-            *)                            node=feature/yellowback-price-attest ;;
+            ci/harden*|harden/yellowback)     node=harden/yellowback;              required=--required ;;
+            upgrade/vault-in-term)            node=upgrade/vault-in-term;          required=--required ;;
+            ci/q*|upgrade/quantum-vaults|q/*) node=upgrade/quantum-vaults;         required=--required ;;
+            ci/upgrade*|upgrade/vault)        node=upgrade/vault;                  required=--required ;;
+            *)                                node=feature/yellowback-price-attest; required= ;;
           esac
-          url="https://raw.githubusercontent.com/$NODE_REPO_YCASH_DD/$node/doc/yellowback-rpc-contract.json"
-          if ! curl -fsSL -o "$RUNNER_TEMP/node-contract.json" "$url"; then
-            echo "::notice::$NODE_REPO_YCASH_DD has no $node (or no contract there) yet; fixture comparison skipped"
-            exit 0
-          fi
-          cmp testdata/yellowback/contract.json "$RUNNER_TEMP/node-contract.json" \
-            && echo "testdata/yellowback/contract.json = $NODE_REPO_YCASH_DD@$node doc/yellowback-rpc-contract.json"
+          scripts/sync-node-contracts.sh --check $required --github "$NODE_REPO_YCASH_DD" "$node"
+      - name: The vault contract fixture against ycash6 (report-only; the embedded sha256 stamp masked)
+        # ycash6's generated vault contract differs from ycash-dd's only in the embedded "sha256"
+        # stamp line. (Its Yellowback contract legitimately differs per line -- "rpcdoc" and the
+        # 6.20.0 key-draw notes -- so only the vault contract is compared.) Report-only: a
+        # difference prints a warning and never fails the job.
+        env:
+          BRANCH: ${{ github.base_ref || github.ref_name }}
+        run: |
+          set -uo pipefail
+          case "$BRANCH" in
+            ci/harden*|harden/yellowback)     node=harden/yellowback ;;
+            upgrade/vault-in-term)            node=upgrade/vault-in-term ;;
+            ci/q*|upgrade/quantum-vaults|q/*) node=upgrade/quantum-vaults ;;
+            ci/upgrade*|upgrade/vault)        node=upgrade/vault ;;
+            *)                                node=feature/yellowback ;;
+          esac
+          for pair in testdata/vault/vault-rpc-contract.json:doc/vault-rpc-contract.json; do
+            local_=${pair%%:*}; remote=${pair#*:}; got="$RUNNER_TEMP/ycash6-$(basename "$remote")"
+            if ! curl -fsSL -o "$got" "https://raw.githubusercontent.com/$NODE_REPO_YCASH6/$node/$remote"; then
+              echo "::notice::$NODE_REPO_YCASH6@$node $remote unreachable (report-only)"; continue
+            fi
+            if diff <(grep -v '"sha256"' "$local_") <(grep -v '"sha256"' "$got") >/dev/null; then
+              echo "$local_ = $NODE_REPO_YCASH6@$node $remote (stamp masked)"
+            else
+              echo "::warning::$local_ differs from $NODE_REPO_YCASH6@$node $remote beyond the stamp (report-only)"
+            fi
+          done
       - name: "Test (frontend: the Yellowback suite by name)"
         # The baseline's own frontend tests fail and then hang at 187a267 (F-R1: yodl's Ycash
         # regex commit invalidated upstream's t-address test data, after which the RPC stubs run

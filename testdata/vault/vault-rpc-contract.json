@@ -2,7 +2,7 @@
   "contract": "vault-rpc",
   "source": {
     "file": "doc/vault-rpc.md",
-    "sha256": "d7783c8e22061759d07686d2ef8569568160ce0d0ae2d79b323d851460b2a033"
+    "sha256": "5eaa4477f3ff78dfb4bb90e6171dad70b6b5ceb2912d4798fa33337ab78d3db2"
   },
   "branchid": "6d5b7a31",
   "units": {
@@ -238,11 +238,20 @@
         "bondfrozen": {
           "type": "bool"
         },
+        "exitheight": {
+          "type": "height"
+        },
+        "unlockheight": {
+          "type": "height"
+        },
         "wallet": {
           "type": "bool"
         }
       },
-      "optional": []
+      "optional": [
+        "exitheight",
+        "unlockheight"
+      ]
     },
     "VaultFields": {
       "type": "object",
