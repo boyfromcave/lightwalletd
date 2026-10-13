@@ -982,13 +982,15 @@ func TestDevnetVaultUpgradeThroughServer(t *testing.T) {
 	}
 
 	var nodeInfo struct {
-		Branchid   string `json:"branchid"`
-		Active     bool   `json:"active"`
-		Activation int64  `json:"activationheight"`
-		Sets       int64  `json:"sets"`
-		Vaults     int64  `json:"vaults"`
-		Intents    int64  `json:"intents"`
-		Statehash  string `json:"statehash"`
+		Branchid      string `json:"branchid"`
+		Active        bool   `json:"active"`
+		Activation    int64  `json:"activationheight"`
+		Sets          int64  `json:"sets"`
+		Vaults        int64  `json:"vaults"`
+		Intents       int64  `json:"intents"`
+		Statehash     string `json:"statehash"`
+		AttestorSetID string `json:"attestorsetid"`
+		ModuleActive  bool   `json:"moduleactive"`
 	}
 	d.rpc(t, &nodeInfo, "vault_getinfo")
 	vi, err := y.GetVaultInfo(ctx, &walletrpc.Empty{})
@@ -996,7 +998,8 @@ func TestDevnetVaultUpgradeThroughServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	if vi.Branchid != nodeInfo.Branchid || vi.Active != nodeInfo.Active || vi.Activationheight != nodeInfo.Activation ||
-		vi.Sets != nodeInfo.Sets || vi.Vaults != nodeInfo.Vaults || vi.Intents != nodeInfo.Intents || vi.Statehash != nodeInfo.Statehash {
+		vi.Sets != nodeInfo.Sets || vi.Vaults != nodeInfo.Vaults || vi.Intents != nodeInfo.Intents || vi.Statehash != nodeInfo.Statehash ||
+		vi.Attestorsetid != nodeInfo.AttestorSetID || vi.Moduleactive != nodeInfo.ModuleActive {
 		t.Fatalf("GetVaultInfo %+v != vault_getinfo %+v", vi, nodeInfo)
 	}
 

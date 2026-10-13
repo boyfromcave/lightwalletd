@@ -2022,6 +2022,22 @@ The block can be specified by either height or hash.</p></td>
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>attestorsetid</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>audit 01/V-7: the set the registered module (YED) governs on this node (&#34;&#34; when the node
+answers null: it governs none) and whether it governs one. Two nodes whose attestorsetid
+differ compute different set state for the same blocks, so a client compares it. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>moduleactive</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 

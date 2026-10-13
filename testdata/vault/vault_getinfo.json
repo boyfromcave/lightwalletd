@@ -3,6 +3,8 @@
   "activationheight": 200,
   "active": true,
   "height": 210,
+  "attestorsetid": "7141e8bb06239e92fbd709f222d2dd2553defb4a8e3a0c78b08210939f53d83c",
+  "moduleactive": true,
   "dbtip": {
     "hash": "0997fbe1b48b8110cd927511e4048dddea0246e3c000fe89496209fe4ca6ce2d",
     "height": 210

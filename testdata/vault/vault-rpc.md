@@ -107,13 +107,19 @@ Undocumented result fields are a contract violation; so is a missing field not m
 ### `vault_getinfo`
 Params: `[]`
 
-Result: `{"branchid": str, "activationheight": int, "active": bool, "height": height, "dbtip": {"hash": hash, "height": height}|null, "sets"?: int, "vaults"?: int, "intents"?: int, "lockedvalue"?: yec, "statehash"?: hash}`
+Result: `{"branchid": str, "activationheight": int, "active": bool, "height": height, "attestorsetid": hash|null, "moduleactive": bool, "dbtip": {"hash": hash, "height": height}|null, "sets"?: int, "vaults"?: int, "intents"?: int, "lockedvalue"?: yec, "statehash"?: hash}`
 
 `branchid` is `"6d5b7a31"`; `activationheight` is -1 if unscheduled; `active` is at the next
-block; `height` is the tip. `dbtip` is the block the set state is at (null before the first
-active block). `statehash` is SHA256d over every state record (sets, members, bonds, the
-template-output index) in key order: two nodes on the same chain report the same value. The
-counts, `lockedvalue` and `statehash` are absent only when the vault database is not open.
+block; `height` is the tip. `attestorsetid` is the set the registered module (YED) governs on this
+node, null when it governs none, and `moduleactive` whether it governs one: until the release that
+makes the attestor set a chain parameter (upgrade plan P8) it is the node parameter
+`-yellowbackattestorset` on regtest and unset elsewhere, and the module's hooks (ejections, the
+liveness `lastact`, displacement, its spend rule) are inert where it is null, so two nodes that
+report different values compute different set state for the same blocks. `dbtip` is the block the
+set state is at (null before the first active block). `statehash` is SHA256d over every state
+record (sets, members, bonds, the template-output index) in key order: two nodes on the same chain
+with the same `attestorsetid` report the same value. The counts, `lockedvalue` and `statehash` are
+absent only when the vault database is not open.
 
 ### `set_list`
 Params: `[]`
@@ -175,7 +181,10 @@ exists from the block after the one it confirms in.
 the joiners' wait) must be at least `MIN_SET_MATURITY` = 16,128 blocks on mainnet and testnet (2 on regtest);
 a smaller value is refused here (`RPC_INVALID_PARAMETER`) and a `SET_CREATE` carrying one is
 `bad-vault-act-params`. A bridge set's members therefore wait at least 14 days for their bonds after leaving,
-and stay slashable for those 14 days.
+and stay slashable for those 14 days. Regtest's 2 is a scaling value so the functional suites fit (the
+floor itself is exercised there: `vault_primitive.py` sends a maturity-1 `SET_CREATE` to the mempool and in a
+block, `vault_rpc_contract.py` calls `set_create` with 1 and without `maturity`); the 14-day mainnet floor is
+pinned by the unit test `vault_state_tests/min_set_maturity`.
 
 ### `set_join "setid" bondamount bondlocktime ( "memberkey" )`
 Params: `["setid": hash, "bondamount": yec, "bondlocktime": height, "memberkey"?: key]`
@@ -277,37 +286,88 @@ Params: `["params": {"tag": str, "setid": hash, "cancelsetid"?: hash, "delay": i
 
 Result: `{"txid": hash, "vout": int, "outpoint": outpoint, "script": hex, "owner": pqkeyid}`
 
-`delay` 1–65535; `cancelsetid` defaults to `setid`, `appheight` to 0 (no APP branch). `owner` is
+`delay` 1–65535; `cancelsetid` defaults to `setid`, `appheight` to 0 (no APP branch). A non-zero
+`appheight` is accepted only on a tag a registered module governs (`YED\0`): the APP branch has no
+signer, and consensus refuses a V with an APP branch on any other tag (V-1, `bad-txns-vault-app`;
+audit 01/V-5). Registered is not governed: on a node where the module has no set (`YED\0` without
+`-yellowbackattestorset`, so its rules are unconfigured) such a V is consensus-valid but its APP
+branch is open to anyone from `appheight`; `vault_lock` therefore also requires the module to
+govern a set here (`GovernedSet`). `owner` is
 a pqkeyid, a PQ address or `{"scheme": int, "keyhash": hex}` (any key: an external owner is
 allowed); without it the wallet draws a new SLH-DSA owner (as `vault_getnewowner`). The former
 `ownerkey` is refused. Both sets must be confirmed. `vout` is 0.
 
-### `vault_buildunlock "outpoint" [{"address"|"script", "amount"}, ...]`
-Params: `["outpoint": outpoint, "recipients": [Recipient]]`
+### `vault_buildunlock "outpoint" [{"address"|"script", "amount"}, ...] ( rebuild )`
+Params: `["outpoint": outpoint, "recipients": [Recipient], "rebuild"?: bool]`
 
-Result: `{"hex": hex, "intents": [IntentOut], "required": int}`
+Result: `{"hex": hex, "intents": [IntentOut], "required": int, "sighash": hash, "build": "new"|"reused"|"refunded"}`
 
 The UNLOCK spend (selector 1) of a vault: an intent per recipient (exactly one of `address` or
 `script`), the remainder re-locked in a byte-identical vault (S-2), fee inputs from this wallet
-(unsigned). The rate limit (S-3) is checked when it is sent.
+(unsigned). **The fee is never taken from the vault's value**: S-2 (re-lock + intents ≥ the
+vault), I-1 and I-2 make that consensus-illegal, so it always comes from other inputs. The rate
+limit (S-3) is checked when it is sent. `sighash` is the set-signature sighash the members will
+sign (`set_signunlock` reports the same).
+**Call once.** The build is remembered in the wallet database per vault outpoint, across
+restarts, with its fee inputs locked (07/N-2): called again with the same recipients it returns
+the same transaction (`build` `"reused"`), or, when a fee input was spent meanwhile, the same
+transaction re-funded as `vault_refee` does (`"refunded"`, same `sighash`). Other recipients are
+refused while the build exists (members sign once); `rebuild` `true` discards it and builds anew
+— only before any member signed it, since a signature over the old build makes a signature over
+the new one an equivocation. The wallet picks the smallest single coin that covers the fee, so
+the change output, which the set signatures bind and a re-funder must pay, stays small.
 
-### `set_signunlock "hex"`
-Params: `["hex": hex]`
+### `set_signunlock "hex" ( {"acknowledgerestore": true} )`
+Params: `["hex": hex, "options"?: {"acknowledgerestore"?: bool}]`
 
 Result: `SetSigResult`
 
 Adds this wallet's current-member signatures over the set-signature message (plan §15.2 step 4)
 for the vault's `setid`, up to `unlockthreshold`. Signing two different spends of one outpoint
-is provable equivocation: sign only the transaction you mean.
+is provable equivocation: sign only the transaction you mean. The sighash is ZIP-243
+`SignatureHash(scriptCode, tx, nIn, SIGHASH_ALL|SIGHASH_ANYONECANPAY, amount, branch)` (01/V-2):
+it binds the vault input (prevout, amount, sequence, script) and every output, not the other
+inputs, so the fee inputs may be replaced by anyone (`vault_refee`) without a new signature, and a
+re-funded transaction has the same sighash.
 **Sign once:** before handing out a signature the wallet records, in its wallet database, the
 role and sighash its members signed for `(setid, prevout)`, and refuses a different role or
 sighash for that pair with `set-sign-once` (`RPC_WALLET_ERROR`), across restarts; re-signing the
-identical transaction is idempotent. There is no override.
+identical transaction, or the same transaction re-funded, is idempotent. There is no override.
+**The record lives only in this `wallet.dat`** (07/F-5). Nothing derives it from the chain, and
+a wallet restored from its seed (`-hdseedfile`; `-mnemonicfile` on 6.20.0), a wallet that
+imports the member key (`importwallet`, `z_importwallet`, `importprivkey`) or a second host with
+the same key has no record: asked to sign a different spend of an outpoint the key already
+signed, it would sign, and anyone can then submit `set_equivocation` — the member is EJECTED
+and its bond frozen. The rules: **a member key lives in exactly one wallet on one signing host;
+back up `wallet.dat` after every `set_signunlock` / `set_signcancel` (the seed is not enough);
+never sign on a restored wallet before importing the record and confirming it is complete** —
+`set_listsigned` on the old wallet (or its `dumpwallet` / `z_exportwallet` dump, whose
+`vaultsetsig=` lines carry it) and `set_importsigned` (or `importwallet` / `z_importwallet` of the
+dump) on the new one, check with `set_listsigned`, then `set_acknowledgerestore`.
+A bridge attestor backs `wallet.dat` up together with its sidecar's own ledger and never runs two copies
+(`hawkeye/docs/operations.md`).
 
-### `vault_buildcancel "intentoutpoint"`
-Params: `["intentoutpoint": outpoint]`
+The node enforces what it can see. A wallet created from a seed, or one that imports a key that is
+a member of a set at the tip, carries a **restore marker**; a key imported while it is not (yet)
+a member — during IBD or `-reindex`, or before its `SET_JOIN` is mined — is remembered as pending,
+and when a `SET_JOIN` of it connects the marker is set then. While the marker is set the sign
+RPCs refuse with `set-sign-restored` (`RPC_WALLET_ERROR`) any `(setid, prevout)` the wallet has no
+record for, unless the call passes `{"acknowledgerestore": true}` — the operator's statement that
+this key never signed a set spend of that outpoint; a prevout with a record follows the record
+(`set-sign-once`, or idempotent re-signing). **Importing a history never clears the marker** (a
+dump may be stale: taken before the old host's last signature): only `set_acknowledgerestore`
+does, the operator's confirmation that no other host, wallet copy or backup has signed with these
+keys since the imported history was taken (review S2). The node logs a warning at startup while
+the marker is set and the wallet holds a member key. **Not protected:** a `wallet.dat` restored by
+copying the file (an old backup carries an old record and no marker) and two live wallets sharing
+a member key (an HA pair) — the node cannot tell either from the original; the
+one-wallet-per-key rule is the only defence. With SIGHASH_ALL|ANYONECANPAY a re-funded build has
+the same sighash, so the record stays valid across re-funding; the hazard is a *different* build.
 
-Result: `{"hex": hex, "required": int, "cancelsetid": hash, "deadline": height, "intentconfirmed": bool}`
+### `vault_buildcancel "intentoutpoint" ( rebuild )`
+Params: `["intentoutpoint": outpoint, "rebuild"?: bool]`
+
+Result: `{"hex": hex, "required": int, "cancelsetid": hash, "deadline": height, "intentconfirmed": bool, "sighash": hash, "build": "new"|"reused"|"refunded"}`
 
 The CANCEL spend (selector 2) of an unmatured intent: its value back into the vault it was
 unlocked from (I-2). `deadline` is the last height a cancel can confirm at. An intent still in
@@ -317,16 +377,85 @@ next block. The mempool accepts the cancel as the intent's child (a mempool pare
 confirming in the next block, so I-2 holds), and both may confirm in one block; a cancel signed
 before the intent confirms stays valid after it. So a watcher can build and sign a cancel the
 moment an intent appears. Called again for the same intent it returns the same transaction
-(mempool or confirmed) while its fee inputs are unspent (remembered in memory until restart), so
-every member signs one sighash.
+(mempool or confirmed), remembered in the wallet database across restarts with its fee inputs
+locked; when a fee input was spent meanwhile it returns the same transaction re-funded
+(`vault_refee`, same `sighash`), so every member signs one sighash. `rebuild` and the fee: as
+`vault_buildunlock` (the fee never comes from the intent's value: I-2). A pre-built spend that
+chains on a re-funded parent (a cancel of a mempool intent whose unlock was re-funded) must be
+rebuilt: re-funding changes the parent's txid, not its sighash.
+An intent of the YED module (tag `YED\0`) is refused: the module's
+CAN-1 rule (audit 03/H-1) also requires the cancel to refund the claim's burn, so it is built with
+`yed_buildcancel` (doc/yellowback-rpc.md), and a member never signs a cancel the module rejects
+(`RPC_INVALID_PARAMETER`, "a YED claim intent is cancelled with yed_buildcancel"; provoked by the Yellowback
+contract test, which has the module configured, so it is not in this file's error table).
 
-### `set_signcancel "hex"`
-Params: `["hex": hex]`
+### `set_signcancel "hex" ( {"acknowledgerestore": true} )`
+Params: `["hex": hex, "options"?: {"acknowledgerestore"?: bool}]`
 
 Result: `SetSigResult`
 
 As `set_signunlock`, for the intent's `cancelsetid` and `cancelthreshold`, under the same
-sign-once record.
+sign-once record and restore marker.
+
+### `vault_refee "hex"`
+Params: `["hex": hex]`
+
+Result: `{"hex": hex, "sighash": hash, "fee": yec, "replaced": [outpoint]}`
+
+Re-funds a vault UNLOCK or CANCEL spend (01/V-2): every input but the vault/intent input is
+replaced by this wallet's coins; the template input — with any set signatures already on it —
+and every output stay byte-identical, so the signatures stay valid and `sighash` is unchanged.
+Use it when a fee input of a built or signed spend was spent elsewhere (the builder spent its own
+coin, a lock was released). **Anyone may re-fund**: the set signatures bind the template input
+and the outputs only. The outputs, the builder's change included, are bound, so there can be no
+new change output: the new input is one coin worth exactly what the outputs need beyond the
+template coin plus the fee (the 10,000-zatoshi vault fee) — an existing confirmed coin within
+1,000 zatoshi of it, else a self-send of exactly that amount that this call broadcasts and the
+re-funded spend chains on in the mempool (the old fee inputs this wallet locked are released
+first, so a still-unspent one can fund it). The fee never comes from the vault's value (S-2, I-1,
+I-2). The new input is unsigned and locked; `vault_send` on this node signs it. When this wallet built the spend, its remembered build
+follows the re-funded transaction. Re-funding changes the txid (third-party malleability by
+input replacement, as the selector case 01/V-4).
+**Pinning (review S1):** because anyone may re-fund, a third party can also broadcast its own
+variant of a signed spend first — for example a wrong-price claimant re-funding the attestors'
+cancel from a low-fee, unconfirmed parent — and without replace-by-fee the first variant a node
+sees is the one it keeps, possibly until the intent's `delay` has passed. Cancel signers should
+broadcast a cancel early, send it directly to well-connected peers and miners, and watch it
+confirm; if it lingers, re-fund it with `vault_refee` from a confirmed coin and send that.
+
+### `set_listsigned`
+Params: `[]`
+
+Result: `{"restored": bool, "records": [{"setid": hash, "prevout": outpoint, "role": int, "sighash": hash}]}`
+
+The wallet's set sign-once records (07/F-5): for each `(setid, prevout)` its member keys signed
+a spend of, the role (1 unlock, 2 cancel) and the sighash. `restored` is the restore marker:
+while it is true the sign RPCs refuse with `set-sign-restored`. Back the records up with
+`wallet.dat`; `dumpwallet` / `z_exportwallet` write them as `vaultsetsig=` lines (with the
+remembered vault builds, `vaultbuild=`, and intent recipients, `vaultrecipient=`).
+
+### `set_importsigned [{"setid", "prevout", "role", "sighash"}, ...]`
+Params: `["records": [{"setid": hash, "prevout": outpoint, "role": int, "sighash": hash}]]`
+
+Result: `{"imported": int, "present": int}`
+
+Imports sign-once records as `set_listsigned` printed them on the wallet that signed. A record
+that differs from one this wallet holds for the same `(setid, prevout)` refuses the whole import
+(`set-sign-once`, nothing imported): two signing histories for one key are never merged
+silently. Identical records count as `present`. Importing a dump with `importwallet` /
+`z_importwallet` applies the same rule to its `vaultsetsig=` lines. Neither clears the restore
+marker (an imported history may be stale); `set_acknowledgerestore` does. There is no RPC that
+deletes a record.
+
+### `set_acknowledgerestore`
+Params: `[]`
+
+Result: `{"restored": bool, "pendingkeys": int}`
+
+Clears the restore marker: the operator confirms that the wallet's sign-once history
+(`set_listsigned`) is complete — no other host, wallet copy or backup has signed with its member
+keys since that history was taken. `restored` is then false; `pendingkeys` counts imported keys
+still watched for a `SET_JOIN` (one connecting sets the marker again).
 
 ### `vault_send "hex"`
 Params: `["hex": hex]`
@@ -364,7 +493,12 @@ the rate is `-yellowbackfeeusdperkb` (default $0.05/KB) at the attested price --
 Yellowback index tip's window medians, none while a halt bit is set -- never below
 max(5,000 zat/KB, `-pqfeerate`); without an attested price (no Yellowback index, below its start,
 under a halt) it is `-pqfeerate` (quantum plan §4.5, D-Q-23 (b), D-Q-26;
-`yed_getinfo.params.fees.network` reports the values in force).
+`yed_getinfo.params.fees.network` reports the values in force). Never below the 6.20.0 line's ZIP-317
+conventional fee of the signed spend (500 zat × max(2, logical actions), an input counting one action per
+150 bytes: ~27,500 zat for an SLH-DSA owner spend), outside the cap, as ycashd 6.20.0 pays it, so a 6.20.0 node
+started with `-txunpaidactionlimit=0` relays it and its ZIP-401 limiter does not rank it first for eviction
+(audit 04/N-1). The same floor applies to every transaction this wallet builds with a post-quantum input
+(`sendtoaddress`/`sendmany` from an `rq…`/`sq…` coin) and to the YED builders' post-quantum spends.
 
 ### `vault_app "outpoint" ( [{"address"|"script", "amount"}, ...] )`
 Params: `["outpoint": outpoint, "recipients"?: [Recipient]]`
@@ -391,6 +525,7 @@ code. `qa/rpc-tests/vault_rpc_contract.py` provokes each one.
 | -8 | `kind must be vault or intent` | `vault_list` | `{"kind": "coin"}` |
 | -8 | `vault parameters out of range` | `vault_lock` | `delay` 0 |
 | -8 | `ownerkey-removed` | `vault_lock` | the former `ownerkey` parameter |
+| -8 | `appheight on a tag no module governs` | `vault_lock` | `appheight` on tag `TEST` (or on `YED\0` where no attestor set is configured) |
 | -8 | `unknown post-quantum scheme` | `vault_getnewowner` | `scheme` 3 |
 | -8 | `unregistered post-quantum scheme` | `vault_lock`, `vault_list` | an `owner` with scheme `03` |
 | -8 | `a scheme-2 (FN-DSA-512) owner before Falcon is active` | `vault_lock` | an `owner` with scheme `02` while Falcon is inactive at the next block |
@@ -399,7 +534,9 @@ code. `qa/rpc-tests/vault_rpc_contract.py` provokes each one.
 | -8 | `the recipients' amounts exceed the vault's value` | `vault_buildunlock`, `vault_app` | more than the vault holds |
 | -8 | `the template input is not an intent` | `set_signcancel` | an unlock spend |
 | -8 | `the template input is not a vault` | `set_signunlock` | a cancel spend |
-| -4 | `set-sign-once` | `set_signunlock`, `set_signcancel` | a second, different unlock of a vault this wallet already signed |
+| -4 | `set-sign-once` | `set_signunlock`, `set_signcancel`, `set_importsigned` | a second, different unlock of a vault this wallet already signed |
+| -4 | `set-sign-restored` | `set_signunlock`, `set_signcancel` | signing on a wallet that imported a member key, before `set_importsigned` |
+| -8 | `already built a different unlock` | `vault_buildunlock` | a second build of one vault with other recipients, without `rebuild` |
 | -8 | `not an unspent intent output` | `vault_buildcancel`, `vault_release` | a released intent |
 | -1 | `can no longer be cancelled` | `vault_buildcancel` | an intent past its delay |
 | -1 | `matures at height` | `vault_release` | an intent before its delay |
@@ -432,8 +569,27 @@ C: vault_buildcancel I' -> X ; C: set_signcancel X -> X1 ; C: vault_send X1   (a
 
 - `<datadir>/vaults/` commits each connected block (state, undo, tip marker) after the block's
   script checks; `-reindex` wipes it; on start it is reconciled with the active chain
-  (disconnected with its own undo, replayed from the block files). A pruned node that lacks the
-  undo data of a block after activation cannot replay and asks for `-reindex`.
+  (disconnected with its own undo, replayed from the block files). Replay needs every block and
+  undo file from the activation height, so `-prune` is refused wherever the upgrade has an
+  activation height, with or without Yellowback (audit 01/N-1): a node that pruned before its
+  network set a height must re-download the chain without `-prune`. Undo records are kept for
+  4,096 blocks (`UNDO_KEEP`, `src/vault/db.h`); a crash-time walk-back deeper than that is a wipe
+  and replay from the activation height (minutes to hours), as a `VAULT_DB_VERSION` change is
+  (audit 07/F-7, 07/F-8); a node killed during a long initial sync with a large `-dbcache` can take
+  it too (time, not soundness). After connecting block H the undo of H − 4,095 … H is kept. Live
+  reorgs stop at 99 blocks (`MAX_REORG_LENGTH`); an `invalidateblock` that would disconnect a block
+  below H − 4,095 stops the node, a plain restart stops again, and `-reindex` (which forgets the
+  invalidation) recovers.
+- Rules S-0 and V-1's APP clause (2026-10-12) apply to every block from activation, so a regtest,
+  devnet or kind chain built by an earlier binary that holds a pre-activation template spend or a
+  module-less APP vault fails Reconcile's replay (the error names the cause) and splits from a fresh
+  node: restart such a chain from scratch. No public network has an activation height, so mainnet
+  and testnet are unaffected. A smaller `-dbcache` flushes the chainstate more often and
+  keeps a crash within the walk-back.
+- A template input whose coin was created below the activation height is invalid (S-0,
+  `bad-txns-vault-preactivation`, audit 01/V-1): a V or I a miner put in a block before the
+  rules existed is never a template input, in the mempool, in a block or on replay (which reads
+  height 0 for a coin the template-output index does not hold).
 - The mempool applies the vault rules for the next block and re-checks vault transactions on
   every tip change; the miner applies acts and the rate limit to a running copy and skips a
   transaction that fails.
