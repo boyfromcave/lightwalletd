@@ -29,8 +29,16 @@ import (
 // Input bounds checked at the edge so the node never sees a malformed request from here
 // (plan Phase L3 item; the cheap ones land now).
 const (
-	maxHexLen        = 2 * 200000 // a raw transaction is at most 100 kB on Ycash's MAX_TX_SIZE ... generous
-	maxSelectorLen   = 2 * 36     // a serialised COutPoint
+	// The node's post-Sapling transaction limit (ycash-dd/src/consensus/consensus.h:29
+	// MAX_TX_SIZE_AFTER_SAPLING = MAX_BLOCK_SIZE = 2 000 000 bytes; ycash6 :34 the same); the gRPC
+	// receive bound in cmd/root.go is sized to it. A YED transfer of 250 Falcon-held inputs
+	// (YEW's MAX_INPUTS, 1,577-byte scriptSigs) is ~394 kB and must pass here (audit 06/L-2;
+	// the cap was 200 kB).
+	maxRawTxBytes = 2000000
+	// rawTxCostUnit: ValidateRawTransaction costs one heavy token per started unit of this many
+	// bytes, so a 2 MB validate costs ten (the per-call cost was sized for the old 200 kB cap).
+	rawTxCostUnit    = maxRawTxBytes / 10
+	maxSelectorLen   = 2 * 36 // a serialised COutPoint
 	maxListCount     = 1000
 	defaultListCount = 100 // yed_listvaults' own default (audit E-5)
 	maxAddresses     = 100 // yed_listtokens' own bound
@@ -185,14 +193,31 @@ func (y *YellowbackStreamer) GetTxInfo(ctx context.Context, in *walletrpc.YedTxi
 // ValidateRawTransaction proxies yed_validaterawtransaction <hex>: the dry run a client performs
 // before SendTransaction (plan section 5 item 4).
 func (y *YellowbackStreamer) ValidateRawTransaction(ctx context.Context, in *walletrpc.RawTransaction) (*walletrpc.YedValidation, error) {
-	if err := y.limited(ctx, yedCostHeavy); err != nil {
+	if err := y.limited(ctx, rawTxCost(in)); err != nil {
 		return nil, err
 	}
-	if in == nil || len(in.Data) == 0 || len(in.Data) > maxHexLen/2 {
+	if in == nil || len(in.Data) == 0 || len(in.Data) > maxRawTxBytes {
 		return nil, badArg("data must be a non-empty raw transaction")
 	}
 	out := &walletrpc.YedValidation{}
 	return out, y.call(ctx, out, "yed_validaterawtransaction", common.JSONString(hex.EncodeToString(in.Data)))
+}
+
+// rawTxCost is ValidateRawTransaction's rate-limit cost: yedCostHeavy per started rawTxCostUnit
+// of the body, at least one, counted up to maxRawTxBytes (a larger body is refused unsent).
+func rawTxCost(in *walletrpc.RawTransaction) float64 {
+	n := 0
+	if in != nil {
+		n = len(in.Data)
+	}
+	if n > maxRawTxBytes {
+		n = maxRawTxBytes
+	}
+	units := (n + rawTxCostUnit - 1) / rawTxCostUnit
+	if units < 1 {
+		units = 1
+	}
+	return yedCostHeavy * float64(units)
 }
 
 // DecodePayload proxies yed_decodepayload <hex>.
