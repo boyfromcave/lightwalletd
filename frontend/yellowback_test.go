@@ -1422,7 +1422,8 @@ func TestVaultCancelLimitFields(t *testing.T) {
 		}
 	}
 	never, err := svc.GetVault(ctx, &walletrpc.YedTxid{Txid: exampleTxid})
-	if err != nil || never.GetCancelCount() != 0 || never.GetCancelsRequired() != 1 || never.GetCancelQuietUntil() != 0 || len(never.GetHeldResiduals()) != 0 {
+	if err != nil || never.GetCancelCount() != 0 || never.GetCancelsRequired() != 1 || never.GetCancelQuietUntil() != 0 || len(never.GetHeldResiduals()) != 0 ||
+		never.GetRefundHolder() != "" {
 		t.Fatalf("never-cancelled vault: %+v (%v)", never, err)
 	}
 	vault["cancelCount"] = 2
@@ -1430,6 +1431,8 @@ func TestVaultCancelLimitFields(t *testing.T) {
 	vault["cancelQuietUntil"] = 8512
 	held := "c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1"
 	vault["heldResiduals"] = []interface{}{map[string]interface{}{"txid": held, "vout": 1}}
+	vault["status"] = "CLAIMING"
+	vault["refundHolder"] = "76a914a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d488ac"
 	one, _ := json.Marshal(map[string]interface{}{"returns": vault})
 	rows, _ := json.Marshal(map[string]interface{}{"returns": []interface{}{vault}})
 	node.contract["yed_getvault"] = one
@@ -1438,7 +1441,8 @@ func TestVaultCancelLimitFields(t *testing.T) {
 		t.Helper()
 		h := v.GetHeldResiduals()
 		if v.GetCancelCount() != 2 || v.GetCancelsRequired() != 3 || v.GetCancelQuietUntil() != 8512 ||
-			len(h) != 1 || h[0].GetTxid() != held || h[0].GetVout() != 1 {
+			len(h) != 1 || h[0].GetTxid() != held || h[0].GetVout() != 1 ||
+			v.GetRefundHolder() != "76a914a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d488ac" {
 			t.Errorf("%s: cancel-limit fields not passed through: %+v", where, v)
 		}
 	}
@@ -1452,4 +1456,41 @@ func TestVaultCancelLimitFields(t *testing.T) {
 		t.Fatalf("ListVaults: %d rows (%v)", len(vs.rows), err)
 	}
 	check("ListVaults", vs.rows[0].(*walletrpc.YedVault))
+}
+
+// TestClaimableCancelLimitFields (CAN-2 on yed_listclaimable): each ListClaimable row carries the vault's
+// cancelCount, cancelsRequired and cancelQuietUntil, so a claimant sees before it claims how many attestors a
+// cancel would need. The contract row is a never-cancelled vault (0, 1, null -> 0); a cancelled one passes too.
+func TestClaimableCancelLimitFields(t *testing.T) {
+	svc, node := newService(t)
+	var rows []map[string]interface{}
+	if err := json.Unmarshal(node.contract.returns(t, "yed_listclaimable"), &rows); err != nil || len(rows) == 0 {
+		t.Fatalf("contract yed_listclaimable: %v", err)
+	}
+	for _, k := range []string{"cancelCount", "cancelsRequired", "cancelQuietUntil"} {
+		if _, ok := rows[0][k]; !ok {
+			t.Fatalf("contract yed_listclaimable has no %s (the cancel-limit design)", k)
+		}
+	}
+	cancelled := map[string]interface{}{}
+	for k, v := range rows[0] {
+		cancelled[k] = v
+	}
+	cancelled["vault"] = strings.Repeat("ab", 32) + ":0"
+	cancelled["cancelCount"] = 1
+	cancelled["cancelsRequired"] = 2
+	cancelled["cancelQuietUntil"] = 8100
+	encoded, _ := json.Marshal(map[string]interface{}{"returns": []interface{}{rows[0], cancelled}})
+	node.contract["yed_listclaimable"] = encoded
+	cs := &claimableStream{}
+	if err := svc.ListClaimable(&walletrpc.Empty{}, cs); err != nil || len(cs.rows) != 2 {
+		t.Fatalf("ListClaimable: %d rows (%v)", len(cs.rows), err)
+	}
+	a, b := cs.rows[0].(*walletrpc.YedClaimable), cs.rows[1].(*walletrpc.YedClaimable)
+	if a.GetCancelCount() != 0 || a.GetCancelsRequired() != 1 || a.GetCancelQuietUntil() != 0 {
+		t.Errorf("never-cancelled row: %+v", a)
+	}
+	if b.GetCancelCount() != 1 || b.GetCancelsRequired() != 2 || b.GetCancelQuietUntil() != 8100 {
+		t.Errorf("cancelled row: %+v", b)
+	}
 }

@@ -1449,5 +1449,44 @@ func TestDevnetCancelLimitFieldsThroughServer(t *testing.T) {
 		}
 		compared++
 	}
-	t.Logf("cancel-limit fields: %d ListVaults rows and %d GetVault answers equal the node's", len(have), compared)
+	// yed_listclaimable carries the same three fields for every listed vault (what a claimant sees before it claims).
+	type claimRow struct {
+		Vault            string `json:"vault"`
+		CancelCount      *int64 `json:"cancelCount"`
+		CancelsRequired  *int64 `json:"cancelsRequired"`
+		CancelQuietUntil *int64 `json:"cancelQuietUntil"`
+	}
+	var nodeClaim []claimRow
+	d.rpc(t, &nodeClaim, "yed_listclaimable")
+	var haveC, wantC []string
+	for _, r := range nodeClaim {
+		if r.CancelCount == nil || r.CancelsRequired == nil {
+			t.Fatalf("yed_listclaimable row %s has no cancelCount / cancelsRequired (node older than fix/cancel-fields-2?)", r.Vault)
+		}
+		quiet := int64(0)
+		if r.CancelQuietUntil != nil {
+			quiet = *r.CancelQuietUntil
+		}
+		wantC = append(wantC, fmt.Sprintf("%s %d %d %d", r.Vault, *r.CancelCount, *r.CancelsRequired, quiet))
+	}
+	lc, err := y.ListClaimable(ctx, &walletrpc.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		r, err := lc.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		haveC = append(haveC, fmt.Sprintf("%s %d %d %d", r.Vault, r.CancelCount, r.CancelsRequired, r.CancelQuietUntil))
+	}
+	sort.Strings(haveC)
+	sort.Strings(wantC)
+	if strings.Join(haveC, "\n") != strings.Join(wantC, "\n") {
+		t.Fatalf("ListClaimable cancel-limit fields != yed_listclaimable:\n server %v\n node   %v", haveC, wantC)
+	}
+	t.Logf("cancel-limit fields: %d ListVaults rows, %d GetVault answers and %d ListClaimable rows equal the node's", len(have), compared, len(haveC))
 }

@@ -3260,6 +3260,29 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>cancelCount</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>The per-vault cancel limit (CAN-2; additive, rpcversion unchanged), as YedVault carries it: what a claim of this
+vault faces -- its counted cancels, the co-signers a cancel needs if it confirms in the next block, and the quiet
+period&#39;s end (the node&#39;s null, never cancelled, is 0 here). </p></td>
+                </tr>
+              
+                <tr>
+                  <td>cancelsRequired</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>cancelQuietUntil</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -4989,6 +5012,15 @@ ACTIVE at or after cancelQuietUntil. </p></td>
                   <td><a href="#cash.z.wallet.sdk.rpc.YedOutpoint">YedOutpoint</a></td>
                   <td>repeated</td>
                   <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>refundHolder</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>CAN-1 (a cancelled claim refunds its burn): on a CLAIMING vault, the scriptPubKey (hex) the claim&#39;s burned YED came
+from -- the token spent at the claim&#39;s lowest-index YED input -- which a cancel re-issues the whole burn to as one
+YED token (burnedCents); &#34;&#34; otherwise (the node omits the key). </p></td>
                 </tr>
               
             </tbody>
