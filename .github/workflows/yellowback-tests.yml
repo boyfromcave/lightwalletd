@@ -132,12 +132,12 @@ jobs:
               echo "::warning::$local_ differs from $NODE_REPO_YCASH6@$node $remote beyond the stamp (report-only)"
             fi
           done
-      - name: "Test (frontend: the Yellowback suite by name)"
-        # The baseline's own frontend tests fail and then hang at 187a267 (F-R1: yodl's Ycash
-        # regex commit invalidated upstream's t-address test data, after which the RPC stubs run
-        # out of order and TestGetBlockRange waits forever). They are not this fork's to fix; the
-        # Yellowback tests run by name so the package is still covered.
-        run: go test -mod=vendor -count=1 -timeout 120s -run 'Unary|Streaming|Params|NodeErrors|InputValidation|AllowList|Probe|YedTo|TaddrOf|RateLimit|CallYed|ListVaults|TipAnswers|ConfDefaultPorts|NewZRPCFromConf|ChainInfo|Vault|PQ|ContractFields|FeeQueries|SendHighFee|WalletNotified' ./frontend/
+      - name: "Test (frontend: the whole package)"
+        # F-R1 is fixed: yodl's Ycash regex commit (0b8795b) had invalidated upstream's t-address
+        # test data, after which the RPC stubs ran out of order and TestGetBlockRange waited
+        # forever; frontend_test.go now uses s-addresses, so the whole package runs (the
+        # Yellowback tests among it), not a list of names a new test could miss.
+        run: go test -mod=vendor -count=1 -timeout 180s ./frontend/
 
   generated-code:
     runs-on: ubuntu-24.04
