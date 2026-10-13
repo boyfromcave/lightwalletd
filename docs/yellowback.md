@@ -163,9 +163,15 @@ four cancel-limit fields, exactly as `yed_getvault` / `yed_listvaults` answer th
   cancelled claims this position holds. `vault_release` of one is refused (`intent-residual-held`) until the
   position is CLOSED or CLAIMED, or ACTIVE at or after `cancelQuietUntil`.
 
-They were in `notCarried` until this change. `TestVaultCancelLimitFields` passes a cancelled vault with a held
-residual through `GetVault` and `ListVaults`; on regtest `TestDevnetCancelLimitFieldsThroughServer` compares
-every `ListVaults` row and its `GetVault` with the node's `yed_listvaults` / `yed_getvault`.
+They were in `notCarried` until this change. `YedClaimable` (`ListClaimable`) carries the first three too
+(`cancelCount` 18, `cancelsRequired` 19, `cancelQuietUntil` 20; the node's `yed_listclaimable` gained them on
+`fix/cancel-fields-2`, additive), so a claimant sees before it claims how many attestors a cancel would need without
+a `GetVault` per row. `YedVault.refundHolder` (35, hex scriptPubKey, `""` unless CLAIMING): CAN-1 — a cancelled claim
+refunds its burn; the scriptPubKey the claim's burned YED came from (the token at the claim's lowest-index YED input),
+which a cancel re-issues the whole burn (`burnedCents`) to as one YED token. `TestVaultCancelLimitFields` passes a
+cancelled vault with a held residual (and a CLAIMING one's `refundHolder`) through `GetVault` and `ListVaults`,
+`TestClaimableCancelLimitFields` the claimable rows; on regtest `TestDevnetCancelLimitFieldsThroughServer` compares
+every `ListVaults` row and its `GetVault`, and every `ListClaimable` row, with the node's answers.
 
 **SendTransaction and the fee ceiling (review M-2).** A transaction priced at the published rate can pay more than
 the node's `-maxtxfee`, which `sendrawtransaction` refuses as "absurdly high". On such a refusal, and only when the
