@@ -153,6 +153,7 @@ var NotOffered = map[string]string{
 	"yed_unlockcoin":         "wallet",
 	"yed_estimatesend":       "wallet",
 	"yed_buildcancel":        "wallet; builds and funds the attestor cancel of a claim (Hawkeye / the set sidecar)",
+	"yed_signcancelcosign":   "wallet; a set member signs a cancel co-signature with its member key (cancel limit, CAN-2)",
 	"yed_estimateredeem":     "wallet (vault-not-owned, insufficient-yed); a light client computes the early-redeem fee from params.earlyRedeemFeeBps",
 }
 

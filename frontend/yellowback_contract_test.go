@@ -61,8 +61,14 @@ var notCarried = map[string]string{
 	"yed_getinfo.miner":                            "the node's own miner state (quote, payout address)",
 	// The decimal YEC twin of collateralZat (yellowback-rpc.md: amounts are zatoshi, a decimal twin
 	// only where the prototype had one); the proto carries the exact integer.
-	"yed_getvault.collateral":     "decimal twin of collateralZat",
-	"yed_listvaults[].collateral": "decimal twin of collateralZat",
+	"yed_getvault.collateral":           "decimal twin of collateralZat",
+	"yed_listvaults[].collateral":       "decimal twin of collateralZat",
+	"yed_getvault.cancelCount":          "cancel-limit state (CAN-2): read by the attestor agent over the node RPC; not yet in yellowback.proto",
+	"yed_getvault.cancelQuietUntil":     "cancel-limit state (CAN-2): read by the attestor agent over the node RPC; not yet in yellowback.proto",
+	"yed_getvault.cancelsRequired":      "cancel-limit state (CAN-2): read by the attestor agent over the node RPC; not yet in yellowback.proto",
+	"yed_listvaults[].cancelCount":      "cancel-limit state (CAN-2): read by the attestor agent over the node RPC; not yet in yellowback.proto",
+	"yed_listvaults[].cancelQuietUntil": "cancel-limit state (CAN-2): read by the attestor agent over the node RPC; not yet in yellowback.proto",
+	"yed_listvaults[].cancelsRequired":  "cancel-limit state (CAN-2): read by the attestor agent over the node RPC; not yet in yellowback.proto",
 	// Quantum line (rpcversion 7, the node's Y-B sweep). Not carried yet: carrying them changes
 	// yellowback.proto and so YEW's proto/PIN; a light wallet derives both from what it has.
 	"yed_estimatecollateral.requiredZatFloored": "requiredZat rounded up to 1,000 zat (rpcversion 8, MINT-5'); the wallet rounds requiredZat itself",
