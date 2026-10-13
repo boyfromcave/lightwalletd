@@ -152,8 +152,8 @@ func (d *devnet) rpc(t *testing.T, out interface{}, method string, params ...int
 	}
 }
 
-// mine n blocks on the pool node (tagged, so the price windows stay filled) and wait for node 0
-// and both servers' caches to reach the new height.
+// mine n blocks on the pool node (tagged, so the price windows stay filled) and wait for node 0,
+// node 0's wallet (fullyNotified) and both servers' caches to reach the new height.
 func (d *devnet) mine(t *testing.T, ctx context.Context, n int) uint64 {
 	t.Helper()
 	b, _ := json.Marshal(n)
@@ -178,6 +178,11 @@ func (d *devnet) mine(t *testing.T, ctx context.Context, n int) uint64 {
 			t.Fatalf("node 0 did not sync to the pool's height %d (at %d)", mh, h)
 		}
 		time.Sleep(300 * time.Millisecond)
+	}
+	// Node 0's wallet hears of the block up to a second later (yellowback_devnet_sync_test.go): a
+	// send before that can pick an input the block just spent ("inputs already spent").
+	if err := waitWalletNotified(d.node, 30*time.Second, 100*time.Millisecond); err != nil {
+		t.Fatal(err)
 	}
 	// Node 0's Yellowback index is applied a moment after the block; GetTxInfo reads the index.
 	y := walletrpc.NewYellowbackStreamerClient(d.fork)
