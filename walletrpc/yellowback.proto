@@ -179,6 +179,16 @@ message YedVault {
   string scriptPubKey = 26; repeated YedVaultIntent intents = 27;     // rpcversion 5: the V template (hex); intents while CLAIMING
   int64 ownerScheme = 28; string ownerHash = 29;                      // rpcversion 7: the post-quantum owner (scheme; 32-byte key hash, hex)
   int64 pMint = 30;                                                   // rpcversion 8: the stored mint price (µUSD/YEC) every fee of the vault is struck at
+  // The per-vault cancel limit (CAN-2, CAN-3; additive, rpcversion unchanged). cancelCount: the position's cancels
+  // counted by the escalation schedule (survives every re-creation, 0 at the mint). cancelsRequired: the distinct
+  // current attestor-set members whose co-signatures a cancel of its claim needs if it confirms in the next block
+  // (min(q + 1, CANCEL_SIGNERS_MAX); q = cancelCount inside the quiet period, else 0). cancelQuietUntil: the first
+  // height at which the schedule starts from one again (lastCancelHeight + CANCEL_QUIET); the node's null (never
+  // cancelled) is 0 here. heldResiduals: the residual intents of cancelled claims this position holds (empty when
+  // none); vault_release of one is refused (intent-residual-held) until the position is CLOSED or CLAIMED, or
+  // ACTIVE at or after cancelQuietUntil.
+  int64 cancelCount = 31; int64 cancelsRequired = 32; int64 cancelQuietUntil = 33;
+  repeated YedOutpoint heldResiduals = 34;
 }
 message YedClaimable {
   int64 attestFeeZat = 1; int64 claimHeight = 2; string claimPath = 3; int64 collateralZat = 4; int64 emergencyOpenAt = 5;
