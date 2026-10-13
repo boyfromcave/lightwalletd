@@ -103,13 +103,14 @@ than 5, a transport failure; address
 (`BuildBundle` feeding a mint, plan §9 Q6) has not run on a devnet, and
 `TestDevnetRawMintThroughServer` skips unless `LWD_RAWMINT` is set, so the raw-mint proof is
 only as fresh as the last run that set it; the baseline's three taddr paths in `service.go`
-run under no regression test beyond `TestTaddrOfMapsYedAddresses` and
-`TestTaddrOfRejectsLongGarbageCheaply` (F-R1 excludes the baseline's own frontend tests).
+run under the baseline's own `TestGetTaddressTxids` (again in CI since F-R1 was fixed),
+`TestTaddrOfMapsYedAddresses` and `TestTaddrOfRejectsLongGarbageCheaply`.
 
 **A note on the baseline's tests.** At `187a267` the `frontend` package's own tests fail and
 then hang (the Ycash regex commit invalidated upstream's `t…` test data; then the RPC stubs run
-out of order and `TestGetBlockRange` never returns). This fork does not touch them; CI runs the
-Yellowback frontend tests by name and every other package in full (`docs/yellowback.md`, F-R1).
+out of order and `TestGetBlockRange` never returns). F-R1 is fixed in the test data
+(`frontend_test.go` uses `s…` addresses, the service is unchanged) and CI runs the whole
+`frontend` package (`docs/yellowback.md`, F-R1).
 
 ## Node side
 

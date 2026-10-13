@@ -318,8 +318,10 @@ from indirect to direct, same version, for `base58`), `README.md` (+2). **Zero:*
   ("wrong address" — yodl's regex commit invalidated upstream's `t…` test data), then the RPC
   stubs run out of order (`TestGetBlock`: "unexpected call to getblockStub") and
   `TestGetBlockRange` waits forever. Reproduced on the pristine `lightwalletd-legacy` export.
-  Not this fork's to fix; CI runs the Yellowback frontend tests by name and every other package
-  in full. `cmd`, `common`, `common/logging`, `parser`, `walletrpc` pass.
+  **Fixed** (2026-10-13, lane resync-a): the test's address table and stub now use Ycash's
+  `s…` prefix (`checkTaddress` is unchanged), so the package passes and CI runs `./frontend/`
+  whole instead of the Yellowback tests by name. `cmd`, `common`, `common/logging`, `parser`,
+  `walletrpc` pass.
 - `gofmt -l` at the baseline: `walletrpc/compact_formats.pb.go`, `parser/fuzz.go` (left alone).
 - The default `--data-dir /var/lib/lightwalletd` and `--log-file ./server.log` need overriding on
   a laptop; the Makefile's `coverage` target uses GNU `sed -i` (fails on macOS).

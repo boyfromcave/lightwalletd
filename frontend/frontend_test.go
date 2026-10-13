@@ -1,4 +1,5 @@
 // Copyright (c) 2019-2020 The Zcash developers
+// Copyright (c) 2026 The Ycash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 package frontend
@@ -194,19 +195,20 @@ func TestGetLatestBlock(t *testing.T) {
 	step = 0
 }
 
-// A valid address starts with "t", followed by 34 alpha characters;
+// A valid address starts with "s" (Ycash's transparent prefix, yodl 0b8795b changed
+// checkTaddress from "t" without updating this table), followed by 34 alphanumeric characters;
 // these should all be detected as invalid.
 var addressTests = []string{
 	"",                                      // too short
 	"a",                                     // too short
-	"t123456789012345678901234567890123",    // one byte too short
-	"t12345678901234567890123456789012345",  // one byte too long
-	"t123456789012345678901234567890123*",   // invalid "*"
-	"s1234567890123456789012345678901234",   // doesn't start with "t"
-	" t1234567890123456789012345678901234",  // extra stuff before
-	"t1234567890123456789012345678901234 ",  // extra stuff after
-	"\nt1234567890123456789012345678901234", // newline before
-	"t1234567890123456789012345678901234\n", // newline after
+	"s123456789012345678901234567890123",    // one byte too short
+	"s12345678901234567890123456789012345",  // one byte too long
+	"s123456789012345678901234567890123*",   // invalid "*"
+	"t1234567890123456789012345678901234",   // doesn't start with "s" (a Zcash t-address)
+	" s1234567890123456789012345678901234",  // extra stuff before
+	"s1234567890123456789012345678901234 ",  // extra stuff after
+	"\ns1234567890123456789012345678901234", // newline before
+	"s1234567890123456789012345678901234\n", // newline after
 }
 
 func zcashdrpcStub(method string, params []json.RawMessage) (json.RawMessage, error) {
@@ -221,7 +223,7 @@ func zcashdrpcStub(method string, params []json.RawMessage) (json.RawMessage, er
 		if len(filter.Addresses) != 1 {
 			testT.Fatal("wrong number of addresses")
 		}
-		if filter.Addresses[0] != "t1234567890123456789012345678901234" {
+		if filter.Addresses[0] != "s1234567890123456789012345678901234" {
 			testT.Fatal("wrong address")
 		}
 		if filter.Start != 20 {
@@ -291,7 +293,7 @@ func TestGetTaddressTxids(t *testing.T) {
 	}
 
 	// valid address
-	addressBlockFilter.Address = "t1234567890123456789012345678901234"
+	addressBlockFilter.Address = "s1234567890123456789012345678901234"
 	err := lwd.GetTaddressTxids(addressBlockFilter, &testgettx{})
 	if err != nil {
 		t.Fatal("GetTaddressTxids failed", err)

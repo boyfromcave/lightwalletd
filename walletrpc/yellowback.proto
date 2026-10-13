@@ -266,6 +266,10 @@ message VaultDbTip { string hash = 1; int64 height = 2; }
 message VaultInfo {
   string branchid = 1; int64 activationheight = 2; bool active = 3; int64 height = 4; VaultDbTip dbtip = 5;
   int64 sets = 6; int64 vaults = 7; int64 intents = 8; double lockedvalue = 9; string statehash = 10;
+  // audit 01/V-7: the set the registered module (YED) governs on this node ("" when the node
+  // answers null: it governs none) and whether it governs one. Two nodes whose attestorsetid
+  // differ compute different set state for the same blocks, so a client compares it.
+  string attestorsetid = 11; bool moduleactive = 12;
 }
 message VaultSetMember {
   string key = 1; string status = 2; bool current = 3; bool live = 4; int64 joinheight = 5; int64 lastact = 6;
