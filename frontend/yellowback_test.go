@@ -1403,3 +1403,53 @@ func TestFeeQueriesV8(t *testing.T) {
 		t.Errorf("yed_estimatecollateral protocol fee = %d cents / %d zat (%v)", ce.GetProtocolFeeCents(), ce.GetProtocolFeeZat(), err)
 	}
 }
+
+// TestVaultCancelLimitFields (the per-vault cancel limit, CAN-2 / CAN-3): cancelCount, cancelsRequired,
+// cancelQuietUntil and heldResiduals reach the client from yed_getvault and every yed_listvaults row.
+// The contract example is a never-cancelled vault (0, 1, null, no heldResiduals), so the fake node
+// answers a vault cancelled twice inside the quiet period, holding one residual; the node's null
+// cancelQuietUntil is 0 on the wire.
+func TestVaultCancelLimitFields(t *testing.T) {
+	svc, node := newService(t)
+	ctx := context.Background()
+	var vault map[string]interface{}
+	if err := json.Unmarshal(node.contract.returns(t, "yed_getvault"), &vault); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"cancelCount", "cancelsRequired", "cancelQuietUntil"} {
+		if _, ok := vault[k]; !ok {
+			t.Fatalf("contract yed_getvault has no %s (the cancel-limit design)", k)
+		}
+	}
+	never, err := svc.GetVault(ctx, &walletrpc.YedTxid{Txid: exampleTxid})
+	if err != nil || never.GetCancelCount() != 0 || never.GetCancelsRequired() != 1 || never.GetCancelQuietUntil() != 0 || len(never.GetHeldResiduals()) != 0 {
+		t.Fatalf("never-cancelled vault: %+v (%v)", never, err)
+	}
+	vault["cancelCount"] = 2
+	vault["cancelsRequired"] = 3
+	vault["cancelQuietUntil"] = 8512
+	held := "c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1c1a1"
+	vault["heldResiduals"] = []interface{}{map[string]interface{}{"txid": held, "vout": 1}}
+	one, _ := json.Marshal(map[string]interface{}{"returns": vault})
+	rows, _ := json.Marshal(map[string]interface{}{"returns": []interface{}{vault}})
+	node.contract["yed_getvault"] = one
+	node.contract["yed_listvaults"] = rows
+	check := func(where string, v *walletrpc.YedVault) {
+		t.Helper()
+		h := v.GetHeldResiduals()
+		if v.GetCancelCount() != 2 || v.GetCancelsRequired() != 3 || v.GetCancelQuietUntil() != 8512 ||
+			len(h) != 1 || h[0].GetTxid() != held || h[0].GetVout() != 1 {
+			t.Errorf("%s: cancel-limit fields not passed through: %+v", where, v)
+		}
+	}
+	got, err := svc.GetVault(ctx, &walletrpc.YedTxid{Txid: exampleTxid})
+	if err != nil {
+		t.Fatal(err)
+	}
+	check("GetVault", got)
+	vs := &vaultStream{}
+	if err := svc.ListVaults(&walletrpc.YedVaultFilter{}, vs); err != nil || len(vs.rows) != 1 {
+		t.Fatalf("ListVaults: %d rows (%v)", len(vs.rows), err)
+	}
+	check("ListVaults", vs.rows[0].(*walletrpc.YedVault))
+}

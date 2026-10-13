@@ -1351,3 +1351,103 @@ func hashOf(t *testing.T, d *devnet, raw []byte) string {
 	d.rpc(t, &dec, "decoderawtransaction", fmt.Sprintf("%x", raw))
 	return dec.Txid
 }
+
+// TestDevnetCancelLimitFieldsThroughServer (the per-vault cancel limit, CAN-2 / CAN-3): every vault the
+// node indexes carries cancelCount, cancelsRequired, cancelQuietUntil and heldResiduals through
+// ListVaults and GetVault exactly as yed_listvaults and yed_getvault answer them (the node's null
+// cancelQuietUntil is 0 on the wire, its absent heldResiduals an empty list). Runs after the mint tests
+// above, so at least one vault exists. Mines nothing, so the tip (and cancelsRequired) is stable.
+func TestDevnetCancelLimitFieldsThroughServer(t *testing.T) {
+	d := openDevnet(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	y := walletrpc.NewYellowbackStreamerClient(d.fork)
+
+	type outpoint struct {
+		Txid string `json:"txid"`
+		Vout uint32 `json:"vout"`
+	}
+	type nodeRow struct {
+		Txid             string     `json:"txid"`
+		Vout             uint32     `json:"vout"`
+		CancelCount      *int64     `json:"cancelCount"`
+		CancelsRequired  *int64     `json:"cancelsRequired"`
+		CancelQuietUntil *int64     `json:"cancelQuietUntil"`
+		HeldResiduals    []outpoint `json:"heldResiduals"`
+	}
+	line := func(txid string, vout uint32, count, required, quiet int64, held []string) string {
+		sort.Strings(held)
+		return fmt.Sprintf("%s:%d count=%d required=%d quietUntil=%d held=%v", txid, vout, count, required, quiet, held)
+	}
+	fromNode := func(r nodeRow) string {
+		if r.CancelCount == nil || r.CancelsRequired == nil {
+			t.Fatalf("yed_listvaults row %s:%d has no cancelCount / cancelsRequired (node older than the cancel limit?)", r.Txid, r.Vout)
+		}
+		quiet := int64(0)
+		if r.CancelQuietUntil != nil {
+			quiet = *r.CancelQuietUntil
+		}
+		var held []string
+		for _, h := range r.HeldResiduals {
+			held = append(held, fmt.Sprintf("%s:%d", h.Txid, h.Vout))
+		}
+		return line(r.Txid, r.Vout, *r.CancelCount, *r.CancelsRequired, quiet, held)
+	}
+	fromServer := func(v *walletrpc.YedVault) string {
+		var held []string
+		for _, h := range v.HeldResiduals {
+			held = append(held, fmt.Sprintf("%s:%d", h.Txid, h.Vout))
+		}
+		return line(v.Txid, v.Vout, v.CancelCount, v.CancelsRequired, v.CancelQuietUntil, held)
+	}
+
+	var nodeRows []nodeRow
+	d.rpc(t, &nodeRows, "yed_listvaults", "", maxListCount, 0)
+	if len(nodeRows) == 0 {
+		t.Fatal("yed_listvaults is empty (the mint tests above leave at least one vault)")
+	}
+	lv, err := y.ListVaults(ctx, &walletrpc.YedVaultFilter{Count: maxListCount})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var have, want []string
+	for {
+		v, err := lv.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		have = append(have, fromServer(v))
+		if v.CancelsRequired < 1 {
+			t.Errorf("ListVaults %s:%d cancelsRequired %d (at least one co-signature)", v.Txid, v.Vout, v.CancelsRequired)
+		}
+	}
+	for _, r := range nodeRows {
+		want = append(want, fromNode(r))
+	}
+	sort.Strings(have)
+	sort.Strings(want)
+	if strings.Join(have, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("ListVaults cancel-limit fields != yed_listvaults:\n server %v\n node   %v", have, want)
+	}
+	// GetVault takes a txid: compare the rows whose txid is one vault's (a vault is output 0 of its mint or cancel).
+	compared := 0
+	for _, r := range nodeRows {
+		var nv nodeRow
+		d.rpc(t, &nv, "yed_getvault", r.Txid)
+		if nv.Vout != r.Vout {
+			continue
+		}
+		v, err := y.GetVault(ctx, &walletrpc.YedTxid{Txid: r.Txid})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, want := fromServer(v), fromNode(nv); got != want {
+			t.Fatalf("GetVault cancel-limit fields != yed_getvault:\n server %s\n node   %s", got, want)
+		}
+		compared++
+	}
+	t.Logf("cancel-limit fields: %d ListVaults rows and %d GetVault answers equal the node's", len(have), compared)
+}
