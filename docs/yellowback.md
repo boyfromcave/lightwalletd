@@ -149,6 +149,24 @@ transactions are dollars per KB at the attested tip price. The server speaks exa
 - `GetFeePayee`: `YedPayeeQuery.collateralZat` (2) and `YedPayee.feeZat` (3) reserved; the call is
   `yed_getfeepayee <refHeight> [selectorHex]`.
 
+**The per-vault cancel limit (CAN-2, CAN-3; the workspace's `docs/plans/yellowback-cancel-limit-design.md` and
+upgrade plan §15.10; additive, rpcversion unchanged).** `YedVault` (`GetVault`, `ListVaults`) carries the node's
+four cancel-limit fields, exactly as `yed_getvault` / `yed_listvaults` answer them:
+- `cancelCount` (31): the position's cancels counted by the escalation schedule (it survives every re-creation;
+  0 at the mint).
+- `cancelsRequired` (32): how many distinct current attestor-set members must co-sign a cancel of its claim if
+  that cancel confirms in the next block: `min(q + 1, CANCEL_SIGNERS_MAX)`, `q` = `cancelCount` inside the quiet
+  period, else 0 (`CANCEL_SIGNERS_MAX` 4, regtest 3).
+- `cancelQuietUntil` (33): the first height at which the schedule starts from one again (`lastCancelHeight +
+  CANCEL_QUIET`, 8,064 blocks, regtest 40). The node answers `null` for a vault never cancelled; that is `0` here.
+- `heldResiduals` (34, `repeated YedOutpoint`; empty when none, the node omits the key): the residual intents of
+  cancelled claims this position holds. `vault_release` of one is refused (`intent-residual-held`) until the
+  position is CLOSED or CLAIMED, or ACTIVE at or after `cancelQuietUntil`.
+
+They were in `notCarried` until this change. `TestVaultCancelLimitFields` passes a cancelled vault with a held
+residual through `GetVault` and `ListVaults`; on regtest `TestDevnetCancelLimitFieldsThroughServer` compares
+every `ListVaults` row and its `GetVault` with the node's `yed_listvaults` / `yed_getvault`.
+
 **SendTransaction and the fee ceiling (review M-2).** A transaction priced at the published rate can pay more than
 the node's `-maxtxfee`, which `sendrawtransaction` refuses as "absurdly high". On such a refusal, and only when the
 node serves `yed_getinfo` at rpcversion 8, the server establishes the fee — from the node's message (ycash-dd states

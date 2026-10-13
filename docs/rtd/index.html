@@ -2554,6 +2554,21 @@ differ compute different set state for the same blocks, so a client compares it.
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>exitheight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>The bond exit delay (node b22b8d6): present (non-zero) only while the member has left and its bond
+is still indexed; unlockheight = exitheight &#43; the set&#39;s maturity, the first block the bond may be spent in. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>unlockheight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -2875,6 +2890,22 @@ differ compute different set state for the same blocks, so a client compares it.
                   <td><a href="#bool">bool</a></td>
                   <td></td>
                   <td><p>rpcversion 5 (P4-b): the attestor set&#39;s member state </p></td>
+                </tr>
+              
+                <tr>
+                  <td>evicted</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>rpcversion 8 (seats, owner 2026-10-11): evicted from the full set by a larger bond (status WITHDRAWN, bond not
+frozen); seatWeight = bondZat x the log tenure factor at the height asked, a decimal Q16 string (/ 65,536 for zat).
+A WITHDRAWN record&#39;s unfrozen bond is spendable from statusHeight &#43; params.attest.bondMaturity (the exit delay). </p></td>
+                </tr>
+              
+                <tr>
+                  <td>seatWeight</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
                 </tr>
               
             </tbody>
@@ -4925,6 +4956,41 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                   <td><p>rpcversion 8: the stored mint price (µUSD/YEC) every fee of the vault is struck at </p></td>
                 </tr>
               
+                <tr>
+                  <td>cancelCount</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>The per-vault cancel limit (CAN-2, CAN-3; additive, rpcversion unchanged). cancelCount: the position&#39;s cancels
+counted by the escalation schedule (survives every re-creation, 0 at the mint). cancelsRequired: the distinct
+current attestor-set members whose co-signatures a cancel of its claim needs if it confirms in the next block
+(min(q &#43; 1, CANCEL_SIGNERS_MAX); q = cancelCount inside the quiet period, else 0). cancelQuietUntil: the first
+height at which the schedule starts from one again (lastCancelHeight &#43; CANCEL_QUIET); the node&#39;s null (never
+cancelled) is 0 here. heldResiduals: the residual intents of cancelled claims this position holds (empty when
+none); vault_release of one is refused (intent-residual-held) until the position is CLOSED or CLAIMED, or
+ACTIVE at or after cancelQuietUntil. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>cancelsRequired</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>cancelQuietUntil</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>heldResiduals</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YedOutpoint">YedOutpoint</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -5196,6 +5262,28 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                   <td><p>rpcversion 7: a MINT&#39;s payload version (4); payloadVersion (3) is every other type&#39;s </p></td>
                 </tr>
               
+                <tr>
+                  <td>bondMinCapZat</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>rpcversion 8 (D-Q-30, the attestor bond follows YED vault collateral): bondMinZat (5) is now computed, the
+floor a join in the NEXT block must meet, clamp(ceil(collateral * bondShareBps / (10^4 * nSlots)), floor, cap). </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bondMinFloorZat</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bondShareBps</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -5325,7 +5413,7 @@ too; claimable is false while it is above theta, and underwaterAt is then the pr
                   <td>earlyRedeemFeeBps</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p>rpcversion 6 (in-term IT-9): of the debt at pMint (IT-9', D-Q-23), a redeem before lockHeight </p></td>
+                  <td><p>rpcversion 6 (in-term IT-9): of the debt at pMint (IT-9&#39;, D-Q-23), a redeem before lockHeight </p></td>
                 </tr>
               
             </tbody>
