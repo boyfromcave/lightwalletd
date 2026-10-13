@@ -270,6 +270,9 @@ message VaultInfo {
 message VaultSetMember {
   string key = 1; string status = 2; bool current = 3; bool live = 4; int64 joinheight = 5; int64 lastact = 6;
   string bondoutpoint = 7; double bondvalue = 8; int64 bondlocktime = 9; bool bondfrozen = 10;
+  // The bond exit delay (node b22b8d6): present (non-zero) only while the member has left and its bond
+  // is still indexed; unlockheight = exitheight + the set's maturity, the first block the bond may be spent in.
+  int64 exitheight = 11; int64 unlockheight = 12;
 }
 message VaultSet {
   string setid = 1; int64 height = 2; int64 seats = 3; int64 unlockthreshold = 4; int64 cancelthreshold = 5;

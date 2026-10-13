@@ -506,6 +506,34 @@ func TestInputValidation(t *testing.T) {
 	}
 }
 
+// TestInputValidationRawTxSize (audit 06/L-2, V6-N1): ValidateRawTransaction admits a raw
+// transaction up to the node's post-Sapling limit (2 000 000 bytes) and refuses a larger one
+// without calling the node. 394 000 bytes is YEW's largest YED transfer (250 Falcon-held inputs),
+// which the old 200 kB cap refused.
+func TestInputValidationRawTxSize(t *testing.T) {
+	ctx := context.Background()
+	for _, n := range []int{394000, maxRawTxBytes - 1, maxRawTxBytes} {
+		svc, node := newService(t)
+		svc.limiter = nil // the size gate is under test here, not the limiter
+		if _, err := svc.ValidateRawTransaction(ctx, &walletrpc.RawTransaction{Data: make([]byte, n)}); err != nil {
+			t.Fatalf("%d bytes: %v", n, err)
+		}
+		p := node.params["yed_validaterawtransaction"]
+		if len(p) != 1 || len(p[0]) != 2*n+2 { // the hex string, quoted
+			t.Fatalf("%d bytes: the node received %d bytes of params, want %d", n, len(p[0]), 2*n+2)
+		}
+	}
+	svc, node := newService(t)
+	svc.limiter = nil
+	_, err := svc.ValidateRawTransaction(ctx, &walletrpc.RawTransaction{Data: make([]byte, maxRawTxBytes+1)})
+	if st, _ := status.FromError(err); st.Code() != codes.InvalidArgument {
+		t.Fatalf("%d bytes: want INVALID_ARGUMENT, got %v", maxRawTxBytes+1, err)
+	}
+	if len(node.calls) != 0 {
+		t.Fatalf("an oversized transaction reached the node: %v", node.calls)
+	}
+}
+
 // TestAllowListCoversContract: every yed_* method of the contract is either proxied or listed
 // as not offered with a reason, and every proxied method exists in the contract.
 func TestAllowListCoversContract(t *testing.T) {
@@ -860,6 +888,36 @@ func TestRateLimit(t *testing.T) {
 	_, err = svc.GetVault(ctx, &walletrpc.YedTxid{Txid: exampleTxid})
 	if st, _ := status.FromError(err); st.Code() != codes.ResourceExhausted {
 		t.Fatalf("light calls past the budget: want RESOURCE_EXHAUSTED, got %v", err)
+	}
+}
+
+// TestRateLimitRawTxCost (audit 06/L-2): ValidateRawTransaction costs one heavy token per
+// started 200 kB of body, so a 2 MB validate takes ten and a small one takes one.
+func TestRateLimitRawTxCost(t *testing.T) {
+	for n, want := range map[int]float64{0: 1, 1: 1, rawTxCostUnit: 1, rawTxCostUnit + 1: 2, 394000: 2,
+		maxRawTxBytes: 10, maxRawTxBytes + 1: 10} {
+		if got := rawTxCost(&walletrpc.RawTransaction{Data: make([]byte, n)}); got != want {
+			t.Errorf("rawTxCost(%d bytes) = %v, want %v", n, got, want)
+		}
+	}
+	if got := rawTxCost(nil); got != 1 {
+		t.Errorf("rawTxCost(nil) = %v, want 1", got)
+	}
+	svc, node := newService(t)
+	now := time.Unix(1700000000, 0)
+	svc.limiter = newRateLimiter(yedRateBurst, time.Hour)
+	svc.limiter.now = func() time.Time { return now }
+	ctx := peerCtx(net.IPv4(10, 0, 0, 1))
+	big := &walletrpc.RawTransaction{Data: make([]byte, maxRawTxBytes)}
+	for i := 0; i < yedRateBurst/10; i++ {
+		if _, err := svc.ValidateRawTransaction(ctx, big); err != nil {
+			t.Fatalf("2 MB validate %d: %v", i, err)
+		}
+	}
+	calls := len(node.calls)
+	_, err := svc.ValidateRawTransaction(ctx, &walletrpc.RawTransaction{Data: []byte{0xde, 0xad}})
+	if st, _ := status.FromError(err); st.Code() != codes.ResourceExhausted || len(node.calls) != calls {
+		t.Fatalf("after %d 2 MB validates the bucket must be empty: got %v", yedRateBurst/10, err)
 	}
 }
 

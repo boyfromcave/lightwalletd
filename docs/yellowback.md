@@ -118,6 +118,16 @@ method's node contract (and, for the primitive, the node's `doc/vault-rpc-contra
 `testdata/vault/`) is declared in the proto or listed in `notCarried` with a reason, so a field the node renames
 fails a test instead of disappearing.
 
+**The contract copies** (`testdata/yellowback/contract.json`, `testdata/vault/vault-rpc-contract.json`,
+`testdata/vault/vault-rpc.md`) are ycash-dd's generated files, copied by `scripts/sync-node-contracts.sh`
+(default: the workspace's `ycash-dd` at `origin/upgrade/vault`; `--tree DIR --ref REF` for another;
+`--check` compares only). Re-run it whenever a node change touches `doc/vault-rpc.md`,
+`doc/vault-rpc-contract.json` or `doc/yellowback-rpc-contract.json`, run the `Vault|ContractFields|AllowList`
+tests and commit the copies. CI runs the same script with `--check --github` against the node branch that
+matches this one, and on `upgrade/*`, `harden/*` and the quantum line an unreachable node file fails the job
+instead of skipping it (audit 06/L-1); ycash6's vault contract is compared too, report-only, with the embedded
+`sha256` stamp masked (it is the only line that differs between the two node lines).
+
 **rpcversion 8 (the fee structure, branch `upgrade/quantum-vaults`; `docs/plans/yellowback-quantum-fees-spec.md`
 §1–§3 and the node's `doc/yellowback-rpc.md` in the workspace).** The pool fee is a protocol fee in dollars, tiered
 by the vault's debt and struck at the vault's stored mint price `pMint`; network fees of post-quantum and Yellowback
@@ -184,8 +194,13 @@ input → `INVALID_ARGUMENT` before any node call; a peer past its burst on any 
 `RESOURCE_EXHAUSTED` (a bucket of 20 tokens refilled one per second per peer; the methods that
 make the node walk its index or attestation pool — `EstimateCollateral`, `BuildBundle`,
 `ValidateRawTransaction`, `GetAddressTokens`, `GetSelection`, `ListVaults`, `ListClaimable`,
-`GetAttestations` — cost a token, the index reads a fifth of one;
-`frontend/yellowback_ratelimit.go`, no new dependency). The peer is the connection address;
+`GetAttestations` — cost a token, the index reads a fifth of one, and `ValidateRawTransaction` one
+token per started 200 kB of the transaction, so a 2 MB one costs ten;
+`frontend/yellowback_ratelimit.go`, no new dependency). `ValidateRawTransaction` admits a raw
+transaction up to the node's own limit, `MAX_TX_SIZE_AFTER_SAPLING` = 2 000 000 bytes
+(`ycash-dd/src/consensus/consensus.h:29`), the size the gRPC receive bound in `cmd/root.go` is set
+for; it was 200 kB, which refused YEW's largest YED transfer (250 Falcon-held inputs, ~394 kB;
+audit 06/L-2). The peer is the connection address;
 `x-real-ip` / `x-forwarded-for` are believed only from the networks named by
 `--trusted-proxy-cidr` (repeatable), since gRPC metadata is set by the client (audit E-2).
 The peer map is capped at 10 000 entries.
