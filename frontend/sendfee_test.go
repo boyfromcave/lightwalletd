@@ -101,13 +101,14 @@ func TestSendHighFee(t *testing.T) {
 		wantMsg    string
 	}{
 		{"ycash-dd, under the ceiling", ycashdd("50000000"), true, "", true, 0, exampleTxid},
-		{"ycash-dd, at the ceiling", ycashdd("1000000000"), true, "", true, 0, exampleTxid},
-		{"ycash-dd, over the ceiling", ycashdd("1000000001"), true, "", false, -26, "absurdly-high-fee: fee 1000000001 zat exceeds"},
+		{"ycash-dd, at the effective cap", ycashdd("500000000"), true, "", true, 0, exampleTxid},
+		{"ycash-dd, over the effective cap", ycashdd("500000001"), true, "", false, -26, "absurdly-high-fee: fee 500000001 zat exceeds"},
+		{"ycash-dd, at the ceiling", ycashdd("1000000000"), true, "", false, -26, "absurdly-high-fee: fee 1000000000 zat exceeds"},
 		{"no Yellowback service", ycashdd("50000000"), false, "", false, -26, "AcceptToMemoryPool: absurdly high fees"},
 		// ycash6 states no amount: the fee is computed, prevout 1.5 YEC - output 1 YEC = 0.5 YEC.
 		{"ycash6, computed under", "-26: 256: absurdly-high-fee", true, "1.5", true, 0, exampleTxid},
-		// prevout 11.00000001 YEC - 1 YEC = 1,000,000,001 zat.
-		{"ycash6, computed over", "-26: 256: absurdly-high-fee", true, "11.00000001", false, -26, "absurdly-high-fee: fee 1000000001 zat"},
+		// prevout 6.00000001 YEC - 1 YEC = 500,000,001 zat.
+		{"ycash6, computed over", "-26: 256: absurdly-high-fee", true, "6.00000001", false, -26, "absurdly-high-fee: fee 500000001 zat"},
 		{"ycash6, prevout unknown", "-26: 256: absurdly-high-fee", true, "", false, -26, "256: absurdly-high-fee"},
 		{"another refusal", "-26: 18: bad-txns-in-belowout", true, "1.5", false, -26, "18: bad-txns-in-belowout"},
 	}
