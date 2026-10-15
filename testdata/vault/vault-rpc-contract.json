@@ -2,7 +2,7 @@
   "contract": "vault-rpc",
   "source": {
     "file": "doc/vault-rpc.md",
-    "sha256": "2db61fdd6bc5338aec1382348dbe7777aeb82ccc7945566e8afac4f8e37a115e"
+    "sha256": "a2cd7dcc302c15846051f6fd25ba0d2597f44a2831152e0622d2086d58fa5d70"
   },
   "branchid": "6d5b7a31",
   "units": {
@@ -2465,6 +2465,17 @@
       "provokedBy": "a cancel spend"
     },
     {
+      "code": -8,
+      "message": "no unspent vault or intent input",
+      "raisedBy": [
+        "set_signunlock",
+        "set_signcancel",
+        "vault_refee",
+        "vault_send"
+      ],
+      "provokedBy": "`vault_send` of a transaction with no template input"
+    },
+    {
       "code": -4,
       "message": "set-sign-once",
       "raisedBy": [
@@ -2482,6 +2493,15 @@
         "set_signcancel"
       ],
       "provokedBy": "signing on a wallet that imported a member key, before `set_importsigned`"
+    },
+    {
+      "code": -8,
+      "message": "set-sign-invalid",
+      "raisedBy": [
+        "set_signunlock",
+        "set_signcancel"
+      ],
+      "provokedBy": "`set_signcancel` of an intent's cancel after the intent matured"
     },
     {
       "code": -8,
