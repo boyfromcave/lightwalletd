@@ -177,8 +177,9 @@ every `ListVaults` row and its `GetVault`, and every `ListClaimable` row, with t
 the node's `-maxtxfee`, which `sendrawtransaction` refuses as "absurdly high". On such a refusal, and only when the
 node serves `yed_getinfo` at rpcversion 8, the server establishes the fee — from the node's message (ycash-dd states
 it) or by computing it from the transaction and `gettxout` (ycash6 does not) — and resubmits with
-`allowhighfees = true` when it is at most `params.fees.network.yellowback.maxTxFeeCeilingZat` (`-yellowbackmaxtxfee`,
-default 10 YEC); above it the answer keeps the node's error code and names the fee and the ceiling. When the fee
+`allowhighfees = true` when it is at most `params.fees.network.yellowback.maxTxFeeZat`, the node's effective cap (what its own wallet relays
+within; `maxTxFeeCeilingZat`, `-yellowbackmaxtxfee`, is used only when the node does not report it); above it the
+answer keeps the node's error code and names the fee and the cap. At most 250 prevouts are looked up. When the fee
 cannot be established (an unparsable transaction, an unknown prevout) or the node has no Yellowback service, the
 node's refusal stands. The first submission is the stock one, so a transaction under `-maxtxfee` costs nothing more.
 

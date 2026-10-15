@@ -15,9 +15,10 @@
 //     fee is established — from the node's message where it states it (ycash-dd: "absurdly high fees
 //     <txid>, <fee> > <maxtxfee>"), else computed here from the transaction (parser.FeeParts) and the
 //     values of its transparent prevouts (gettxout, mempool included; ycash6 states only
-//     "absurdly-high-fee") — and compared with params.fees.network.yellowback.maxTxFeeCeilingZat
-//     (-yellowbackmaxtxfee, default 10 YEC). At or below it the transaction is resubmitted with
-//     allowhighfees = true; above it the refusal names the fee and the ceiling.
+//     "absurdly-high-fee") — and compared with params.fees.network.yellowback.maxTxFeeZat (the
+//     effective cap, min(max(-maxtxfee, $2 at the price), -yellowbackmaxtxfee); maxTxFeeCeilingZat only
+//     when the node does not report it). At or below it the transaction is resubmitted with
+//     allowhighfees = true; above it the refusal names the fee and the cap.
 //
 // When the fee cannot be established (an unparsable transaction, a prevout the node does not have)
 // or the node has no Yellowback service, the node's original refusal stands: the sanity ceiling is
@@ -40,12 +41,14 @@ import (
 var absurdFeeMessage = regexp.MustCompile(`absurdly[ -]high[ -]fee`)
 var absurdFeeAmount = regexp.MustCompile(`absurdly high fees [0-9a-fA-F]+, ([0-9]+) > [0-9]+`)
 
-// maxFeeInputs bounds the gettxout calls one refused transaction may cost (a 100 KB transaction holds
-// at most ~2,400 transparent inputs; a wallet's legitimate high-fee transaction holds a handful).
-const maxFeeInputs = 500
+// maxFeeInputs bounds the gettxout calls one refused transaction may cost (YEW's MAX_INPUTS and the
+// node's own YED selection bound; a wallet's legitimate high-fee transaction holds a handful).
+const maxFeeInputs = 250
 
-// yellowbackFeeCeiling reads params.fees.network.yellowback.maxTxFeeCeilingZat from yed_getinfo;
-// false when the node has no Yellowback service or does not report it.
+// yellowbackFeeCeiling reads the Yellowback fee cap from yed_getinfo: the effective cap
+// params.fees.network.yellowback.maxTxFeeZat (what the node's own wallet relays within), or, on a node
+// that does not report it, maxTxFeeCeilingZat. False when the node has no Yellowback service or
+// reports neither.
 func yellowbackFeeCeiling() (int64, bool) {
 	raw, err := common.RawRequest("yed_getinfo", nil)
 	if err != nil {
@@ -58,6 +61,7 @@ func yellowbackFeeCeiling() (int64, bool) {
 				Network struct {
 					Yellowback struct {
 						MaxTxFeeCeilingZat int64 `json:"maxTxFeeCeilingZat"`
+						MaxTxFeeZat        int64 `json:"maxTxFeeZat"`
 					} `json:"yellowback"`
 				} `json:"network"`
 			} `json:"fees"`
@@ -66,8 +70,11 @@ func yellowbackFeeCeiling() (int64, bool) {
 	if json.Unmarshal(raw, &info) != nil || info.RPCVersion < common.KnownRPCVersion {
 		return 0, false
 	}
-	c := info.Params.Fees.Network.Yellowback.MaxTxFeeCeilingZat
-	return c, c > 0
+	yb := info.Params.Fees.Network.Yellowback
+	if yb.MaxTxFeeZat > 0 {
+		return yb.MaxTxFeeZat, true
+	}
+	return yb.MaxTxFeeCeilingZat, yb.MaxTxFeeCeilingZat > 0
 }
 
 // zatFromDecimal converts the node's decimal YEC amount (gettxout "value") to zatoshi exactly.
@@ -160,7 +167,7 @@ func verdict(fee, ceiling int64) (bool, string) {
 		return false, ""
 	}
 	if fee > ceiling {
-		return false, fmt.Sprintf("absurdly-high-fee: fee %d zat exceeds the Yellowback network-fee ceiling %d zat (yed_getinfo.params.fees.network.yellowback.maxTxFeeCeilingZat)", fee, ceiling)
+		return false, fmt.Sprintf("absurdly-high-fee: fee %d zat exceeds the Yellowback network-fee cap %d zat (yed_getinfo.params.fees.network.yellowback.maxTxFeeZat)", fee, ceiling)
 	}
 	return true, ""
 }

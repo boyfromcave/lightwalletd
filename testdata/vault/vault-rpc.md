@@ -333,6 +333,11 @@ re-funded transaction has the same sighash.
 role and sighash its members signed for `(setid, prevout)`, and refuses a different role or
 sighash for that pair with `set-sign-once` (`RPC_WALLET_ERROR`), across restarts; re-signing the
 identical transaction, or the same transaction re-funded, is idempotent. There is no override.
+**Validated first:** a build the vault rules would refuse at the next block (an intent's cancel past
+its delay, a release that does not pay its recipient, an existing signature not by a distinct current
+member) is refused with `set-sign-invalid` (`RPC_INVALID_PARAMETER`) and its reason before anything
+is recorded or signed. Only `bad-txns-vault-rate`, which the next epoch clears, is let through, and a
+spent fee input is checked with the template input alone.
 **The record lives only in this `wallet.dat`** (07/F-5). Nothing derives it from the chain, and
 a wallet restored from its seed (`-hdseedfile`; `-mnemonicfile` on 6.20.0), a wallet that
 imports the member key (`importwallet`, `z_importwallet`, `importprivkey`) or a second host with
@@ -344,6 +349,7 @@ never sign on a restored wallet before importing the record and confirming it is
 `set_listsigned` on the old wallet (or its `dumpwallet` / `z_exportwallet` dump, whose
 `vaultsetsig=` lines carry it) and `set_importsigned` (or `importwallet` / `z_importwallet` of the
 dump) on the new one, check with `set_listsigned`, then `set_acknowledgerestore`.
+`-salvagewallet`, or a startup that reports "data salvaged", also sets the restore marker (a salvage can lose records), and keeps the surviving `vault*` and `pqissued` rows: the same procedure applies, using a dump or `set_listsigned` taken before the damage (the original file is kept as `wallet.<timestamp>.bak`).
 A bridge attestor backs `wallet.dat` up together with its sidecar's own ledger and never runs two copies
 (`hawkeye/docs/operations.md`).
 
@@ -467,7 +473,8 @@ Params: `["hex": hex]`
 Result: `hash`
 
 Signs this wallet's inputs of a built vault spend (the template input's scriptSig is kept) and
-broadcasts. Result: the txid. The node that funded the spend must send it.
+broadcasts. Result: the txid. The node that funded the spend must send it. A transaction with no unspent
+vault or intent input is refused: `vault_send` is not a general signer.
 
 ### `vault_release "intentoutpoint" ( "address"|"script" )`
 Params: `["intentoutpoint": outpoint, "recipient"?: str]`
@@ -538,8 +545,10 @@ code. `qa/rpc-tests/vault_rpc_contract.py` provokes each one.
 | -8 | `the recipients' amounts exceed the vault's value` | `vault_buildunlock`, `vault_app` | more than the vault holds |
 | -8 | `the template input is not an intent` | `set_signcancel` | an unlock spend |
 | -8 | `the template input is not a vault` | `set_signunlock` | a cancel spend |
+| -8 | `no unspent vault or intent input` | `set_signunlock`, `set_signcancel`, `vault_refee`, `vault_send` | `vault_send` of a transaction with no template input |
 | -4 | `set-sign-once` | `set_signunlock`, `set_signcancel`, `set_importsigned` | a second, different unlock of a vault this wallet already signed |
 | -4 | `set-sign-restored` | `set_signunlock`, `set_signcancel` | signing on a wallet that imported a member key, before `set_importsigned` |
+| -8 | `set-sign-invalid` | `set_signunlock`, `set_signcancel` | `set_signcancel` of an intent's cancel after the intent matured |
 | -8 | `already built a different unlock` | `vault_buildunlock` | a second build of one vault with other recipients, without `rebuild` |
 | -8 | `not an unspent intent output` | `vault_buildcancel`, `vault_release` | a released intent |
 | -1 | `can no longer be cancelled` | `vault_buildcancel` | an intent past its delay |
