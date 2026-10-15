@@ -45,6 +45,7 @@ func v4Tx(prevTxidDisplay string, outZat uint64) []byte {
 // yed_getinfo (the rpcversion-8 contract example, or "Method not found") and gettxout.
 type highFeeNode struct {
 	refusal    string // the node's absurd-fee error
+	resend     string // the error of the allowhighfees resubmission, "" = accepted
 	yellowback bool
 	prevValue  string // gettxout value, "" = null
 	sends      [][]json.RawMessage
@@ -58,6 +59,9 @@ func (n *highFeeNode) RawRequest(method string, params []json.RawMessage) (json.
 	case "sendrawtransaction":
 		n.sends = append(n.sends, params)
 		if len(params) > 1 && string(params[1]) == "true" {
+			if n.resend != "" {
+				return nil, errors.New(n.resend)
+			}
 			return json.RawMessage(`"` + exampleTxid + `"`), nil
 		}
 		return nil, errors.New(n.refusal)
@@ -76,9 +80,11 @@ func (n *highFeeNode) RawRequest(method string, params []json.RawMessage) (json.
 }
 
 // TestSendHighFee (review M-2): a transaction refused as absurdly high is resubmitted with
-// allowhighfees = true when its fee is within params.fees.network.yellowback.maxTxFeeCeilingZat (the
-// contract example: 1,000,000,000 zat), refused with the ceiling named above it, and left to the
-// node's refusal when the node has no Yellowback service or the fee cannot be established.
+// allowhighfees = true when its fee is within params.fees.network.yellowback.maxTxFeeZat, the node's
+// effective cap (the contract example: 500,000,000 zat; its ceiling maxTxFeeCeilingZat is 1,000,000,000),
+// refused with the cap named above it, and left to the node's refusal when the node has no Yellowback
+// service or the fee cannot be established. A resubmission the node refuses for another reason
+// answers with that refusal.
 func TestSendHighFee(t *testing.T) {
 	c := loadContract(t)
 	var gi struct {
@@ -94,29 +100,32 @@ func TestSendHighFee(t *testing.T) {
 	cases := []struct {
 		name       string
 		refusal    string
+		resend     string
 		yellowback bool
 		prevValue  string
 		wantResend bool
 		wantCode   int32
 		wantMsg    string
 	}{
-		{"ycash-dd, under the ceiling", ycashdd("50000000"), true, "", true, 0, exampleTxid},
-		{"ycash-dd, at the effective cap", ycashdd("500000000"), true, "", true, 0, exampleTxid},
-		{"ycash-dd, over the effective cap", ycashdd("500000001"), true, "", false, -26, "absurdly-high-fee: fee 500000001 zat exceeds"},
-		{"ycash-dd, at the ceiling", ycashdd("1000000000"), true, "", false, -26, "absurdly-high-fee: fee 1000000000 zat exceeds"},
-		{"no Yellowback service", ycashdd("50000000"), false, "", false, -26, "AcceptToMemoryPool: absurdly high fees"},
+		{"ycash-dd, under the ceiling", ycashdd("50000000"), "", true, "", true, 0, exampleTxid},
+		{"ycash-dd, at the effective cap", ycashdd("500000000"), "", true, "", true, 0, exampleTxid},
+		{"ycash-dd, over the effective cap", ycashdd("500000001"), "", true, "", false, -26, "absurdly-high-fee: fee 500000001 zat exceeds"},
+		{"ycash-dd, at the ceiling", ycashdd("1000000000"), "", true, "", false, -26, "absurdly-high-fee: fee 1000000000 zat exceeds"},
+		{"no Yellowback service", ycashdd("50000000"), "", false, "", false, -26, "AcceptToMemoryPool: absurdly high fees"},
 		// ycash6 states no amount: the fee is computed, prevout 1.5 YEC - output 1 YEC = 0.5 YEC.
-		{"ycash6, computed under", "-26: 256: absurdly-high-fee", true, "1.5", true, 0, exampleTxid},
+		{"ycash6, computed under", "-26: 256: absurdly-high-fee", "", true, "1.5", true, 0, exampleTxid},
 		// prevout 6.00000001 YEC - 1 YEC = 500,000,001 zat.
-		{"ycash6, computed over", "-26: 256: absurdly-high-fee", true, "6.00000001", false, -26, "absurdly-high-fee: fee 500000001 zat"},
-		{"ycash6, prevout unknown", "-26: 256: absurdly-high-fee", true, "", false, -26, "256: absurdly-high-fee"},
-		{"another refusal", "-26: 18: bad-txns-in-belowout", true, "1.5", false, -26, "18: bad-txns-in-belowout"},
+		{"ycash6, computed over", "-26: 256: absurdly-high-fee", "", true, "6.00000001", false, -26, "absurdly-high-fee: fee 500000001 zat"},
+		{"ycash6, prevout unknown", "-26: 256: absurdly-high-fee", "", true, "", false, -26, "256: absurdly-high-fee"},
+		// the resubmission refused for a reason other than the fee: that refusal is the answer.
+		{"resubmission refused otherwise", ycashdd("50000000"), "-26: 18: txn-mempool-conflict", true, "", true, -26, "18: txn-mempool-conflict"},
+		{"another refusal", "-26: 18: bad-txns-in-belowout", "", true, "1.5", false, -26, "18: bad-txns-in-belowout"},
 	}
 	saved := common.RawRequest
 	defer func() { common.RawRequest = saved }()
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			node := &highFeeNode{refusal: tc.refusal, yellowback: tc.yellowback, prevValue: tc.prevValue,
+			node := &highFeeNode{refusal: tc.refusal, resend: tc.resend, yellowback: tc.yellowback, prevValue: tc.prevValue,
 				contract: contract{"yed_getinfo": gi.Returns}}
 			common.RawRequest = node.RawRequest
 			lwd := &lwdStreamer{}

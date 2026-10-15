@@ -330,7 +330,7 @@ func (s *lwdStreamer) SendTransaction(ctx context.Context, rawtx *walletrpc.RawT
 	result, rpcErr := common.RawRequest("sendrawtransaction", params)
 	// rpcversion 8 (review M-2): a post-quantum or Yellowback transaction priced at the published
 	// dollar-per-KB rate may exceed -maxtxfee; resubmit with allowhighfees = true when its fee is
-	// within the Yellowback ceiling, refuse it naming the ceiling when it is not (sendfee.go).
+	// within the node's Yellowback fee cap, refuse it naming the cap when it is not (sendfee.go).
 	var refusal string
 	if rpcErr != nil {
 		var allow bool

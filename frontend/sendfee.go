@@ -18,7 +18,7 @@
 //     "absurdly-high-fee") — and compared with params.fees.network.yellowback.maxTxFeeZat (the
 //     effective cap, min(max(-maxtxfee, $2 at the price), -yellowbackmaxtxfee); maxTxFeeCeilingZat only
 //     when the node does not report it). At or below it the transaction is resubmitted with
-//     allowhighfees = true; above it the refusal names the fee and the ceiling.
+//     allowhighfees = true; above it the refusal names the fee and the cap.
 //
 // When the fee cannot be established (an unparsable transaction, a prevout the node does not have)
 // or the node has no Yellowback service, the node's original refusal stands: the sanity ceiling is
