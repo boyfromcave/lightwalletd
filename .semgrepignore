@@ -1,0 +1,18 @@
+# Paths Semgrep never scans (contrib/semgrep/README.md). Semgrep scans git-tracked files only; this file
+# replaces its built-in ignore list, so the usual build and vendor directories are named here too.
+# Upstream-unchanged lightwalletd code is NOT listed here: it is scanned and triaged in
+# contrib/semgrep/accepted.json / config.json with a reason, like this fork's own code.
+#
+# Go modules vendored byte-for-byte by `go mod vendor` (modules.txt pins them); their findings are
+# upstream's to fix and go.sum is covered by OSV-Scanner and govulncheck (.github/workflows/secops.yml).
+vendor/
+# protoc-gen-go / protoc-gen-go-grpc output, regenerated and diffed by CI (scripts/check-generated.sh);
+# the .proto sources next to them are what a reviewer reads.
+walletrpc/*.pb.go
+# Block/transaction fixtures, contract copies and fuzz corpora (inputs, not code; gitleaks still scans them).
+testdata/
+# The scanner's own rules, test inputs and ledgers.
+contrib/semgrep/
+# Build output and caches.
+build/
+node_modules/

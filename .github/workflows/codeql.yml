@@ -1,0 +1,64 @@
+name: codeql
+
+# CodeQL (security-extended) for the Go server and for this repository's GitHub Actions workflows
+# (SECURITY-CI.md). Results go to GitHub code scanning (category codeql/<language>); the job fails
+# only when CodeQL itself fails, never on alerts, so pre-existing alerts do not block PRs: code
+# scanning's own PR check shows the alerts a PR adds.
+#
+#   pull_request, push to upgrade/vault, weekly (Monday 04:29 UTC), workflow_dispatch.
+#   go       build-mode manual: the vendored tree, built as the Makefile/CI build it (CGO off).
+#   actions  build-mode none.
+on:
+  pull_request:
+  push:
+    branches: [upgrade/vault]
+  schedule:
+    - cron: '29 4 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: codeql-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: go
+            build-mode: manual
+          - language: actions
+            build-mode: none
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        if: matrix.language == 'go'
+        with:
+          go-version: '1.24.7'   # as yellowback-tests.yml
+          cache: false
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended
+      - name: Build (vendored)
+        if: matrix.language == 'go'
+        env:
+          CGO_ENABLED: '0'
+          GOFLAGS: -mod=vendor
+          GOTOOLCHAIN: local
+        run: go build ./...
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: codeql/${{ matrix.language }}

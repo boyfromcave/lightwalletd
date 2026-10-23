@@ -65,7 +65,12 @@ var rootCmd = &cobra.Command{
 			DarksideTimeout:     viper.GetUint64("darkside-timeout"),
 		}
 
-		common.Log.Debugf("Options: %#v\n", opts)
+		// The node's RPC password stays out of the log (debug logs leave the host).
+		redacted := *opts
+		if redacted.RPCPassword != "" {
+			redacted.RPCPassword = "<redacted>"
+		}
+		common.Log.Debugf("Options: %#v\n", redacted)
 
 		filesThatShouldExist := []string{
 			opts.LogFile,
@@ -465,5 +470,10 @@ func initConfig() {
 
 func startHTTPServer(opts *common.Options) {
 	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(opts.HTTPBindAddr, nil)
+	// A header deadline, so a client that never finishes its request headers cannot hold a
+	// connection open forever (gosec G114, Slowloris); /metrics answers in milliseconds.
+	server := &http.Server{Addr: opts.HTTPBindAddr, ReadHeaderTimeout: 10 * time.Second}
+	if err := server.ListenAndServe(); err != nil {
+		common.Log.WithFields(logrus.Fields{"error": err}).Error("metrics HTTP server stopped")
+	}
 }

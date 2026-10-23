@@ -1,0 +1,619 @@
+# OSV-Scanner policy (.github/workflows/secops.yml, job osv-scanner; SECURITY-CI.md).
+#
+# Every entry below is the 2026-10-23 backlog of the go.mod dependency set, accepted until the Go
+# toolchain and dependency upgrade lands (owner decision pending): the fixes need
+# google.golang.org/grpc >= 1.83.1 (go 1.25), golang.org/x/net >= 0.60.0 (go 1.26) and a Go 1.26.x
+# toolchain, while this fork, its Dockerfile and the node lines' nightlies that build it pin Go 1.24.7.
+# "reachable" = OSV-Scanner's Go call analysis (govulncheck) finds a call path from this server.
+# The expiry is deliberate: on 2027-01-20 these stop being ignored and the PR/nightly check fails
+# again. Do not extend an entry without a new reason.
+
+[[IgnoredVulns]]
+id = "GO-2022-1098"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in github.com/btcsuite/btcd 0.20.1-beta; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GHSA-2chg-86hq-7w38"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in github.com/btcsuite/btcd 0.20.1-beta; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2024-2818"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in github.com/btcsuite/btcd 0.20.1-beta; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-3jgf-r68h-xfqm"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in github.com/btcsuite/btcd 0.20.1-beta; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2024-3189"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in github.com/btcsuite/btcd 0.20.1-beta; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-27vh-h6mc-q6g8"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in github.com/btcsuite/btcd 0.20.1-beta; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2022-0322"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in github.com/prometheus/client_golang 1.5.1; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GHSA-cg3q-j54f-5p7p"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in github.com/prometheus/client_golang 1.5.1; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2025-4188"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in github.com/sirupsen/logrus 1.4.2; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-4f99-4q7p-p3gh"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in github.com/sirupsen/logrus 1.4.2; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2021-0356"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-8c26-wmh5-6g9v"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2022-0968"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-gwc9-m7rh-j2ww"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2023-2402"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-45x7-px36-x8w8"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2024-2961"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2024-3321"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-v778-237x-gjrc"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2025-3487"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-hcg3-q754-cr77"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2025-4116"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2025-4134"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-j5w8-q4qc-rx2x"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2025-4135"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-f6x5-jh6r-wrfv"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5005"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-jppx-rxg9-jmrx"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5006"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-f5wc-c3c7-36mc"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5013"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-q4h4-gmj2-qvw2"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5014"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-45gg-vh54-h5m9"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5015"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-78mq-xcr3-xm33"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5016"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-qpw4-5x99-6vjp"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5017"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-vgwf-h737-ff37"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5018"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-w879-237q-wc7r"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5019"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-89gr-r52h-f8rx"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5020"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-rm3j-f69w-wqmq"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5021"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-5cgq-3rg8-m6cv"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5023"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-x527-x647-q7gg"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5033"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-9m57-25v3-79x9"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-6303"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-6354"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-6355"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/crypto 0.0.0-20201221181555-eec23a3978ad; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2021-0238"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-83g2-8m93-v3w7"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2022-0236"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-h86h-8ppg-mxmh"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2022-0288"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2022-0969"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-69cg-p879-7622"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2022-1144"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-xrjj-mj9h-534m"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2023-1571"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GHSA-vvpx-j8f3-3w6h"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2023-1988"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-2wrh-6pvc-2jm9"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2023-2102"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-4374-p667-p6c8"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2024-2687"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GHSA-4v7x-pqxf-cx7m"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2024-3333"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2025-3503"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-qxp5-gwg8-xv66"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2025-3595"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-vvgc-356p-c3xw"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-4440"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-4441"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-4918"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5025"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5026"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5027"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5028"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-5cv4-jp36-h3mw"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5029"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5030"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5942"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-6603"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2026-6610"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-6611"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2026-6612"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2026-6617"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GHSA-qppj-fm5r-hxr3"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/net 0.0.0-20210405180319-a5a99cb37ef4; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2022-0493"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/sys 0.0.0-20210403161142-5e06dd20ab57; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-p782-xgp4-8hr8"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/sys 0.0.0-20210403161142-5e06dd20ab57; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5024"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/sys 0.0.0-20210403161142-5e06dd20ab57; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2021-0113"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/text 0.3.6; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-ppp9-7jff-5vj2"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/text 0.3.6; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2022-1059"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/text 0.3.6; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-69ch-w2m2-3vjp"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/text 0.3.6; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-5970"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/text 0.3.6; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-6629"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in golang.org/x/text 0.3.6; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2023-2153"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in google.golang.org/grpc 1.37.0; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GHSA-m425-mq94-257g"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in google.golang.org/grpc 1.37.0; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2026-4762"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in google.golang.org/grpc 1.37.0; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GHSA-p77j-4mvh-x3m3"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in google.golang.org/grpc 1.37.0; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2026-6061"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in google.golang.org/grpc 1.37.0; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GHSA-hrxh-6v49-42gf"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in google.golang.org/grpc 1.37.0; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2026-6348"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in google.golang.org/grpc 1.37.0; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GHSA-vp52-pcj8-j9qc"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in google.golang.org/grpc 1.37.0; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2026-6441"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in google.golang.org/grpc 1.37.0; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-qc2q-p7wx-3px3"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in google.golang.org/grpc 1.37.0; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2026-6443"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in google.golang.org/grpc 1.37.0; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GHSA-2v4p-qf9q-27wj"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "REACHABLE in google.golang.org/grpc 1.37.0; fixed upstream, needs the toolchain/dependency upgrade (owner decision 2026-10-23)"
+
+[[IgnoredVulns]]
+id = "GO-2024-2611"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in google.golang.org/protobuf 1.26.0; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-8r3f-844c-mc37"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in google.golang.org/protobuf 1.26.0; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2022-0603"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in gopkg.in/yaml.v3 3.0.0-20210105161348-2e78108cf5f8; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-hp87-p4gw-j4gq"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in gopkg.in/yaml.v3 3.0.0-20210105161348-2e78108cf5f8; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GO-2020-0036"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in gopkg.in/yaml.v2 2.2.5; goes with the dependency upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-wxc4-f4m6-wwqv"
+ignoreUntil = 2027-01-20T00:00:00Z
+reason = "not reachable (no call path from this server per call analysis) in gopkg.in/yaml.v2 2.2.5; goes with the dependency upgrade"

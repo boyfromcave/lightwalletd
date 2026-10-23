@@ -1,0 +1,47 @@
+# gitleaks findings accepted by fingerprint (.github/workflows/secops.yml, job gitleaks; SECURITY-CI.md).
+# Triaged 2026-10-23 from a full-history scan (gitleaks 8.30.1, 373 commits, 35 hits); none is a live secret.
+
+# Upstream zcash/lightwalletd's demo self-signed TLS key (commit b7e3e50, 2019, public in upstream history),
+# carried by the fork's history and deleted from the tree in 2cfba7d; nothing references it. Not a live secret:
+# TLS keys are generated per deployment (docker/gen_cert.sh, README "TLS").
+b7e3e50293214dfdfc55a28130b0128076849ed8:docker/cert.key:private-key:1
+ffb4df71ff9d352149215fbb712926fa9918c9da:docker/cert.key:private-key:1
+
+# Copies of the node's public vault RPC outputs (scripts/sync-node-contracts.sh): admit keys and member
+# keys are compressed secp256k1 PUBLIC keys (02/03 prefix), not secrets.
+8b9bcf0529dd6c9c497df872e54e78b12a97ce95:testdata/vault/set_getinfo.json:generic-api-key:15
+8b9bcf0529dd6c9c497df872e54e78b12a97ce95:testdata/vault/set_getinfo.json:generic-api-key:30
+8b9bcf0529dd6c9c497df872e54e78b12a97ce95:testdata/vault/set_list.json:generic-api-key:16
+abd981c057c77f20be8408defdb6d460c37aa1e5:testdata/vault/set_getinfo.json:generic-api-key:15
+abd981c057c77f20be8408defdb6d460c37aa1e5:testdata/vault/set_getinfo.json:generic-api-key:30
+abd981c057c77f20be8408defdb6d460c37aa1e5:testdata/vault/set_list.json:generic-api-key:16
+abd981c057c77f20be8408defdb6d460c37aa1e5:testdata/vault/set_list.json:generic-api-key:43
+abd981c057c77f20be8408defdb6d460c37aa1e5:testdata/vault/vault_list.json:generic-api-key:16
+abd981c057c77f20be8408defdb6d460c37aa1e5:testdata/vault/vault_list.json:generic-api-key:41
+
+# Zcash ZIP-143/ZIP-243/Sapling test vectors: ephemeral keys, commitments and nullifiers are public
+# transaction fields.
+e089380dfb7c21cf76e5106d4c178dcee4571054:parser/transaction_test.go:generic-api-key:74
+e089380dfb7c21cf76e5106d4c178dcee4571054:parser/transaction_test.go:generic-api-key:86
+e297819781c713e3763fbeaa61fe6fc5d6eda4c0:parser/transaction_test.go:generic-api-key:102
+e297819781c713e3763fbeaa61fe6fc5d6eda4c0:parser/transaction_test.go:generic-api-key:520
+e297819781c713e3763fbeaa61fe6fc5d6eda4c0:parser/transaction_test.go:generic-api-key:528
+e297819781c713e3763fbeaa61fe6fc5d6eda4c0:parser/transaction_test.go:generic-api-key:536
+e297819781c713e3763fbeaa61fe6fc5d6eda4c0:parser/transaction_test.go:generic-api-key:543
+e297819781c713e3763fbeaa61fe6fc5d6eda4c0:parser/transaction_test.go:generic-api-key:562
+e297819781c713e3763fbeaa61fe6fc5d6eda4c0:parser/transaction_test.go:generic-api-key:586
+e297819781c713e3763fbeaa61fe6fc5d6eda4c0:parser/transaction_test.go:generic-api-key:78
+e3b5a9558dda2f399926654aa7e2e06e0e7155b7:parser/transaction_test.go:generic-api-key:632
+e3b5a9558dda2f399926654aa7e2e06e0e7155b7:parser/transaction_test.go:generic-api-key:641
+e3b5a9558dda2f399926654aa7e2e06e0e7155b7:parser/transaction_test.go:generic-api-key:649
+ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:110
+ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:134
+ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:533
+ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:541
+ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:549
+ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:556
+ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:575
+ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:599
+ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:639
+ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:648
+ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:656
