@@ -303,7 +303,7 @@ other methods' (17× here), because a repeat between blocks is no longer a `yed_
 
 | Tool | Version | Notes |
 |---|---|---|
-| Go | 1.27.1 here; `go.mod` says `go 1.12` | builds and tests run `-mod=vendor`, as the Makefile does |
+| Go | 1.26.9 (`go.mod`: `go 1.26.0`, `toolchain go1.26.9`) | builds and tests run `-mod=vendor`, as the Makefile does |
 | protoc | 36.1 (Homebrew) | to regenerate `walletrpc/*.pb.go` |
 | protoc-gen-go | **v1.26.0** | the baseline's own (header of every `.pb.go`); `scripts/check-generated.sh` pins it |
 | protoc-gen-go-grpc | **v1.1.0** | reproduces the baseline's `*_grpc.pb.go` exactly |

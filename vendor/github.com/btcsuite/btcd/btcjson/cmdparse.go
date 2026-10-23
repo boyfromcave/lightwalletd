@@ -16,26 +16,27 @@ import (
 func makeParams(rt reflect.Type, rv reflect.Value) []interface{} {
 	numFields := rt.NumField()
 	params := make([]interface{}, 0, numFields)
+	lastParam := -1
 	for i := 0; i < numFields; i++ {
 		rtf := rt.Field(i)
 		rvf := rv.Field(i)
+		params = append(params, rvf.Interface())
 		if rtf.Type.Kind() == reflect.Ptr {
 			if rvf.IsNil() {
-				break
+				// Omit optional null params unless a non-null param follows
+				continue
 			}
-			rvf.Elem()
 		}
-		params = append(params, rvf.Interface())
+		lastParam = i
 	}
-
-	return params
+	return params[:lastParam+1]
 }
 
 // MarshalCmd marshals the passed command to a JSON-RPC request byte slice that
 // is suitable for transmission to an RPC server.  The provided command type
 // must be a registered type.  All commands provided by this package are
 // registered by default.
-func MarshalCmd(id interface{}, cmd interface{}) ([]byte, error) {
+func MarshalCmd(rpcVersion RPCVersion, id interface{}, cmd interface{}) ([]byte, error) {
 	// Look up the cmd type and error out if not registered.
 	rt := reflect.TypeOf(cmd)
 	registerLock.RLock()
@@ -59,7 +60,7 @@ func MarshalCmd(id interface{}, cmd interface{}) ([]byte, error) {
 	params := makeParams(rt.Elem(), rv.Elem())
 
 	// Generate and marshal the final JSON-RPC request.
-	rawCmd, err := NewRequest(id, method, params)
+	rawCmd, err := NewRequest(rpcVersion, id, method, params)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +232,7 @@ func baseType(arg reflect.Type) (reflect.Type, int) {
 // assignField is the main workhorse for the NewCmd function which handles
 // assigning the provided source value to the destination field.  It supports
 // direct type assignments, indirection, conversion of numeric types, and
-// unmarshaling of strings into arrays, slices, structs, and maps via
+// unmarshalling of strings into arrays, slices, structs, and maps via
 // json.Unmarshal.
 func assignField(paramNum int, fieldName string, dest reflect.Value, src reflect.Value) error {
 	// Just error now when the types have no chance of being compatible.
@@ -252,6 +253,11 @@ func assignField(paramNum int, fieldName string, dest reflect.Value, src reflect
 			src = src.Elem()
 		}
 		dest.Set(src)
+		return nil
+	}
+
+	// Optional variables can be set null using "null" string
+	if destIndirects > 0 && src.String() == "null" {
 		return nil
 	}
 
@@ -445,7 +451,7 @@ func assignField(paramNum int, fieldName string, dest reflect.Value, src reflect
 
 		// String -> float of varying size.
 		case reflect.Float32, reflect.Float64:
-			srcFloat, err := strconv.ParseFloat(src.String(), 0)
+			srcFloat, err := strconv.ParseFloat(src.String(), 64)
 			if err != nil {
 				str := fmt.Sprintf("parameter #%d '%s' must "+
 					"parse to a %v", paramNum, fieldName,
@@ -489,7 +495,7 @@ func assignField(paramNum int, fieldName string, dest reflect.Value, src reflect
 // by this package are already registered by default.
 //
 // The arguments are most efficient when they are the exact same type as the
-// underlying field in the command struct associated with the the method,
+// underlying field in the command struct associated with the method,
 // however this function also will perform a variety of conversions to make it
 // more flexible.  This allows, for example, command line args which are strings
 // to be passed unaltered.  In particular, the following conversions are
