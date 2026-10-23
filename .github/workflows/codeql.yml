@@ -45,7 +45,7 @@ jobs:
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         if: matrix.language == 'go'
         with:
-          go-version: '1.26.9'   # as yellowback-tests.yml
+          go-version: '1.26.9'   # the repository's toolchain (go.mod toolchain go1.26.9)
           cache: false
       - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:

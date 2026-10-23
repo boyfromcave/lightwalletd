@@ -1,4 +1,4 @@
-// Copyright The Prometheus Authors
+// Copyright 2014 Prometheus Team
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -16,29 +16,30 @@
 //
 // Example:
 //
-//	package main
+//    package main
 //
-//	import (
-//		"fmt"
-//		"log"
+//    import (
+//    	"fmt"
+//    	"log"
 //
-//		"github.com/prometheus/procfs"
-//	)
+//    	"github.com/prometheus/procfs"
+//    )
 //
-//	func main() {
-//		p, err := procfs.Self()
-//		if err != nil {
-//			log.Fatalf("could not get process: %s", err)
-//		}
+//    func main() {
+//    	p, err := procfs.Self()
+//    	if err != nil {
+//    		log.Fatalf("could not get process: %s", err)
+//    	}
 //
-//		stat, err := p.Stat()
-//		if err != nil {
-//			log.Fatalf("could not get process stat: %s", err)
-//		}
+//    	stat, err := p.NewStat()
+//    	if err != nil {
+//    		log.Fatalf("could not get process stat: %s", err)
+//    	}
 //
-//		fmt.Printf("command:  %s\n", stat.Comm)
-//		fmt.Printf("cpu time: %fs\n", stat.CPUTime())
-//		fmt.Printf("vsize:    %dB\n", stat.VirtualMemory())
-//		fmt.Printf("rss:      %dB\n", stat.ResidentMemory())
-//	}
+//    	fmt.Printf("command:  %s\n", stat.Comm)
+//    	fmt.Printf("cpu time: %fs\n", stat.CPUTime())
+//    	fmt.Printf("vsize:    %dB\n", stat.VirtualMemory())
+//    	fmt.Printf("rss:      %dB\n", stat.ResidentMemory())
+//    }
+//
 package procfs

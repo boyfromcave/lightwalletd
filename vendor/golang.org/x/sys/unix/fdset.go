@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris || zos
+//go:build aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris
+// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris
 
 package unix
 
@@ -23,5 +24,7 @@ func (fds *FdSet) IsSet(fd int) bool {
 
 // Zero clears the set fds.
 func (fds *FdSet) Zero() {
-	clear(fds.Bits[:])
+	for i := range fds.Bits {
+		fds.Bits[i] = 0
+	}
 }

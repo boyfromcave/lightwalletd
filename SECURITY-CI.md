@@ -58,17 +58,19 @@ Test cases: `contrib/semgrep/testdata/lightwalletd.go`. Run them with
 
 ## Backlog (2026-10-23)
 
-The first full scans found 15 known vulnerabilities in go.mod's dependencies (13 of them reachable)
-and 54 reachable ones in all, most of them in the standard library of the end-of-life Go 1.24.7. This
-PR fixes them by moving to Go 1.26.9 (`go.mod`: `go 1.26.0`, `toolchain go1.26.9`) and upgrading
-grpc to 1.83.2, x/net to 0.60.0, btcd to 0.26.2 and prometheus client_golang to 1.24.1, all
-re-vendored. `osv-scanner.toml` accepts nothing.
+The first full scans found 15 known vulnerabilities in go.mod's dependencies, 13 of them reachable.
+They also found 54 reachable vulnerabilities in all, most of them in the standard library of the
+end-of-life Go 1.24.7. The fix is a separate PR, "deps: Go 1.26.9; grpc 1.83.2, x/net 0.60.0, btcd
+0.26.2, prometheus 1.24.1", which merges first. Until it does, the `osv-scanner` job fails on the old
+module set, as it should. `osv-scanner.toml` accepts nothing.
 
-One reachable vulnerability is left, GO-2026-6809 (crypto/x509). It is fixed in Go 1.26.10, which
-was released on 2026-10-19 and is still younger than the two-week rule for tool and toolchain
-versions. Move `GO_VERSION`, the Dockerfile and go.mod's `toolchain` to 1.26.10 on or after
-2026-11-02. govulncheck reports it on every full scan until then. It does not fail PRs because the
-base branch has it too.
+After the upgrade one reachable vulnerability is left, GO-2026-6809 (crypto/x509). It is fixed in Go
+1.26.10, which came out on 2026-10-19 and is still younger than the two-week version rule. Move the
+toolchain to 1.26.10 on or after 2026-11-02. Until then govulncheck reports it on every full scan;
+it does not fail PRs because the base branch has it too.
+
+The security jobs run on Go 1.26.9 whatever go.mod says, because govulncheck v1.8.0 needs Go 1.26.
+govulncheck therefore judges the standard library of the toolchain the repository moves to.
 
 ## Repository settings (owner)
 

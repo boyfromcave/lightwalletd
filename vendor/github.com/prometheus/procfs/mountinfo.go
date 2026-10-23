@@ -1,4 +1,4 @@
-// Copyright The Prometheus Authors
+// Copyright 2019 The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -17,10 +17,10 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"strconv"
 	"strings"
+
+	"github.com/prometheus/procfs/internal/util"
 )
 
 // A MountInfo is a type that describes the details, options
@@ -29,10 +29,10 @@ import (
 // is described in the following man page.
 // http://man7.org/linux/man-pages/man5/proc.5.html
 type MountInfo struct {
-	// Unique ID for the mount
-	MountID int
-	// The ID of the parent mount
-	ParentID int
+	// Unique Id for the mount
+	MountId int
+	// The Id of the parent mount
+	ParentId int
 	// The value of `st_dev` for the files on this FS
 	MajorMinorVer string
 	// The pathname of the directory in the FS that forms
@@ -77,12 +77,12 @@ func parseMountInfoString(mountString string) (*MountInfo, error) {
 
 	mountInfo := strings.Split(mountString, " ")
 	mountInfoLength := len(mountInfo)
-	if mountInfoLength < 10 {
-		return nil, fmt.Errorf("%w: Too few fields in mount string: %s", ErrFileParse, mountString)
+	if mountInfoLength < 11 {
+		return nil, fmt.Errorf("couldn't find enough fields in mount string: %s", mountString)
 	}
 
 	if mountInfo[mountInfoLength-4] != "-" {
-		return nil, fmt.Errorf("%w: couldn't find separator in expected field: %s", ErrFileParse, mountInfo[mountInfoLength-4])
+		return nil, fmt.Errorf("couldn't find separator in expected field: %s", mountInfo[mountInfoLength-4])
 	}
 
 	mount := &MountInfo{
@@ -96,20 +96,20 @@ func parseMountInfoString(mountString string) (*MountInfo, error) {
 		SuperOptions:   mountOptionsParser(mountInfo[mountInfoLength-1]),
 	}
 
-	mount.MountID, err = strconv.Atoi(mountInfo[0])
+	mount.MountId, err = strconv.Atoi(mountInfo[0])
 	if err != nil {
-		return nil, fmt.Errorf("%w: mount ID: %q", ErrFileParse, mount.MountID)
+		return nil, fmt.Errorf("failed to parse mount ID")
 	}
-	mount.ParentID, err = strconv.Atoi(mountInfo[1])
+	mount.ParentId, err = strconv.Atoi(mountInfo[1])
 	if err != nil {
-		return nil, fmt.Errorf("%w: parent ID: %q", ErrFileParse, mount.ParentID)
+		return nil, fmt.Errorf("failed to parse parent ID")
 	}
 	// Has optional fields, which is a space separated list of values.
 	// Example: shared:2 master:7
 	if mountInfo[6] != "" {
 		mount.OptionalFields, err = mountOptionsParseOptionalFields(mountInfo[6 : mountInfoLength-4])
 		if err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrFileParse, err)
+			return nil, err
 		}
 	}
 	return mount, nil
@@ -144,10 +144,11 @@ func mountOptionsParseOptionalFields(o []string) (map[string]string, error) {
 	return optionalFields, nil
 }
 
-// mountOptionsParser parses the mount options, superblock options.
+// Parses the mount options, superblock options.
 func mountOptionsParser(mountOptions string) map[string]string {
 	opts := make(map[string]string)
-	for opt := range strings.SplitSeq(mountOptions, ",") {
+	options := strings.Split(mountOptions, ",")
+	for _, opt := range options {
 		splitOption := strings.Split(opt, "=")
 		if len(splitOption) < 2 {
 			key := splitOption[0]
@@ -160,46 +161,18 @@ func mountOptionsParser(mountOptions string) map[string]string {
 	return opts
 }
 
-// readMountInfo reads a full mountinfo file (no 1 MiB cap, unlike util.ReadFileNoStat).
-func readMountInfo(path string) ([]byte, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return io.ReadAll(f)
-}
-
-// GetMounts retrieves mountinfo information from `/proc/self/mountinfo`.
+// Retrieves mountinfo information from `/proc/self/mountinfo`.
 func GetMounts() ([]*MountInfo, error) {
-	data, err := readMountInfo("/proc/self/mountinfo")
+	data, err := util.ReadFileNoStat("/proc/self/mountinfo")
 	if err != nil {
 		return nil, err
 	}
 	return parseMountInfo(data)
 }
 
-// GetProcMounts retrieves mountinfo information from a processes' `/proc/<pid>/mountinfo`.
+// Retrieves mountinfo information from a processes' `/proc/<pid>/mountinfo`.
 func GetProcMounts(pid int) ([]*MountInfo, error) {
-	data, err := readMountInfo(fmt.Sprintf("/proc/%d/mountinfo", pid))
-	if err != nil {
-		return nil, err
-	}
-	return parseMountInfo(data)
-}
-
-// GetMounts retrieves mountinfo information from `/proc/self/mountinfo`.
-func (fs FS) GetMounts() ([]*MountInfo, error) {
-	data, err := readMountInfo(fs.proc.Path("self/mountinfo"))
-	if err != nil {
-		return nil, err
-	}
-	return parseMountInfo(data)
-}
-
-// GetProcMounts retrieves mountinfo information from a processes' `/proc/<pid>/mountinfo`.
-func (fs FS) GetProcMounts(pid int) ([]*MountInfo, error) {
-	data, err := readMountInfo(fs.proc.Path(fmt.Sprintf("%d/mountinfo", pid)))
+	data, err := util.ReadFileNoStat(fmt.Sprintf("/proc/%d/mountinfo", pid))
 	if err != nil {
 		return nil, err
 	}

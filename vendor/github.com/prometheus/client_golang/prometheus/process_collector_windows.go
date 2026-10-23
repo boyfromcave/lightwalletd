@@ -30,29 +30,21 @@ var (
 
 	procGetProcessMemoryInfo  = modpsapi.NewProc("GetProcessMemoryInfo")
 	procGetProcessHandleCount = modkernel32.NewProc("GetProcessHandleCount")
-
-	openProcess     = windows.OpenProcess
-	closeHandle     = windows.CloseHandle
-	getProcessTimes = windows.GetProcessTimes
 )
 
 type processMemoryCounters struct {
-	// System interface description
-	// https://docs.microsoft.com/en-us/windows/desktop/api/psapi/ns-psapi-process_memory_counters_ex
-
-	// Refer to the Golang internal implementation
-	// https://golang.org/src/internal/syscall/windows/psapi_windows.go
+	// https://docs.microsoft.com/en-us/windows/desktop/api/psapi/ns-psapi-_process_memory_counters_ex
 	_                          uint32
 	PageFaultCount             uint32
-	PeakWorkingSetSize         uintptr
-	WorkingSetSize             uintptr
-	QuotaPeakPagedPoolUsage    uintptr
-	QuotaPagedPoolUsage        uintptr
-	QuotaPeakNonPagedPoolUsage uintptr
-	QuotaNonPagedPoolUsage     uintptr
-	PagefileUsage              uintptr
-	PeakPagefileUsage          uintptr
-	PrivateUsage               uintptr
+	PeakWorkingSetSize         uint64
+	WorkingSetSize             uint64
+	QuotaPeakPagedPoolUsage    uint64
+	QuotaPagedPoolUsage        uint64
+	QuotaPeakNonPagedPoolUsage uint64
+	QuotaNonPagedPoolUsage     uint64
+	PagefileUsage              uint64
+	PeakPagefileUsage          uint64
+	PrivateUsage               uint64
 }
 
 func getProcessMemoryInfo(handle windows.Handle) (processMemoryCounters, error) {
@@ -83,21 +75,14 @@ func getProcessHandleCount(handle windows.Handle) (uint32, error) {
 }
 
 func (c *processCollector) processCollect(ch chan<- Metric) {
-	pid, err := c.pidFn()
+	h, err := windows.GetCurrentProcess()
 	if err != nil {
 		c.reportError(ch, nil, err)
 		return
 	}
-
-	h, err := openProcess(windows.PROCESS_QUERY_INFORMATION|windows.PROCESS_VM_READ, false, uint32(pid))
-	if err != nil {
-		c.reportError(ch, nil, err)
-		return
-	}
-	defer closeHandle(h)
 
 	var startTime, exitTime, kernelTime, userTime windows.Filetime
-	err = getProcessTimes(h, &startTime, &exitTime, &kernelTime, &userTime)
+	err = windows.GetProcessTimes(h, &startTime, &exitTime, &kernelTime, &userTime)
 	if err != nil {
 		c.reportError(ch, nil, err)
 		return
@@ -120,19 +105,6 @@ func (c *processCollector) processCollect(ch chan<- Metric) {
 	}
 	ch <- MustNewConstMetric(c.openFDs, GaugeValue, float64(handles))
 	ch <- MustNewConstMetric(c.maxFDs, GaugeValue, float64(16*1024*1024)) // Windows has a hard-coded max limit, not per-process.
-}
-
-// describe returns all descriptions of the collector for windows.
-// Ensure that this list of descriptors is kept in sync with the metrics collected
-// in the processCollect method. Any changes to the metrics in processCollect
-// (such as adding or removing metrics) should be reflected in this list of descriptors.
-func (c *processCollector) describe(ch chan<- *Desc) {
-	ch <- c.cpuTotal
-	ch <- c.openFDs
-	ch <- c.maxFDs
-	ch <- c.vsize
-	ch <- c.rss
-	ch <- c.startTime
 }
 
 func fileTimeToSeconds(ft windows.Filetime) float64 {

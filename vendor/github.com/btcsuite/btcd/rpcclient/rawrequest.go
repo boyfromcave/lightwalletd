@@ -13,12 +13,12 @@ import (
 
 // FutureRawResult is a future promise to deliver the result of a RawRequest RPC
 // invocation (or an applicable error).
-type FutureRawResult chan *Response
+type FutureRawResult chan *response
 
-// Receive waits for the Response promised by the future and returns the raw
+// Receive waits for the response promised by the future and returns the raw
 // response, or an error if the request was unsuccessful.
 func (r FutureRawResult) Receive() (json.RawMessage, error) {
-	return ReceiveFuture(r)
+	return receiveFuture(r)
 }
 
 // RawRequestAsync returns an instance of a type that can be used to get the
@@ -39,12 +39,12 @@ func (c *Client) RawRequestAsync(method string, params []json.RawMessage) Future
 	}
 
 	// Create a raw JSON-RPC request using the provided method and params
-	// and marshal it.  This is done rather than using the SendCmd function
+	// and marshal it.  This is done rather than using the sendCmd function
 	// since that relies on marshalling registered btcjson commands rather
 	// than custom commands.
 	id := c.NextID()
 	rawRequest := &btcjson.Request{
-		Jsonrpc: btcjson.RpcVersion1,
+		Jsonrpc: "1.0",
 		ID:      id,
 		Method:  method,
 		Params:  params,
@@ -55,7 +55,7 @@ func (c *Client) RawRequestAsync(method string, params []json.RawMessage) Future
 	}
 
 	// Generate the request and send it along with a channel to respond on.
-	responseChan := make(chan *Response, 1)
+	responseChan := make(chan *response, 1)
 	jReq := &jsonRequest{
 		id:             id,
 		method:         method,

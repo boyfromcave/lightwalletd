@@ -32,7 +32,7 @@ type histogram struct {
 	valueCount   int64   // number of values recorded for single value
 }
 
-// addMeasurement records a value measurement observation to the histogram.
+// AddMeasurement records a value measurement observation to the histogram.
 func (h *histogram) addMeasurement(value int64) {
 	// TODO: assert invariant
 	h.sum += value
@@ -70,7 +70,10 @@ func log2(i int64) int {
 }
 
 func getBucket(i int64) (index int) {
-	index = max(log2(i)-1, 0)
+	index = log2(i) - 1
+	if index < 0 {
+		index = 0
+	}
 	if index >= bucketCount {
 		index = bucketCount - 1
 	}

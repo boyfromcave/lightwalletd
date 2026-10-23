@@ -1,4 +1,4 @@
-// Copyright The Prometheus Authors
+// Copyright 2018 The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,18 +20,11 @@ import (
 // FS represents the pseudo-filesystem sys, which provides an interface to
 // kernel data structures.
 type FS struct {
-	proc   fs.FS
-	isReal bool
+	proc fs.FS
 }
 
-const (
-	// DefaultMountPoint is the common mount point of the proc filesystem.
-	DefaultMountPoint = fs.DefaultProcMountPoint
-
-	// SectorSize represents the size of a sector in bytes.
-	// It is specific to Linux block I/O operations.
-	SectorSize = 512
-)
+// DefaultMountPoint is the common mount point of the proc filesystem.
+const DefaultMountPoint = fs.DefaultProcMountPoint
 
 // NewDefaultFS returns a new proc FS mounted under the default proc mountPoint.
 // It will error if the mount point directory can't be read or is a file.
@@ -46,11 +39,5 @@ func NewFS(mountPoint string) (FS, error) {
 	if err != nil {
 		return FS{}, err
 	}
-
-	isReal, err := isRealProc(mountPoint)
-	if err != nil {
-		return FS{}, err
-	}
-
-	return FS{fs, isReal}, nil
+	return FS{fs}, nil
 }

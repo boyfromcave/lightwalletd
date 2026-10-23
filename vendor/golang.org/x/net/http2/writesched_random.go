@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !(go1.27 && !http2legacy)
-
 package http2
 
 import "math"
@@ -12,8 +10,6 @@ import "math"
 // priorities. Control frames like SETTINGS and PING are written before DATA
 // frames, but if no control frames are queued and multiple streams have queued
 // HEADERS or DATA frames, Pop selects a ready stream arbitrarily.
-//
-// Deprecated: User-provided write schedulers are deprecated.
 func NewRandomWriteScheduler() WriteScheduler {
 	return &randomWriteScheduler{sq: make(map[uint32]*writeQueue)}
 }
@@ -49,11 +45,11 @@ func (ws *randomWriteScheduler) AdjustStream(streamID uint32, priority PriorityP
 }
 
 func (ws *randomWriteScheduler) Push(wr FrameWriteRequest) {
-	if wr.isControl() {
+	id := wr.StreamID()
+	if id == 0 {
 		ws.zero.push(wr)
 		return
 	}
-	id := wr.StreamID()
 	q, ok := ws.sq[id]
 	if !ok {
 		q = ws.queuePool.get()
@@ -63,7 +59,7 @@ func (ws *randomWriteScheduler) Push(wr FrameWriteRequest) {
 }
 
 func (ws *randomWriteScheduler) Pop() (FrameWriteRequest, bool) {
-	// Control and RST_STREAM frames first.
+	// Control frames first.
 	if !ws.zero.empty() {
 		return ws.zero.shift(), true
 	}
