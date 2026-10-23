@@ -7,5 +7,5 @@
 #   ignoreUntil = YYYY-MM-DDT00:00:00Z
 #   reason = "why it does not apply here, or why it cannot be fixed yet"
 #
-# Deliberately empty: the go.mod backlog (15 known, 13 reachable) is fixed by the Go 1.26.9 / grpc 1.83.2 /
-# x/net 0.60.0 / btcd 0.26.2 / prometheus client_golang 1.24.1 upgrade PR, which merges first.
+# Empty: the go.mod backlog (15 known, 13 reachable) was fixed by the Go 1.26.9 / grpc 1.83.2 / x/net 0.60.0 /
+# btcd 0.26.2 / prometheus client_golang 1.24.1 upgrade (#3).

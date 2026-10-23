@@ -60,9 +60,8 @@ Test cases: `contrib/semgrep/testdata/lightwalletd.go`. Run them with
 
 The first full scans found 15 known vulnerabilities in go.mod's dependencies, 13 of them reachable.
 They also found 54 reachable vulnerabilities in all, most of them in the standard library of the
-end-of-life Go 1.24.7. The fix is a separate PR, "deps: Go 1.26.9; grpc 1.83.2, x/net 0.60.0, btcd
-0.26.2, prometheus 1.24.1", which merges first. Until it does, the `osv-scanner` job fails on the old
-module set, as it should. `osv-scanner.toml` accepts nothing.
+end-of-life Go 1.24.7. These were fixed by #3 (Go 1.26.9; grpc 1.83.2, x/net 0.60.0, btcd 0.26.2, prometheus
+client_golang 1.24.1). `osv-scanner.toml` accepts nothing.
 
 After the upgrade one reachable vulnerability is left, GO-2026-6809 (crypto/x509). It is fixed in Go
 1.26.10, which came out on 2026-10-19 and is still younger than the two-week version rule. Move the
