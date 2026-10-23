@@ -1,0 +1,180 @@
+# Copyright (c) 2026 The Ycash developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or https://www.opensource.org/licenses/mit-license.php .
+#
+# lightwalletd-dd rules, scanned beside the pinned semgrep-rules packs (contrib/semgrep/README.md).
+# metadata.bucket pins a rule's bucket; without it the bucket follows severity/impact/confidence.
+# Each rule has annotated test cases in contrib/semgrep/testdata/lightwalletd.go;
+# `semgrep --test --config contrib/semgrep/rules contrib/semgrep/testdata` runs them (secops.yml, semgrep-rule-tests).
+rules:
+  # The server is a light-client proxy: it must never reach a wallet-context or write RPC of the node.
+  # common/yellowback.go CallYed is the one gate for yed_*/set_*/vault_* (its allow-lists, checked
+  # against the node's contracts by the tests); the stock RPCs the upstream service uses are named
+  # literally. A literal wallet/write method anywhere is a hole in that design.
+  - id: lightwalletd.rpc.node-wallet-or-write-method
+    languages: [go]
+    paths:
+      exclude: ["*_test.go"]
+    patterns:
+      - pattern-either:
+          - pattern: RawRequest("$METHOD", ...)
+          - pattern: common.RawRequest("$METHOD", ...)
+          - pattern: CallYed($CTX, "$METHOD", ...)
+          - pattern: common.CallYed($CTX, "$METHOD", ...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: >-
+            ^(yed_(setquote|addattestation|signattestation|getnewaddress|validateaddress|getbalance|listunspent|mint|send|sendmany|redeem|claim|claimnotice|sweepcarriers|registerattestor|withdrawbond|revive|reportequivocation|listpositions|listtransactions|lockcoins|unlockcoin|estimatesend|buildcancel|signcancelcosign|estimateredeem)|set_(create|join|heartbeat|leave|buildact|signact|sendact|equivocation|signunlock|signcancel|listsigned|importsigned|acknowledgerestore)|vault_(lock|getnewowner|buildunlock|buildcancel|send|release|ownerspend|app|refee)|sendtoaddress|sendmany|sendfrom|z_sendmany|z_shieldcoinbase|z_mergetoaddress|dumpprivkey|dumpwallet|z_exportkey|z_exportviewingkey|z_exportwallet|importprivkey|importwallet|z_importkey|z_importwallet|walletpassphrase|walletpassphrasechange|encryptwallet|signrawtransaction|getnewaddress|z_getnewaddress|backupwallet|keypoolrefill|settxfee|stop|setgenerate|generate)$
+    message: >-
+      The server calls the node's wallet-context or state-changing RPC '$METHOD'. lightwalletd is an
+      internet-facing light-client proxy: it reaches the node only through read-only, node-context RPCs
+      (stock read RPCs, sendrawtransaction, and the allow-listed yed_*/set_*/vault_* reads of
+      common/yellowback.go). Wallet and write RPCs are never proxied (common.NotOffered, NotOfferedVault).
+    severity: ERROR
+    metadata:
+      category: security
+      bucket: critical
+      cwe: ["CWE-749: Exposed Dangerous Method or Function"]
+      references: ["common/yellowback.go (YedMethods, NotOffered, VaultMethods, NotOfferedVault)"]
+
+  # A dynamic method name reaches the node only through CallYed's allow-list check.
+  - id: lightwalletd.rpc.dynamic-method-outside-gate
+    languages: [go]
+    paths:
+      exclude: ["*_test.go", "/common/yellowback.go", "/common/darkside.go"]
+    patterns:
+      - pattern-either:
+          - pattern: RawRequest($METHOD, ...)
+          - pattern: common.RawRequest($METHOD, ...)
+      - pattern-not: RawRequest("...", ...)
+      - pattern-not: common.RawRequest("...", ...)
+    message: >-
+      RawRequest is called with a non-literal method name outside common/yellowback.go. A method that
+      is not a string literal is not reviewable here and bypasses CallYed's allow-lists; route it
+      through common.CallYed or name the method literally.
+    severity: ERROR
+    metadata:
+      category: security
+      impact: HIGH
+      likelihood: MEDIUM
+      confidence: HIGH
+      cwe: ["CWE-749: Exposed Dangerous Method or Function"]
+
+  # Every YellowbackStreamer gRPC method spends from the per-peer rate limiter before doing any work
+  # (frontend/yellowback_ratelimit.go): it is what bounds what one internet peer can make the node do.
+  - id: lightwalletd.grpc.yellowback-handler-without-limiter
+    languages: [go]
+    paths:
+      include: ["/frontend/*.go"]
+      exclude: ["*_test.go"]
+    patterns:
+      - pattern-either:
+          - pattern: |
+              func (y *YellowbackStreamer) $M($CTX context.Context, $IN $T) ($OUT, error) {
+                ...
+              }
+          - pattern: |
+              func (y *YellowbackStreamer) $M($IN $T, $STREAM $S) error {
+                ...
+              }
+      - pattern-not: |
+          func (y *YellowbackStreamer) $M(...) $R {
+            ...
+            y.limited(...)
+            ...
+          }
+      - pattern-not: |
+          func (y *YellowbackStreamer) $M(...) ($A, $B) {
+            ...
+            y.limited(...)
+            ...
+          }
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^[A-Z]
+    message: >-
+      YellowbackStreamer.$M is a gRPC handler that never calls y.limited(...). Every Yellowback method
+      must charge the per-peer rate limiter (frontend/yellowback_ratelimit.go) before it validates
+      bounds or reaches the node; without it one internet peer can drive unbounded node load.
+    severity: ERROR
+    metadata:
+      category: security
+      impact: HIGH
+      likelihood: MEDIUM
+      confidence: MEDIUM
+      cwe: ["CWE-770: Allocation of Resources Without Limits or Throttling"]
+
+  # A block range from the request reaches the node or the cache: the handler must bound it.
+  - id: lightwalletd.grpc.request-range-unbounded
+    languages: [go]
+    paths:
+      include: ["/frontend/*.go"]
+      exclude: ["*_test.go"]
+    patterns:
+      - pattern-inside: |
+          func (s *$STREAMER) $M(...) $R {
+            ...
+          }
+      - pattern-either:
+          - pattern: $REQ.Range.End.Height
+          - pattern: $REQ.End.Height
+      - pattern-not-inside: |
+          if <... $REQ.End.Height - $REQ.Start.Height ...> { ... }
+          ...
+      - pattern-not-inside: |
+          if <... $REQ.Range.End.Height - $REQ.Range.Start.Height ...> { ... }
+          ...
+    message: >-
+      A block range taken from the request is used without a check on its length in this handler.
+      lightwalletd is internet-facing: bound End-Start (or document why the callee bounds it, e.g. the
+      block cache refusing heights past the tip, and accept the finding with that reason).
+    severity: WARNING
+    metadata:
+      category: security
+      impact: MEDIUM
+      likelihood: LOW
+      confidence: MEDIUM
+      cwe: ["CWE-770: Allocation of Resources Without Limits or Throttling"]
+
+  # Logs are shipped off the box; raw transactions, request payloads and credentials stay out of them.
+  - id: lightwalletd.log.secret-or-raw-tx
+    languages: [go]
+    paths:
+      exclude: ["*_test.go"]
+    patterns:
+      - pattern-either:
+          - pattern: $LOG.$FN(..., <... $X.RPCPassword ...>, ...)
+          - pattern: $LOG.$FN(..., $X.Data, ...)
+          - pattern: $LOG.$FN(..., $X.HexTx, ...)
+          - pattern: $LOG.$FN(..., <... hex.EncodeToString($X.Data) ...>, ...)
+          - pattern: $LOG.$FN(..., <... string($X.Data) ...>, ...)
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $OPTS := &common.Options{...}
+                      ...
+                  - pattern-inside: |
+                      $OPTS := common.Options{...}
+                      ...
+                  - pattern-inside: |
+                      $OPTS := &Options{...}
+                      ...
+                  - pattern-inside: |
+                      func $F(..., $OPTS *common.Options, ...) { ... }
+                  - pattern-inside: |
+                      func $F(..., $OPTS *Options, ...) { ... }
+              - pattern: $LOG.$FN(..., $OPTS, ...)
+      - metavariable-regex:
+          metavariable: $FN
+          regex: ^(Print|Debug|Info|Warn|Warning|Error|Fatal|Panic|Trace)(f|ln)?$|^(WithField|WithFields)$
+    message: >-
+      A log call carries a credential, a raw transaction / request payload, or the whole Options struct
+      (which holds the node's RPC password). Logs leave the host; log a txid, a length or a redacted
+      copy instead.
+    severity: ERROR
+    metadata:
+      category: security
+      impact: MEDIUM
+      likelihood: MEDIUM
+      confidence: MEDIUM
+      cwe: ["CWE-532: Insertion of Sensitive Information into Log File"]

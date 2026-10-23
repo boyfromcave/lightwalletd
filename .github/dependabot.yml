@@ -1,0 +1,39 @@
+# Dependabot: security updates only, one grouped PR per ecosystem at most (SECURITY-CI.md).
+# Version updates are off (open-pull-requests-limit: 0): versions here are exact pins moved on purpose
+# (go.mod + vendor/, the Dockerfile's toolchain images, workflow actions pinned by commit SHA).
+# Security updates need "Dependabot security updates" on in Settings -> Code security.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 14
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 14
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 14
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]

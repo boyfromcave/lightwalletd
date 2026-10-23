@@ -1,0 +1,274 @@
+name: secops
+
+# Security checks other than Semgrep (semgrep.yml) and CodeQL (codeql.yml); SECURITY-CI.md has the
+# policy. One job per leg; every tool is an exact version verified by checksum (release binaries
+# against the sha256 recorded here, PyPI wheels by --require-hashes, Go modules by the checksum DB).
+# Results go to the step summary and, as SARIF, to GitHub code scanning (category = tool name);
+# nothing here opens PRs or issues.
+#
+#   leg                 pull_request gate                              push / nightly / dispatch
+#   zizmor              any finding in any workflow                    the same (report + fail)
+#   gitleaks            a secret in the PR's own commits               full history (nightly, dispatch);
+#                                                                      the pushed commits (push)
+#   osv-scanner         a known vulnerability in go.mod's dependency   the same
+#                       set not accepted in osv-scanner.toml
+#   govulncheck         a reachable vulnerability the base branch      report only (all reachable ones)
+#                       does not have
+#   gosec               a new HIGH-severity issue versus the base      report only
+#   semgrep-rule-tests  contrib/semgrep/rules' annotated test cases    the same
+#
+# Nightly at 03:43 UTC (semgrep.yml runs at 02:17).
+on:
+  pull_request:
+  push:
+    branches: [upgrade/vault]
+  schedule:
+    - cron: '43 3 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: secops-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GO_VERSION: '1.26.9'   # the repository's toolchain (go.mod toolchain go1.26.9); govulncheck v1.8.0 needs Go 1.26
+  GOTOOLCHAIN: local
+  GITLEAKS_VERSION: '8.30.1'
+  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+  OSV_SCANNER_VERSION: '2.6.0'
+  OSV_SCANNER_SHA256: ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108
+  GOSEC_VERSION: '2.29.0'
+  GOSEC_SHA256: 6431b119741c1f4a50fdfcf94e782e16b9e642afc8c7fa9b5d39d48bf3003095
+  GOVULNCHECK_VERSION: v1.8.0
+
+jobs:
+  zizmor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install zizmor (hash-locked, contrib/secops/zizmor-requirements.txt)
+        run: |
+          python3 -m venv "$RUNNER_TEMP/zizmor"
+          "$RUNNER_TEMP/zizmor/bin/pip" install --quiet --disable-pip-version-check --require-hashes --no-deps \
+            -r contrib/secops/zizmor-requirements.txt
+          "$RUNNER_TEMP/zizmor/bin/zizmor" --version
+      - name: zizmor (SARIF)
+        env:
+          GH_TOKEN: ${{ github.token }}   # online audits (impostor commits, known-vulnerable actions)
+        run: '"$RUNNER_TEMP/zizmor/bin/zizmor" --format sarif . > zizmor.sarif || true'
+      - uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
+      - name: zizmor (gate)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: '"$RUNNER_TEMP/zizmor/bin/zizmor" --format plain .'
+
+  gitleaks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install gitleaks (release tarball, SHA-256 verified)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/gitleaks.tgz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin" && tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP/bin" gitleaks
+      - name: gitleaks (.gitleaksignore holds the triaged fingerprints)
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -uo pipefail
+          range=''
+          if [ "$EVENT" = pull_request ]; then
+            range="$PR_BASE..$PR_HEAD"
+          elif [ "$EVENT" = push ] && [ -n "$PUSH_BEFORE" ] && ! printf '%s' "$PUSH_BEFORE" | grep -q '^0*$'; then
+            range="$PUSH_BEFORE..$SHA"
+          fi
+          args=(git --no-banner --redact --exit-code 1 --report-format sarif --report-path gitleaks.sarif)
+          if [ -n "$range" ]; then args+=(--log-opts="$range"); echo "scanning commits $range"; else echo "scanning the full history"; fi
+          rc=0
+          "$RUNNER_TEMP/bin/gitleaks" "${args[@]}" . || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "### gitleaks: possible secret in ${range:-the history} (values redacted; see code scanning)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### gitleaks: no leaks in ${range:-the full history}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$rc"
+      - uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        if: ${{ !cancelled() && hashFiles('gitleaks.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+
+  osv-scanner:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        # The Go call analysis (which vulnerabilities this server can reach) builds the tree.
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Install osv-scanner (release binary, SHA-256 verified)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/osv-scanner" \
+            "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/osv-scanner"
+      - name: osv-scanner (go.mod / go.sum; accepted entries in osv-scanner.toml)
+        env:
+          GOFLAGS: -mod=vendor
+        run: |
+          set -uo pipefail
+          "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml -L go.mod --format sarif --output-file osv.sarif . || true
+          rc=0
+          "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml -L go.mod --format markdown --output-file osv.md . || rc=$?
+          { echo "### osv-scanner"; echo; cat osv.md 2>/dev/null; } >> "$GITHUB_STEP_SUMMARY"
+          cat osv.md 2>/dev/null
+          exit "$rc"
+      - uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        if: ${{ !cancelled() && hashFiles('osv.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        with:
+          sarif_file: osv.sarif
+          category: osv-scanner
+
+  govulncheck:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0   # the PR gate scans the base too
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Install govulncheck (go install, checksum-DB verified)
+        run: GOBIN="$RUNNER_TEMP/bin" go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
+      - name: govulncheck (SARIF, every reachable vulnerability)
+        env:
+          GOFLAGS: -mod=vendor
+        run: '"$RUNNER_TEMP/bin/govulncheck" -format sarif ./... > govulncheck.sarif || true'
+      - uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        with:
+          sarif_file: govulncheck.sarif
+          category: govulncheck
+      - name: govulncheck (PR gate - a reachable vulnerability the base does not have; report only otherwise)
+        env:
+          GOFLAGS: -mod=vendor
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/bin/govulncheck" -format json ./... > "$RUNNER_TEMP/head.json"
+          if [ "$EVENT" = pull_request ]; then
+            git worktree add --detach "$RUNNER_TEMP/base" "$PR_BASE"
+            (cd "$RUNNER_TEMP/base" && "$RUNNER_TEMP/bin/govulncheck" -format json ./... > "$RUNNER_TEMP/base.json")
+          else
+            echo '{}' > "$RUNNER_TEMP/base.json"
+          fi
+          rc=0
+          python3 contrib/secops/new-findings.py govulncheck "$RUNNER_TEMP/base.json" "$RUNNER_TEMP/head.json" > summary.md || rc=$?
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"; cat summary.md
+          if [ "$EVENT" = pull_request ]; then exit "$rc"; fi
+
+  gosec:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Install gosec (release tarball, SHA-256 verified)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/gosec.tgz" \
+            "https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_linux_amd64.tar.gz"
+          echo "${GOSEC_SHA256}  $RUNNER_TEMP/gosec.tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin" && tar -xzf "$RUNNER_TEMP/gosec.tgz" -C "$RUNNER_TEMP/bin" gosec
+      - name: gosec (SARIF, report only)
+        env:
+          GOFLAGS: -mod=vendor
+        run: '"$RUNNER_TEMP/bin/gosec" -quiet -no-fail -exclude-dir=vendor -exclude-generated -fmt sarif -out gosec.sarif ./...'
+      - uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        if: ${{ !cancelled() && hashFiles('gosec.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        with:
+          sarif_file: gosec.sarif
+          category: gosec
+      - name: gosec (PR gate - a HIGH issue the base does not have)
+        if: github.event_name == 'pull_request'
+        env:
+          GOFLAGS: -mod=vendor
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          gosec=("$RUNNER_TEMP/bin/gosec" -quiet -no-fail -exclude-dir=vendor -exclude-generated -fmt json)
+          "${gosec[@]}" -out "$RUNNER_TEMP/head.json" ./...
+          git worktree add --detach "$RUNNER_TEMP/base" "$PR_BASE"
+          (cd "$RUNNER_TEMP/base" && "${gosec[@]}" -out "$RUNNER_TEMP/base.json" ./...)
+          rc=0
+          python3 contrib/secops/new-findings.py gosec "$RUNNER_TEMP/base.json" "$RUNNER_TEMP/head.json" \
+            "$RUNNER_TEMP/base" "$GITHUB_WORKSPACE" > summary.md || rc=$?
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"; cat summary.md
+          exit "$rc"
+
+  semgrep-rule-tests:
+    # The repository's own Semgrep rules against their annotated cases (contrib/semgrep/testdata).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install semgrep (hash-locked, contrib/semgrep/requirements.txt)
+        run: |
+          python3 -m venv "$RUNNER_TEMP/semgrep"
+          "$RUNNER_TEMP/semgrep/bin/pip" install --quiet --disable-pip-version-check --require-hashes --no-deps \
+            -r contrib/semgrep/requirements.txt
+      - name: semgrep --test
+        run: '"$RUNNER_TEMP/semgrep/bin/semgrep" --test --metrics=off --config contrib/semgrep/rules contrib/semgrep/testdata'

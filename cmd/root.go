@@ -65,7 +65,8 @@ var rootCmd = &cobra.Command{
 			DarksideTimeout:     viper.GetUint64("darkside-timeout"),
 		}
 
-		common.Log.Debugf("Options: %#v\n", opts)
+		// The node's RPC password stays out of the log (debug logs leave the host).
+		common.Log.Debugf("Options: %s\n", optionsForLog(opts))
 
 		filesThatShouldExist := []string{
 			opts.LogFile,
@@ -463,7 +464,29 @@ func initConfig() {
 
 }
 
+// optionsForLog renders opts for the debug log, naming every field except the node's RPC password.
+// The password is never read here. The fields are listed one by one rather than dumping the whole
+// struct, so the password cannot flow into the log (CodeQL go/clear-text-logging tracks it through
+// any copy of the struct). A new Options field is added here by hand.
+func optionsForLog(o *common.Options) string {
+	return fmt.Sprintf("{GRPCBindAddr:%q GRPCLogging:%t HTTPBindAddr:%q TLSCertPath:%q TLSKeyPath:%q "+
+		"LogLevel:%d LogFile:%q ZcashConfPath:%q RPCUser:%q RPCHost:%q RPCPort:%q "+
+		"NoTLSVeryInsecure:%t GenCertVeryInsecure:%t Redownload:%t DataDir:%q PingEnable:%t "+
+		"Darkside:%t Yellowback:%t DarksideTimeout:%d YellowbackInFlight:%d YedCacheEntries:%d "+
+		"YedCacheBytes:%d TrustedProxyCIDRs:%q}",
+		o.GRPCBindAddr, o.GRPCLogging, o.HTTPBindAddr, o.TLSCertPath, o.TLSKeyPath,
+		o.LogLevel, o.LogFile, o.ZcashConfPath, o.RPCUser, o.RPCHost, o.RPCPort,
+		o.NoTLSVeryInsecure, o.GenCertVeryInsecure, o.Redownload, o.DataDir, o.PingEnable,
+		o.Darkside, o.Yellowback, o.DarksideTimeout, o.YellowbackInFlight, o.YedCacheEntries,
+		o.YedCacheBytes, o.TrustedProxyCIDRs)
+}
+
 func startHTTPServer(opts *common.Options) {
 	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(opts.HTTPBindAddr, nil)
+	// A header deadline, so a client that never finishes its request headers cannot hold a
+	// connection open forever (gosec G114, Slowloris); /metrics answers in milliseconds.
+	server := &http.Server{Addr: opts.HTTPBindAddr, ReadHeaderTimeout: 10 * time.Second}
+	if err := server.ListenAndServe(); err != nil {
+		common.Log.WithFields(logrus.Fields{"error": err}).Error("metrics HTTP server stopped")
+	}
 }

@@ -1,0 +1,49 @@
+{
+  "_comment": "Accepted Semgrep findings (contrib/semgrep/README.md, 'Accepting a finding'). findings: fingerprint -> {rule, path, reason, by, date}. rule_paths: [{rule (glob), paths (globs), reason, by, date}]. Every entry needs a reason a reviewer can check.",
+  "findings": {
+    "504101100dd3bad7": {
+      "rule": "trailofbits.generic.openssl-insecure-flags",
+      "path": "docker/gen_cert.sh",
+      "reason": "-nodes writes the TLS key unencrypted on purpose: the server reads it at start-up without a passphrase prompt (cmd/root.go --tls-key). The script chmods it 600 and is documented as a local/test helper; production certificates come from a real CA (README 'TLS').",
+      "by": "secops CI setup",
+      "date": "2026-10-23"
+    },
+    "d4c46cb083f10fe6": {
+      "rule": "lightwalletd.grpc.request-range-unbounded",
+      "path": "frontend/service.go",
+      "reason": "GetBlockRange (upstream zcash/lightwalletd, unchanged): wallets legitimately sync the whole chain in one range. Each height is served from the local block cache (common.GetBlock refuses heights outside [firstBlock, nextBlock)), never from the node, and the stream is back-pressured by resp.Send; the cost is bounded by the chain length and paid at the client's read rate.",
+      "by": "secops CI setup",
+      "date": "2026-10-23"
+    },
+    "8225be455a5c78db": {
+      "rule": "go.grpc.security.grpc-client-insecure-connection",
+      "path": "testclient/main.go",
+      "reason": "testclient is the upstream stress/test client run against a local plaintext server (--no-tls-very-insecure); it is not built into the image or shipped (Dockerfile builds only lightwalletd and lwdinfo).",
+      "by": "secops CI setup",
+      "date": "2026-10-23"
+    }
+  },
+  "rule_paths": [
+    {
+      "rule": "generic.secrets.*",
+      "paths": ["parser/*_test.go", "testdata/**", "*.md"],
+      "reason": "Zcash ZIP-143/ZIP-243/Sapling test vectors (ephemeral keys, commitments: public transaction fields) and documentation examples, not secrets (checked 2026-10-23). A secret anywhere else is still reported; gitleaks scans every commit as well.",
+      "by": "secops CI setup",
+      "date": "2026-10-23"
+    },
+    {
+      "rule": "go.lang.security.deserialization.go-unsafe-deserialization-interface",
+      "paths": ["*_test.go"],
+      "reason": "Tests decode the node's committed contract fixtures (testdata/) into generic maps to compare them field by field; no untrusted input, nothing ships.",
+      "by": "secops CI setup",
+      "date": "2026-10-23"
+    },
+    {
+      "rule": "go.lang.security.audit.dangerous-exec-command",
+      "paths": ["frontend/yellowback_devnet_test.go"],
+      "reason": "The devnet suite (-tags devnet, run only by scripts/devnet-test.sh) runs the node's own ycash-cli with arguments the test composes; no external input.",
+      "by": "secops CI setup",
+      "date": "2026-10-23"
+    }
+  ]
+}
