@@ -2,6 +2,8 @@ module github.com/zcash/lightwalletd
 
 go 1.26.0
 
+toolchain go1.26.9
+
 require (
 	github.com/btcsuite/btcd v0.26.2
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d

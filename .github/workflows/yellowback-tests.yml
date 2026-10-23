@@ -16,8 +16,8 @@
 #                         carry no schedule.
 #
 # Supply chain (audit E-6): actions are pinned by commit SHA (the tag is the comment), the Go
-# toolchain is an exact version (go.mod's `go 1.12` names a language floor, not a toolchain;
-# 1.26.9 is what the node's nightly installs for this fork), the runner image is a release,
+# toolchain is an exact version (go.mod's `go 1.26.0` is the language floor and `toolchain go1.26.9`
+# the toolchain; the node lines' nightlies must install the same for this fork), the runner image is a release,
 # and protoc is a release zip verified against its SHA-256 (the version docs/yellowback.md
 # records) rather than whatever protobuf-compiler Ubuntu ships that day.
 name: yellowback-tests

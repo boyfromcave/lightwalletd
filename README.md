@@ -60,8 +60,8 @@ external audit.
 
 # Building
 
-[Go](https://go.dev/dl/) 1.26 or later (CI builds with 1.26.9; `go.mod`'s `go 1.12` is the
-language floor). Dependencies are vendored, so no module download is needed:
+[Go](https://go.dev/dl/) 1.26 or later (CI builds with 1.26.9; `go.mod`: `go 1.26.0`,
+`toolchain go1.26.9`). Dependencies are vendored, so no module download is needed:
 
 ```
 make                                   # go build with version ldflags → ./lightwalletd

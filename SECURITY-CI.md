@@ -56,14 +56,19 @@ Test cases: `contrib/semgrep/testdata/lightwalletd.go`. Run them with
 - **zizmor**: fix the workflow. Use an inline `# zizmor: ignore[<audit>]` with a reason only when the
   pattern is intended.
 
-## Open backlog (2026-10-23)
+## Backlog (2026-10-23)
 
-The Go toolchain (1.24.7, end of life) and the 2021-era gRPC / x/net / btcd / prometheus modules carry
-known vulnerabilities that the server can reach. The fix needs Go 1.26.x together with grpc ≥ 1.83.1
-and x/net ≥ 0.60.0, and the node lines' nightlies, which build this fork with Go 1.24.7, have to move
-with it. Until that upgrade lands, `osv-scanner.toml` accepts these vulnerabilities, and the
-acceptance expires on 2027-01-20. govulncheck still reports every reachable vulnerability on every
-full scan.
+The first full scans found 15 known vulnerabilities in go.mod's dependencies (13 of them reachable)
+and 54 reachable ones in all, most of them in the standard library of the end-of-life Go 1.24.7. This
+PR fixes them by moving to Go 1.26.9 (`go.mod`: `go 1.26.0`, `toolchain go1.26.9`) and upgrading
+grpc to 1.83.2, x/net to 0.60.0, btcd to 0.26.2 and prometheus client_golang to 1.24.1, all
+re-vendored. `osv-scanner.toml` accepts nothing.
+
+One reachable vulnerability is left, GO-2026-6809 (crypto/x509). It is fixed in Go 1.26.10, which
+was released on 2026-10-19 and is still younger than the two-week rule for tool and toolchain
+versions. Move `GO_VERSION`, the Dockerfile and go.mod's `toolchain` to 1.26.10 on or after
+2026-11-02. govulncheck reports it on every full scan until then. It does not fail PRs because the
+base branch has it too.
 
 ## Repository settings (owner)
 

@@ -33,7 +33,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  GO_VERSION: '1.24.7'   # as yellowback-tests.yml and the Dockerfile
+  GO_VERSION: '1.26.9'   # as yellowback-tests.yml and the Dockerfile
   GOTOOLCHAIN: local
   GITLEAKS_VERSION: '8.30.1'
   GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
