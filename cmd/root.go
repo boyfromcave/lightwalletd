@@ -67,9 +67,7 @@ var rootCmd = &cobra.Command{
 
 		// The node's RPC password stays out of the log (debug logs leave the host).
 		redacted := *opts
-		if redacted.RPCPassword != "" {
-			redacted.RPCPassword = "<redacted>"
-		}
+		redacted.RPCPassword = "<redacted>"
 		common.Log.Debugf("Options: %#v\n", redacted)
 
 		filesThatShouldExist := []string{
