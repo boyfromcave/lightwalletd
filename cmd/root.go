@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"syscall"
 	"time"
@@ -66,9 +67,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		// The node's RPC password stays out of the log (debug logs leave the host).
-		redacted := *opts
-		redacted.RPCPassword = "<redacted>"
-		common.Log.Debugf("Options: %#v\n", redacted)
+		common.Log.Debugf("Options: %s\n", optionsForLog(opts))
 
 		filesThatShouldExist := []string{
 			opts.LogFile,
@@ -464,6 +463,21 @@ func initConfig() {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
 
+}
+
+// optionsForLog renders opts for the debug log: every field, by name, except the node's RPC
+// password, which is never read here.
+func optionsForLog(opts *common.Options) string {
+	v := reflect.ValueOf(*opts)
+	t := v.Type()
+	parts := make([]string, 0, t.NumField())
+	for i := 0; i < t.NumField(); i++ {
+		if t.Field(i).Name == "RPCPassword" {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s:%#v", t.Field(i).Name, v.Field(i).Interface()))
+	}
+	return "{" + strings.Join(parts, " ") + "}"
 }
 
 func startHTTPServer(opts *common.Options) {
