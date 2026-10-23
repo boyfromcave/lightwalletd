@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"syscall"
 	"time"
@@ -465,19 +464,21 @@ func initConfig() {
 
 }
 
-// optionsForLog renders opts for the debug log: every field, by name, except the node's RPC
-// password, which is never read here.
-func optionsForLog(opts *common.Options) string {
-	v := reflect.ValueOf(*opts)
-	t := v.Type()
-	parts := make([]string, 0, t.NumField())
-	for i := 0; i < t.NumField(); i++ {
-		if t.Field(i).Name == "RPCPassword" {
-			continue
-		}
-		parts = append(parts, fmt.Sprintf("%s:%#v", t.Field(i).Name, v.Field(i).Interface()))
-	}
-	return "{" + strings.Join(parts, " ") + "}"
+// optionsForLog renders opts for the debug log, naming every field except the node's RPC password.
+// The password is never read here. The fields are listed one by one rather than dumping the whole
+// struct, so the password cannot flow into the log (CodeQL go/clear-text-logging tracks it through
+// any copy of the struct). A new Options field is added here by hand.
+func optionsForLog(o *common.Options) string {
+	return fmt.Sprintf("{GRPCBindAddr:%q GRPCLogging:%t HTTPBindAddr:%q TLSCertPath:%q TLSKeyPath:%q "+
+		"LogLevel:%d LogFile:%q ZcashConfPath:%q RPCUser:%q RPCHost:%q RPCPort:%q "+
+		"NoTLSVeryInsecure:%t GenCertVeryInsecure:%t Redownload:%t DataDir:%q PingEnable:%t "+
+		"Darkside:%t Yellowback:%t DarksideTimeout:%d YellowbackInFlight:%d YedCacheEntries:%d "+
+		"YedCacheBytes:%d TrustedProxyCIDRs:%q}",
+		o.GRPCBindAddr, o.GRPCLogging, o.HTTPBindAddr, o.TLSCertPath, o.TLSKeyPath,
+		o.LogLevel, o.LogFile, o.ZcashConfPath, o.RPCUser, o.RPCHost, o.RPCPort,
+		o.NoTLSVeryInsecure, o.GenCertVeryInsecure, o.Redownload, o.DataDir, o.PingEnable,
+		o.Darkside, o.Yellowback, o.DarksideTimeout, o.YellowbackInFlight, o.YedCacheEntries,
+		o.YedCacheBytes, o.TrustedProxyCIDRs)
 }
 
 func startHTTPServer(opts *common.Options) {
