@@ -1,0 +1,47 @@
+name: go-vendor
+
+# vendor/ is exactly what `go mod vendor` produces from go.mod and go.sum, and every module in it
+# matches the Go checksum database (`go mod verify`). A reviewer reads go.mod and go.sum and can
+# skip vendor/: this job shows that nothing in it was edited by hand.
+on:
+  push:
+    branches: [ upgrade/vault, harden/yellowback, 'ci/**' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: go-vendor-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  vendor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.26.9'   # as yellowback-tests.yml (go.mod: toolchain go1.26.9)
+          cache: false
+      - name: go mod verify (every module against the checksum database)
+        env:
+          GOFLAGS: -mod=mod
+          GOTOOLCHAIN: local
+        run: go mod verify
+      - name: go mod tidy + go mod vendor, then require no diff
+        env:
+          GOFLAGS: -mod=mod
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          go mod tidy
+          go mod vendor
+          git status --porcelain -- vendor go.mod go.sum
+          git diff --exit-code -- vendor go.mod go.sum
+          test -z "$(git status --porcelain --untracked-files=all -- vendor)"

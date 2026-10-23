@@ -60,8 +60,8 @@ external audit.
 
 # Building
 
-[Go](https://go.dev/dl/) 1.24 or later (CI builds with 1.24.7; `go.mod`'s `go 1.12` is the
-language floor). Dependencies are vendored, so no module download is needed:
+[Go](https://go.dev/dl/) 1.26 or later (CI builds with 1.26.9; `go.mod`: `go 1.26.0`,
+`toolchain go1.26.9`). Dependencies are vendored, so no module download is needed:
 
 ```
 make                                   # go build with version ldflags → ./lightwalletd
@@ -136,7 +136,7 @@ Other flags: `--grpc-bind-addr` (default `127.0.0.1:9067`), `--http-bind-addr` (
 # Docker
 
 `make docker_img` builds `ycash/lightwalletd:local` from this tree (static Go build in
-`golang:1.24.7-alpine`, `alpine:3.22` runtime, unprivileged uid 2002, cache at
+`golang:1.26.9-alpine`, `alpine:3.22` runtime, unprivileged uid 2002, cache at
 `/var/lib/lightwalletd`). `docker-compose.yml` runs that one service against a `ycashd` you run
 elsewhere — there is no public Ycash node image — configured by `.env` (copy
 [.env.example](.env.example)): `YCASHD_RPC_HOST/PORT/USER/PASSWORD` or a mounted `ycash.conf`,
