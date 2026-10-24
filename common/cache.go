@@ -197,14 +197,14 @@ func NewBlockCache(dbPath string, chainName string, startHeight int, redownload 
 	c.nextBlock = startHeight
 	c.lengthsName, c.blocksName = dbFileNames(dbPath, chainName)
 	var err error
-	if err := os.MkdirAll(filepath.Join(dbPath, chainName), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dbPath, chainName), 0750); err != nil {
 		Log.Fatal("mkdir ", dbPath, " failed: ", err)
 	}
-	c.blocksFile, err = os.OpenFile(c.blocksName, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	c.blocksFile, err = os.OpenFile(c.blocksName, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0600)
 	if err != nil {
 		Log.Fatal("open ", c.blocksName, " failed: ", err)
 	}
-	c.lengthsFile, err = os.OpenFile(c.lengthsName, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	c.lengthsFile, err = os.OpenFile(c.lengthsName, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0600)
 	if err != nil {
 		Log.Fatal("open ", c.lengthsName, " failed: ", err)
 	}
@@ -387,8 +387,14 @@ func (c *BlockCache) GetLatestHeight() int {
 
 // Sync ensures that the db files are flushed to disk, can be called unnecessarily.
 func (c *BlockCache) Sync() {
-	c.lengthsFile.Sync()
-	c.blocksFile.Sync()
+	// A failed fsync means the cache on disk may not hold what was written; say so (the block
+	// checksums catch a torn write when the cache is read back at start-up).
+	if err := c.lengthsFile.Sync(); err != nil {
+		Log.Warning("lengths file sync failed: ", err)
+	}
+	if err := c.blocksFile.Sync(); err != nil {
+		Log.Warning("blocks file sync failed: ", err)
+	}
 }
 
 // Close is Currently used only for testing.

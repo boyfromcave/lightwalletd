@@ -5,6 +5,7 @@ package common
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -290,7 +291,7 @@ func TestGetBlockRange(t *testing.T) {
 	testcache := NewBlockCache(unitTestPath, unitTestChain, 380640, true)
 	blockChan := make(chan *walletrpc.CompactBlock)
 	errChan := make(chan error)
-	go GetBlockRange(testcache, blockChan, errChan, 380640, 380642)
+	go GetBlockRange(context.Background(), testcache, blockChan, errChan, 380640, 380642)
 
 	// read in block 380640
 	select {
@@ -325,6 +326,29 @@ func TestGetBlockRange(t *testing.T) {
 		t.Fatal("reading height 22 should have failed")
 	}
 
+	step = 0
+	os.RemoveAll(unitTestPath)
+}
+
+// TestGetBlockRangeStopsWhenCancelled: once the caller's stream has ended (ctx done), the
+// producer returns instead of blocking forever on a channel nobody reads.
+func TestGetBlockRangeStopsWhenCancelled(t *testing.T) {
+	testT = t
+	RawRequest = getblockStub
+	os.RemoveAll(unitTestPath)
+	testcache := NewBlockCache(unitTestPath, unitTestChain, 380640, true)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		GetBlockRange(ctx, testcache, make(chan *walletrpc.CompactBlock), make(chan error), 380640, 380642)
+		close(done)
+	}()
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("GetBlockRange did not return after its context was cancelled")
+	}
 	step = 0
 	os.RemoveAll(unitTestPath)
 }
@@ -371,7 +395,7 @@ func TestGetBlockRangeReverse(t *testing.T) {
 	errChan := make(chan error)
 
 	// Request the blocks in reverse order by specifying start greater than end
-	go GetBlockRange(testcache, blockChan, errChan, 380642, 380640)
+	go GetBlockRange(context.Background(), testcache, blockChan, errChan, 380642, 380640)
 
 	// read in block 380642
 	select {

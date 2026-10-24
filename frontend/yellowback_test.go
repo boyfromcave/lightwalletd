@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net"
 	"reflect"
 	"strings"
@@ -480,6 +481,20 @@ func TestInputValidation(t *testing.T) {
 			return err
 		},
 		func() error { _, err := svc.EstimateFee(ctx, &walletrpc.YedFeeQuery{MintedCents: 0}); return err },
+		// uint64 amounts past int64 would wrap negative on the way to the node.
+		func() error {
+			_, err := svc.EstimateCollateral(ctx, &walletrpc.YedMintQuery{Cents: 1 << 63, LockBlocks: 1})
+			return err
+		},
+		func() error {
+			_, err := svc.EstimateCollateral(ctx, &walletrpc.YedMintQuery{Cents: 1, LockBlocks: 1, PriceMicroUsd: 1 << 63})
+			return err
+		},
+		func() error { _, err := svc.EstimateFee(ctx, &walletrpc.YedFeeQuery{MintedCents: 1 << 63}); return err },
+		func() error {
+			_, err := svc.EstimateFee(ctx, &walletrpc.YedFeeQuery{MintedCents: 1, PriceMicroUsd: math.MaxUint64})
+			return err
+		},
 		func() error {
 			_, err := svc.BuildBundle(ctx, &walletrpc.YedBundleQuery{RefHeight: 1, SelectorHex: strings.Repeat("ab", 37)})
 			return err

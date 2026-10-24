@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -23,6 +24,12 @@ import (
 	"github.com/zcash/lightwalletd/parser"
 	"github.com/zcash/lightwalletd/walletrpc"
 )
+
+// maxRequestHeight bounds every block height a request carries. The node keeps heights as a
+// signed 32-bit int (CBlockIndex::nHeight; getaddresstxids, getblock and z_gettreestate read them
+// as int), so a larger height names no block. Checking it here keeps the uint64 request fields
+// from wrapping when they are converted to int or int64, and keeps them out of the node's RPCs.
+const maxRequestHeight = math.MaxInt32
 
 type lwdStreamer struct {
 	cache      *common.BlockCache
@@ -114,11 +121,29 @@ func (s *lwdStreamer) GetTaddressTxids(addressBlockFilter *walletrpc.Transparent
 	if addressBlockFilter.Range.End == nil {
 		return errors.New("Must specify an end block height")
 	}
+	// Bound the range the way GetBlockRange is bounded, by the chain: start <= end, both heights
+	// the node can hold, and end no further than the cache's tip (the node has no transactions past
+	// it, so the clamp changes no result). The node's work is then one address-index scan of at
+	// most tip+1 heights plus one getrawtransaction per txid it returns.
+	r := addressBlockFilter.Range
+	if r.End.Height < r.Start.Height || r.End.Height-r.Start.Height > maxRequestHeight || r.End.Height > maxRequestHeight {
+		return errors.New("Invalid block range: start must not exceed end, and heights must be at most 2147483647")
+	}
+	start, end := r.Start.Height, r.End.Height
+	if s.cache != nil {
+		if tip := s.cache.GetLatestHeight(); tip >= 0 && end > uint64(tip) {
+			end = uint64(tip)
+		}
+	}
+	if start > end {
+		// The whole range is past the tip: nothing to report.
+		return nil
+	}
 	params := make([]json.RawMessage, 1)
 	request := &common.ZcashdRpcRequestGetaddresstxids{
 		Addresses: []string{addressBlockFilter.Address},
-		Start:     addressBlockFilter.Range.Start.Height,
-		End:       addressBlockFilter.Range.End.Height,
+		Start:     start,
+		End:       end,
 	}
 	param, err := json.Marshal(request)
 	if err != nil {
@@ -142,6 +167,11 @@ func (s *lwdStreamer) GetTaddressTxids(addressBlockFilter *walletrpc.Transparent
 	defer cancel()
 
 	for _, txidstr := range txids {
+		// The 30-second budget above, or a client that has gone away, stops the per-txid node
+		// calls (GetTransaction itself does not watch its context, so the loop has to).
+		if err := timeout.Err(); err != nil {
+			return err
+		}
 		txid, _ := hex.DecodeString(txidstr)
 		// Txid is read as a string, which is in big-endian order. But when converting
 		// to bytes, it should be little-endian
@@ -168,6 +198,9 @@ func (s *lwdStreamer) GetBlock(ctx context.Context, id *walletrpc.BlockID) (*wal
 		// TODO: Get block by hash
 		return nil, errors.New("GetBlock by Hash is not yet implemented")
 	}
+	if id.Height > maxRequestHeight {
+		return nil, errors.New("block height out of range")
+	}
 	cBlock, err := common.GetBlock(s.cache, int(id.Height))
 
 	if err != nil {
@@ -186,8 +219,15 @@ func (s *lwdStreamer) GetBlockRange(span *walletrpc.BlockRange, resp walletrpc.C
 	if span.Start == nil || span.End == nil {
 		return errors.New("Must specify start and end heights")
 	}
+	if span.Start.Height > maxRequestHeight || span.End.Height > maxRequestHeight {
+		return errors.New("block height out of range")
+	}
+	// The producer stops when this handler returns (a failed Send, a cancelled stream), instead
+	// of blocking forever on blockChan with nobody reading it.
+	ctx, cancel := context.WithCancel(resp.Context())
+	defer cancel()
 
-	go common.GetBlockRange(s.cache, blockChan, errChan, int(span.Start.Height), int(span.End.Height))
+	go common.GetBlockRange(ctx, s.cache, blockChan, errChan, int(span.Start.Height), int(span.End.Height))
 
 	for {
 		select {
@@ -214,6 +254,9 @@ func (s *lwdStreamer) GetTreeState(ctx context.Context, id *walletrpc.BlockID) (
 	// The Zcash z_gettreestate rpc accepts either a block height or block hash
 	params := make([]json.RawMessage, 1)
 	var hashJSON []byte
+	if id.Height > maxRequestHeight {
+		return nil, errors.New("block height out of range")
+	}
 	if id.Height > 0 {
 		heightJSON, err := json.Marshal(strconv.Itoa(int(id.Height)))
 		if err != nil {
@@ -425,8 +468,7 @@ func (s *lwdStreamer) GetTaddressBalanceStream(addresses walletrpc.CompactTxStre
 	if err != nil {
 		return err
 	}
-	addresses.SendAndClose(balance)
-	return nil
+	return addresses.SendAndClose(balance)
 }
 
 // Key is 32-byte txid (as a 64-character string), data is pointer to compact tx.
@@ -683,13 +725,14 @@ func (s *DarksideStreamer) StageBlocksStream(blocks walletrpc.DarksideStreamer_S
 	for {
 		b, err := blocks.Recv()
 		if err == io.EOF {
-			blocks.SendAndClose(&walletrpc.Empty{})
-			return nil
+			return blocks.SendAndClose(&walletrpc.Empty{})
 		}
 		if err != nil {
 			return err
 		}
-		common.DarksideStageBlockStream(b.Block)
+		if err := common.DarksideStageBlockStream(b.Block); err != nil {
+			return err
+		}
 	}
 }
 
@@ -717,8 +760,7 @@ func (s *DarksideStreamer) StageTransactionsStream(tx walletrpc.DarksideStreamer
 	for {
 		transaction, err := tx.Recv()
 		if err == io.EOF {
-			tx.SendAndClose(&walletrpc.Empty{})
-			return nil
+			return tx.SendAndClose(&walletrpc.Empty{})
 		}
 		if err != nil {
 			return err

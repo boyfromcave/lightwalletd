@@ -72,7 +72,11 @@ var rootCmd = &cobra.Command{
 			opts.LogFile,
 		}
 		if !fileExists(opts.LogFile) {
-			os.OpenFile(opts.LogFile, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
+			// Owner-only: the log carries client addresses and request detail. A failure here is
+			// reported by the existence check just below.
+			if f, err := os.OpenFile(opts.LogFile, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600); err == nil {
+				_ = f.Close() // nothing was written to it
+			}
 		}
 		if !opts.Darkside && (opts.RPCUser == "" || opts.RPCPassword == "" || opts.RPCHost == "" || opts.RPCPort == "") {
 			filesThatShouldExist = append(filesThatShouldExist, opts.ZcashConfPath)
@@ -109,7 +113,7 @@ func fileExists(filename string) bool {
 func startServer(opts *common.Options) error {
 	if opts.LogFile != "" {
 		// instead write parsable logs for logstash/splunk/etc
-		output, err := os.OpenFile(opts.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		output, err := os.OpenFile(opts.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			common.Log.WithFields(logrus.Fields{
 				"error": err,
@@ -121,6 +125,9 @@ func startServer(opts *common.Options) error {
 		logger.SetFormatter(&logrus.JSONFormatter{})
 	}
 
+	if opts.LogLevel > uint64(logrus.TraceLevel) {
+		return fmt.Errorf("log-level %d is out of range (0-%d)", opts.LogLevel, logrus.TraceLevel)
+	}
 	logger.SetLevel(logrus.Level(opts.LogLevel))
 
 	common.Log.WithFields(logrus.Fields{
@@ -245,11 +252,11 @@ func startServer(opts *common.Options) error {
 	os.Remove(filepath.Join(dbPath, "lengths"))
 	os.Remove(filepath.Join(dbPath, "lengths-corrupted"))
 
-	if err := os.MkdirAll(opts.DataDir, 0755); err != nil {
+	if err := os.MkdirAll(opts.DataDir, 0750); err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("\n  ** Can't create data directory: %s\n\n", opts.DataDir))
 		os.Exit(1)
 	}
-	if err := os.MkdirAll(dbPath, 0755); err != nil {
+	if err := os.MkdirAll(dbPath, 0750); err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("\n  ** Can't create db directory: %s\n\n", dbPath))
 		os.Exit(1)
 	}

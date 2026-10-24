@@ -8,12 +8,19 @@
       "by": "secops CI setup",
       "date": "2026-10-23"
     },
-    "d4c46cb083f10fe6": {
+    "cc1f7ca77c172c09": {
       "rule": "lightwalletd.grpc.request-range-unbounded",
       "path": "frontend/service.go",
-      "reason": "GetBlockRange (upstream zcash/lightwalletd, unchanged): wallets legitimately sync the whole chain in one range. Each height is served from the local block cache (common.GetBlock refuses heights outside [firstBlock, nextBlock)), never from the node, and the stream is back-pressured by resp.Send; the cost is bounded by the chain length and paid at the client's read rate.",
-      "by": "secops CI setup",
-      "date": "2026-10-23"
+      "reason": "GetBlockRange (upstream zcash/lightwalletd): wallets legitimately sync the whole chain in one range, so the length is not capped. Both heights are refused past 2^31-1 (the node's int heights, maxRequestHeight), each height is served from the local block cache or one node getblock, the stream is back-pressured by resp.Send, and the producer stops when the stream ends (common.GetBlockRange ctx). The cost is bounded by the chain length and paid at the client's read rate. (the height check)",
+      "by": "code-scanning triage",
+      "date": "2026-10-24"
+    },
+    "47afca9b1ce82809": {
+      "rule": "lightwalletd.grpc.request-range-unbounded",
+      "path": "frontend/service.go",
+      "reason": "GetBlockRange (upstream zcash/lightwalletd): wallets legitimately sync the whole chain in one range, so the length is not capped. Both heights are refused past 2^31-1 (the node's int heights, maxRequestHeight), each height is served from the local block cache or one node getblock, the stream is back-pressured by resp.Send, and the producer stops when the stream ends (common.GetBlockRange ctx). The cost is bounded by the chain length and paid at the client's read rate. (the producer call)",
+      "by": "code-scanning triage",
+      "date": "2026-10-24"
     },
     "8225be455a5c78db": {
       "rule": "go.grpc.security.grpc-client-insecure-connection",
