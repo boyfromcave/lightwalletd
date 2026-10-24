@@ -43,7 +43,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
-        run: python3 contrib/secops/code-scanning-triage.py --repo "$REPO" --dismissals contrib/secops/code-scanning-dismissals.json --export open-alerts.json $([ "$DRY_RUN" = true ] && echo --dry-run)
+        run: |
+          set -- --repo "$REPO" --dismissals contrib/secops/code-scanning-dismissals.json --export open-alerts.json
+          if [ "$DRY_RUN" = true ]; then set -- "$@" --dry-run; fi
+          python3 contrib/secops/code-scanning-triage.py "$@"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ !cancelled() }}
         with:
