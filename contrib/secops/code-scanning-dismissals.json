@@ -1,0 +1,145 @@
+{
+  "_comment": "Code-scanning alerts dismissed by .github/workflows/code-scanning.yml (contrib/secops/code-scanning-triage.py). One entry per tool + rule + path glob: reason is one of 'false positive', 'won't fix', 'used in tests'; comment is the argument a reviewer can check (280 characters reach GitHub). A real finding is fixed in code, never listed here.",
+  "dismissals": [
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G104",
+      "path": "cmd/root.go",
+      "reason": "won't fix",
+      "comment": "Start-up only: Stderr.WriteString of a diagnostic just before Log.Fatal; Close of the empty log file just created; os.Remove(All) of cache files on --redownload (a missing file is normal); viper.BindPFlag, which fails only for a nil flag, and each flag is defined above it."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G104",
+      "path": "common/cache.go",
+      "reason": "false positive",
+      "comment": "fnv.New64a().Write (checksum) never returns an error (hash.Hash contract), and BlockCache.Close is called only by tests before removing the files. Sync now logs its errors."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G104",
+      "path": "common/darkside.go",
+      "reason": "won't fix",
+      "comment": "Darkside mock getrawmempool (only with --darkside-very-insecure, never on a public server): it re-parses blocks and transactions that DarksideStageBlock*/StageTransaction already parsed and accepted when the test driver staged them."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G104",
+      "path": "contrib/semgrep/testdata/lightwalletd.go",
+      "reason": "used in tests",
+      "comment": "Annotated test cases for the repository's own Semgrep rules (semgrep --test, secops.yml semgrep-rule-tests); the file is never built (not in a Go package of the module's build) and the unhandled calls are the patterns under test."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G104",
+      "path": "parser/block_header.go",
+      "reason": "false positive",
+      "comment": "binary.Write into a *bytes.Buffer of fixed-size values: bytes.Buffer.Write never returns an error (it panics only if memory is exhausted), and every value is a fixed-size integer or byte slice, so binary.Write cannot fail on encoding."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G115",
+      "path": "cmd/root.go",
+      "reason": "false positive",
+      "comment": "saplingHeight = int(SaplingActivationHeight): a height the node reports (int32 there). int(opts.DarksideTimeout): the operator's own --darkside-timeout in minutes, darkside test mode only. Both fit int on the 64-bit targets built."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G115",
+      "path": "common/cache.go",
+      "reason": "false positive",
+      "comment": "uint64(height): height >= firstBlock >= 0 (Sapling activation). uint32(len(data)): a marshalled compact block, < 2 MB by consensus block size. int(block.Height): uint64 from the node or the checksummed cache, compared with the expected height."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G115",
+      "path": "common/common.go",
+      "reason": "false positive",
+      "comment": "uint64(getblockchaininfoReply.Blocks / EstimatedHeight): heights the node reports, int32 and non-negative there (blocks >= 0, estimatedheight >= 0); the reply comes from the operator's own node over RPC."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G115",
+      "path": "frontend/service.go",
+      "reason": "false positive",
+      "comment": "Node replies only (client heights are bounded by maxRequestHeight): getaddressutxos height >= 0, outputIndex < 2^31, satoshis <= MAX_MONEY; tree/tip heights >= 0; getrawtransaction -1 -> 2^64-1 is the RawTransaction.height not-main-chain sentinel. Rest: darkside."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G115",
+      "path": "frontend/yellowback.go",
+      "reason": "false positive",
+      "comment": "uint64(u.ActivationHeight): an upgrade activation height from the node's getblockchaininfo (non-negative int32 there). The client-supplied amounts in EstimateCollateral/EstimateFee are now refused past MaxInt64 before the conversion."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G115",
+      "path": "parser/block.go",
+      "reason": "false positive",
+      "comment": "uint64(b.GetHeight()) in ToCompact: the only callers (common.getBlockFromRPC and the darkside path) first check that GetHeight() equals the requested height >= 0; GetHeight itself returns -1 or a value <= 2^32-1."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G115",
+      "path": "parser/block_header.go",
+      "reason": "false positive",
+      "comment": "uint8(length) in WriteCompactLengthPrefixedLen is inside `if length < 253`, and length is a len() (>= 0), so it is in [0, 252]."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G115",
+      "path": "parser/transaction.go",
+      "reason": "false positive",
+      "comment": "uint64(index) in ToCompact: index is the transaction's position in its block from Block.ToCompact's range loop (>= 0)."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G115",
+      "path": "testclient/main.go",
+      "reason": "used in tests",
+      "comment": "testclient is the upstream stress/test client, not built into the image or shipped (Dockerfile builds lightwalletd and lwdinfo); the converted values are its own command-line arguments."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G115",
+      "path": "testtools/genblocks/main.go",
+      "reason": "used in tests",
+      "comment": "Test-data generator (testtools, not shipped): string(rune(curHeight)) only feeds a fake merkle-root hash; any value, even an invalid rune, is fine for that."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G107",
+      "path": "common/darkside.go",
+      "reason": "won't fix",
+      "comment": "DarksideStageBlocks / StageTransactionsURL fetch the URL the darkside test driver names; that is the RPC's purpose. The darkside service exists only with --darkside-very-insecure (a mock node for wallet tests that stops after 30 minutes), never on a public server."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G304",
+      "path": "common/cache.go",
+      "reason": "false positive",
+      "comment": "copyFile copies the cache's own lengths/blocks files to their -corrupted names; the paths are --data-dir (operator config) joined with fixed file names, never client input."
+    },
+    {
+      "tool": "Golang security checks by gosec",
+      "rule": "G703",
+      "path": "testtools/zap/main.go",
+      "reason": "used in tests",
+      "comment": "zap is a developer tool that corrupts one byte of the file named on its command line to test the cache's corruption detection (not shipped); opening that path is its purpose."
+    },
+    {
+      "tool": "govulncheck",
+      "rule": "GO-2026-5932",
+      "path": "go.mod",
+      "reason": "won't fix",
+      "comment": "GO-2026-5932 is the unmaintained advisory on golang.org/x/crypto/openpgp, with no fixed version (openpgp is unchanged in v0.58.0). Nothing imports openpgp: only ripemd160 and sha3 are vendored (vendor/modules.txt); govulncheck reports it not called."
+    },
+    {
+      "tool": "osv-scanner",
+      "rule": "GO-2026-5932",
+      "path": "go.mod",
+      "reason": "won't fix",
+      "comment": "GO-2026-5932 is the unmaintained advisory on golang.org/x/crypto/openpgp, with no fixed version (openpgp is unchanged in v0.58.0). Nothing imports openpgp: only ripemd160 and sha3 are vendored (vendor/modules.txt); govulncheck reports it not called. osv-scanner.toml"
+    }
+  ]
+}
