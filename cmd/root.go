@@ -75,7 +75,7 @@ var rootCmd = &cobra.Command{
 			// Owner-only: the log carries client addresses and request detail. A failure here is
 			// reported by the existence check just below.
 			if f, err := os.OpenFile(opts.LogFile, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600); err == nil {
-				f.Close()
+				_ = f.Close() // nothing was written to it
 			}
 		}
 		if !opts.Darkside && (opts.RPCUser == "" || opts.RPCPassword == "" || opts.RPCHost == "" || opts.RPCPort == "") {

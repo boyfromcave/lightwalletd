@@ -13,7 +13,7 @@ func main() {
 		fmt.Println("usage:", os.Args[0], "file offset")
 		os.Exit(1)
 	}
-	f, err := os.OpenFile(os.Args[1], os.O_RDWR, 0600) // no O_CREATE: the mode is never used
+	f, err := os.OpenFile(os.Args[1], os.O_RDWR, 0644)
 	if err != nil {
 		fmt.Println("open failed:", err)
 		os.Exit(1)
