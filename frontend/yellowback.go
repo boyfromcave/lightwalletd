@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"math"
 	"regexp"
 	"sort"
 	"sync"
@@ -325,6 +326,9 @@ func (y *YellowbackStreamer) EstimateCollateral(ctx context.Context, in *walletr
 	if in == nil || in.Cents == 0 || in.LockBlocks == 0 {
 		return nil, badArg("cents and lockBlocks must be positive")
 	}
+	if in.Cents > math.MaxInt64 || in.PriceMicroUsd > math.MaxInt64 {
+		return nil, badArg("cents and priceMicroUsd must fit a signed 64-bit amount")
+	}
 	params := []json.RawMessage{common.JSONNumber(int64(in.Cents)), common.JSONNumber(int64(in.LockBlocks))}
 	if in.PriceMicroUsd != 0 {
 		params = append(params, common.JSONNumber(int64(in.PriceMicroUsd)))
@@ -341,6 +345,9 @@ func (y *YellowbackStreamer) EstimateFee(ctx context.Context, in *walletrpc.YedF
 	}
 	if in == nil || in.MintedCents == 0 {
 		return nil, badArg("mintedCents must be positive")
+	}
+	if in.MintedCents > math.MaxInt64 || in.PriceMicroUsd > math.MaxInt64 {
+		return nil, badArg("mintedCents and priceMicroUsd must fit a signed 64-bit amount")
 	}
 	params := []json.RawMessage{common.JSONNumber(int64(in.MintedCents))}
 	if in.PriceMicroUsd != 0 {

@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -342,6 +343,81 @@ func TestGetTaddressTxidsNilArgs(t *testing.T) {
 		if err == nil {
 			t.Fatal("GetBlockRange nil range argument should fail")
 		}
+	}
+}
+
+// TestRequestHeightBounds: a range or height the node cannot hold (heights are int32 there), or a
+// range whose start is past its end, is refused before the node or the cache is asked.
+func TestRequestHeightBounds(t *testing.T) {
+	called := 0
+	previous := common.RawRequest
+	common.RawRequest = func(method string, params []json.RawMessage) (json.RawMessage, error) {
+		called++
+		return nil, errors.New("the node must not be called")
+	}
+	defer func() { common.RawRequest = previous }()
+	lwd, _ := testsetup()
+	huge := uint64(math.MaxInt32) + 1
+	for i, r := range []*walletrpc.BlockRange{
+		{Start: &walletrpc.BlockID{Height: 30}, End: &walletrpc.BlockID{Height: 20}},
+		{Start: &walletrpc.BlockID{Height: 1}, End: &walletrpc.BlockID{Height: huge}},
+		{Start: &walletrpc.BlockID{Height: 0}, End: &walletrpc.BlockID{Height: math.MaxUint64}},
+	} {
+		f := &walletrpc.TransparentAddressBlockFilter{Address: "s1234567890123456789012345678901234", Range: r}
+		if err := lwd.GetTaddressTxids(f, &testgettx{}); err == nil || !strings.Contains(err.Error(), "Invalid block range") {
+			t.Errorf("GetTaddressTxids case %d: got %v, want an invalid-range error", i, err)
+		}
+	}
+	for i, r := range []*walletrpc.BlockRange{
+		{Start: &walletrpc.BlockID{Height: huge}, End: &walletrpc.BlockID{Height: 1}},
+		{Start: &walletrpc.BlockID{Height: 1}, End: &walletrpc.BlockID{Height: math.MaxUint64}},
+	} {
+		if err := lwd.GetBlockRange(r, &testgetbrange{}); err == nil || err.Error() != "block height out of range" {
+			t.Errorf("GetBlockRange case %d: got %v", i, err)
+		}
+	}
+	if _, err := lwd.GetBlock(context.Background(), &walletrpc.BlockID{Height: huge}); err == nil || err.Error() != "block height out of range" {
+		t.Errorf("GetBlock: got %v", err)
+	}
+	if _, err := lwd.GetTreeState(context.Background(), &walletrpc.BlockID{Height: math.MaxUint64}); err == nil || err.Error() != "block height out of range" {
+		t.Errorf("GetTreeState: got %v", err)
+	}
+	if called != 0 {
+		t.Errorf("the node was called %d times for out-of-range input", called)
+	}
+}
+
+// TestGetTaddressTxidsClampsToTip: a range that runs past the cache's tip asks the node only up
+// to the tip, and a range wholly past it asks nothing.
+func TestGetTaddressTxidsClampsToTip(t *testing.T) {
+	var asked []string
+	previous := common.RawRequest
+	common.RawRequest = func(method string, params []json.RawMessage) (json.RawMessage, error) {
+		asked = append(asked, method+" "+string(params[0]))
+		return json.RawMessage("[]"), nil
+	}
+	defer func() { common.RawRequest = previous }()
+	_, cache := testsetup()
+	// The test cache starts at 380640; with one block added its tip is 380640.
+	if err := cache.Add(380640, &walletrpc.CompactBlock{Height: 380640, Hash: make([]byte, 32), PrevHash: make([]byte, 32)}); err != nil {
+		t.Fatal(err)
+	}
+	lwd, err := NewLwdStreamer(cache, "main", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := "s1234567890123456789012345678901234"
+	f := &walletrpc.TransparentAddressBlockFilter{Address: addr, Range: &walletrpc.BlockRange{
+		Start: &walletrpc.BlockID{Height: 1}, End: &walletrpc.BlockID{Height: 2000000}}}
+	if err := lwd.GetTaddressTxids(f, &testgettx{}); err != nil {
+		t.Fatal(err)
+	}
+	if len(asked) != 1 || !strings.Contains(asked[0], `"start":1,"end":380640`) {
+		t.Fatalf("node asked %v, want getaddresstxids up to the tip 380640", asked)
+	}
+	f.Range = &walletrpc.BlockRange{Start: &walletrpc.BlockID{Height: 380641}, End: &walletrpc.BlockID{Height: 380700}}
+	if err := lwd.GetTaddressTxids(f, &testgettx{}); err != nil || len(asked) != 1 {
+		t.Fatalf("a range past the tip: %v, node asked %v", err, asked)
 	}
 }
 
