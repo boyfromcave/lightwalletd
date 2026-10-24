@@ -3,12 +3,12 @@
 # file COPYING or https://www.opensource.org/licenses/mit-license.php .
 #
 # Ycash lightwalletd. Two stages: the Go toolchain CI uses (go.mod: `go 1.26.0`, `toolchain
-# go1.26.9`; .github/workflows/yellowback-tests.yml builds with 1.26.9) compiles
+# go1.26.10`; .github/workflows/yellowback-tests.yml builds with 1.26.10) compiles
 # the vendored tree statically, and a small Alpine image runs it as an unprivileged user.
 # The node is NOT in this image: run ycashd yourself and point the server at its RPC port
 # (docs/docker.md). Build: `make docker_img` (or `docker build -t ycash/lightwalletd .`).
 
-FROM golang:1.26.9-alpine3.23 AS builder
+FROM golang:1.26.10-alpine3.23 AS builder
 ARG LWD_VERSION=docker
 WORKDIR /src
 COPY . .

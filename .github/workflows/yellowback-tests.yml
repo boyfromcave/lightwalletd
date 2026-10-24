@@ -16,7 +16,7 @@
 #                         carry no schedule.
 #
 # Supply chain (audit E-6): actions are pinned by commit SHA (the tag is the comment), the Go
-# toolchain is an exact version (go.mod's `go 1.26.0` is the language floor and `toolchain go1.26.9`
+# toolchain is an exact version (go.mod's `go 1.26.0` is the language floor and `toolchain go1.26.10`
 # the toolchain; the node lines' nightlies must install the same for this fork), the runner image is a release,
 # and protoc is a release zip verified against its SHA-256 (the version docs/yellowback.md
 # records) rather than whatever protobuf-compiler Ubuntu ships that day.
@@ -56,7 +56,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 env:
-  GO_VERSION: '1.26.9'
+  GO_VERSION: '1.26.10'
   NODE_REPO_YCASH_DD: boyfromcave/ycash-dd
   NODE_REPO_YCASH6: boyfromcave/ycash6
 

@@ -27,7 +27,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
-          go-version: '1.26.9'   # as yellowback-tests.yml (go.mod: toolchain go1.26.9)
+          go-version: '1.26.10'   # as yellowback-tests.yml (go.mod: toolchain go1.26.10)
           cache: false
       - name: go mod verify (every module against the checksum database)
         env:

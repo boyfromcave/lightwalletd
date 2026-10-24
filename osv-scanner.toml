@@ -7,5 +7,15 @@
 #   ignoreUntil = YYYY-MM-DDT00:00:00Z
 #   reason = "why it does not apply here, or why it cannot be fixed yet"
 #
-# Empty: the go.mod backlog (15 known, 13 reachable) was fixed by the Go 1.26.9 / grpc 1.83.2 / x/net 0.60.0 /
+# The go.mod backlog (15 known, 13 reachable) was fixed by the Go 1.26.9 / grpc 1.83.2 / x/net 0.60.0 /
 # btcd 0.26.2 / prometheus client_golang 1.24.1 upgrade (#3).
+
+# GO-2026-5932: an "unmaintained, unsafe by design" advisory on the
+# golang.org/x/crypto/openpgp packages, with no fixed version (openpgp/ is byte-identical in
+# x/crypto v0.57.0 and v0.58.0, the newest). This server imports only x/crypto/ripemd160 and
+# x/crypto/sha3 (through btcd; vendor/modules.txt), so openpgp is neither vendored nor built, and
+# govulncheck reports it as "not called". Re-check at expiry.
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+ignoreUntil = 2027-01-21T00:00:00Z
+reason = "Affects only golang.org/x/crypto/openpgp, which no package here imports (only ripemd160 and sha3 are vendored, vendor/modules.txt); no fixed x/crypto version exists (openpgp is unchanged in v0.58.0)."
