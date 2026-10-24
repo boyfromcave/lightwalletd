@@ -53,6 +53,10 @@ Test cases: `contrib/semgrep/testdata/lightwalletd.go`. Run them with
   toolchain, or stop calling the affected symbol. On a PR, only vulnerabilities the PR adds fail the
   check (`contrib/secops/new-findings.py`).
 - **gosec**: `// #nosec G<nnn> -- <reason>` on the line.
+- **Any code-scanning alert** (gosec, govulncheck, OSV-Scanner, CodeQL, ...): an entry in
+  `contrib/secops/code-scanning-dismissals.json` (tool, rule, path glob, reason, comment).
+  `.github/workflows/code-scanning.yml` dismisses the matching open alerts when that file changes on
+  `upgrade/vault`, every night and on demand. A real finding is fixed, never listed.
 - **zizmor**: fix the workflow. Use an inline `# zizmor: ignore[<audit>]` with a reason only when the
   pattern is intended.
 
