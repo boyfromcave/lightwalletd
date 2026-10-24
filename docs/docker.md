@@ -12,7 +12,7 @@ make docker_img                      # = docker build --build-arg LWD_VERSION=$(
 docker build --platform linux/amd64 -t ycash/lightwalletd:local .    # cross-build for an x86 server
 ```
 
-Two stages ([Dockerfile](../Dockerfile)): `golang:1.26.9-alpine` compiles the vendored tree with
+Two stages ([Dockerfile](../Dockerfile)): `golang:1.26.10-alpine` compiles the vendored tree with
 `CGO_ENABLED=0 go build -mod=vendor` (the same build CI runs), `alpine:3.22` runs the binary as
 user `lightwalletd` (uid 2002) with its cache at `/var/lib/lightwalletd`. The image is ~60 MB.
 
