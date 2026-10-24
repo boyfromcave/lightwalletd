@@ -128,6 +128,13 @@
       "comment": "zap is a developer tool that corrupts one byte of the file named on its command line to test the cache's corruption detection (not shipped); opening that path is its purpose."
     },
     {
+      "tool": "Golang security checks by gosec",
+      "rule": "G302",
+      "path": "testtools/zap/main.go",
+      "reason": "false positive",
+      "comment": "zap (testtools, not shipped) opens an existing file with os.O_RDWR and no O_CREATE, so the mode argument is never applied; the file's own mode is kept."
+    },
+    {
       "tool": "govulncheck",
       "rule": "GO-2026-5932",
       "path": "go.mod",
