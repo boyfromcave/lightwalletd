@@ -107,8 +107,8 @@ func computeFee(data []byte) (int64, bool) {
 	if err != nil || len(rest) != 0 {
 		return 0, false
 	}
-	prevouts, valueOut, shieldedIn := tx.FeeParts()
-	if len(prevouts) > maxFeeInputs {
+	prevouts, valueOut, shieldedIn, ok := tx.FeeParts()
+	if !ok || len(prevouts) > maxFeeInputs {
 		return 0, false
 	}
 	in := shieldedIn
