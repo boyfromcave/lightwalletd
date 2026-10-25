@@ -71,8 +71,8 @@ line (5 and 7 are refused, as before). Additive proto fields only: `YellowbackPa
 `ListClaimable` now streams every ACTIVE vault whose claim branch is open, in term too: a row with
 `claimable: false` is above the threshold and its `underwaterAt` is the claim price (µUSD) below which it becomes
 claimable — a client offers a claim only on `claimable: true` rows. `yed_estimateredeem` (the wallet's quote) is
-wallet context and is not offered; a light client computes the early-redeem fee as
-`params.earlyRedeemFeeBps[class] × collateralZat / 10000` before `lockHeight`. `ListClaimable` sends no `count`, so
+wallet context and is not offered; a light client computes the early-redeem fee before `lockHeight` as
+`ceil(mintedCents × params.earlyRedeemFeeBps[class] × COIN / pMint)` zat: a share of the debt at the vault's mint price (IT-9′). `ListClaimable` sends no `count`, so
 the node's default page (1000 rows) applies.
 
 **rpcversion 7 (post-quantum vault owners, branch `upgrade/quantum-vaults`; `docs/plans/yellowback-quantum-spec.md`
