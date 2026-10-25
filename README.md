@@ -1,6 +1,6 @@
 # Ycash lightwalletd
 
-[![yellowback-tests](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml/badge.svg?branch=upgrade/quantum-vaults)](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml)
+[![yellowback-tests](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml/badge.svg?branch=upgrade/vault)](https://github.com/boyfromcave/lightwalletd/actions/workflows/yellowback-tests.yml)
 
 lightwalletd is a backend service that gives light wallets a bandwidth-efficient, Sapling-era
 interface to the Ycash blockchain: compact blocks, transparent-address lookups, transaction
@@ -162,6 +162,8 @@ server — see [docs/yellowback.md](docs/yellowback.md). Never test against main
 [docs/darksidewalletd.md](docs/darksidewalletd.md) describes the mock-node mode for client
 integration tests. CI is [.github/workflows/yellowback-tests.yml](.github/workflows/yellowback-tests.yml):
 build, vet, gofmt, the tests above, the generated-code check, and a `docker build` of the image.
+[.github/workflows/go-vendor.yml](.github/workflows/go-vendor.yml) checks that `vendor/` is exactly
+`go mod vendor` output and passes `go mod verify`; the security checks are under "Security CI".
 
 # Pull requests
 
