@@ -3426,6 +3426,23 @@ period&#39;s end (the node&#39;s null, never cancelled, is 0 here). </p></td>
                   <td><p>rpcversion 8: FEE-1&#39; of the debt at pMint </p></td>
                 </tr>
               
+                <tr>
+                  <td>mintBlocked</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>The mint restriction (additive, rpcversion unchanged; cf. DigiByte v9.26.7 e18654a3 estimatecollateral&#39;s
+minting_restricted): mintBlocked is true when yed_mint of this query would be refused at the next block, and
+mintBlockedReason is the identifier it would throw (a mintpol-* or halt identifier); false and &#34;&#34; when the
+mint is allowed, and also when the node predates the fields (it omits the keys). </p></td>
+                </tr>
+              
+                <tr>
+                  <td>mintBlockedReason</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -5021,6 +5038,24 @@ ACTIVE at or after cancelQuietUntil. </p></td>
                   <td><p>CAN-1 (a cancelled claim refunds its burn): on a CLAIMING vault, the scriptPubKey (hex) the claim&#39;s burned YED came
 from -- the token spent at the claim&#39;s lowest-index YED input -- which a cancel re-issues the whole burn to as one
 YED token (burnedCents); &#34;&#34; otherwise (the node omits the key). </p></td>
+                </tr>
+              
+                <tr>
+                  <td>spendPending</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>The vault&#39;s pending spend (additive, rpcversion unchanged; cf. DigiByte v9.26.7 00136af6, a pending redemption
+is told apart before coin selection): spendPending is true while a mempool transaction spends the vault
+outpoint (a redeem or claim waiting to confirm), and spendTxid is that transaction; false and &#34;&#34; otherwise,
+and also when the node predates the fields (it omits the keys). A wallet offers no second redeem or claim
+while it is set. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>spendTxid</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
                 </tr>
               
             </tbody>

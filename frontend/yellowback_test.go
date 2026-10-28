@@ -1509,3 +1509,86 @@ func TestClaimableCancelLimitFields(t *testing.T) {
 		t.Errorf("cancelled row: %+v", b)
 	}
 }
+
+// TestVaultSpendPendingFields (cf. DigiByte v9.26.7 00136af6, a pending redemption told apart before coin
+// selection): the node's spendPending / spendTxid on yed_getvault and every yed_listvaults row reach the client.
+// A node that predates the fields omits the keys, which reads as false / "" (the contract example today); a vault
+// whose outpoint a mempool transaction spends passes both through.
+func TestVaultSpendPendingFields(t *testing.T) {
+	svc, node := newService(t)
+	ctx := context.Background()
+	var vault map[string]interface{}
+	if err := json.Unmarshal(node.contract.returns(t, "yed_getvault"), &vault); err != nil {
+		t.Fatal(err)
+	}
+	delete(vault, "spendPending")
+	delete(vault, "spendTxid")
+	put := func(v map[string]interface{}) {
+		one, _ := json.Marshal(map[string]interface{}{"returns": v})
+		rows, _ := json.Marshal(map[string]interface{}{"returns": []interface{}{v}})
+		node.contract["yed_getvault"] = one
+		node.contract["yed_listvaults"] = rows
+	}
+	put(vault)
+	absent, err := svc.GetVault(ctx, &walletrpc.YedTxid{Txid: exampleTxid})
+	if err != nil || absent.GetSpendPending() || absent.GetSpendTxid() != "" {
+		t.Fatalf("node without the fields: spendPending=%v spendTxid=%q (%v)", absent.GetSpendPending(), absent.GetSpendTxid(), err)
+	}
+	spender := strings.Repeat("5e", 32)
+	vault["spendPending"] = true
+	vault["spendTxid"] = spender
+	put(vault)
+	check := func(where string, v *walletrpc.YedVault) {
+		t.Helper()
+		if !v.GetSpendPending() || v.GetSpendTxid() != spender {
+			t.Errorf("%s: pending spend not passed through: spendPending=%v spendTxid=%q", where, v.GetSpendPending(), v.GetSpendTxid())
+		}
+	}
+	got, err := svc.GetVault(ctx, &walletrpc.YedTxid{Txid: exampleTxid})
+	if err != nil {
+		t.Fatal(err)
+	}
+	check("GetVault", got)
+	vs := &vaultStream{}
+	if err := svc.ListVaults(&walletrpc.YedVaultFilter{}, vs); err != nil || len(vs.rows) != 1 {
+		t.Fatalf("ListVaults: %d rows (%v)", len(vs.rows), err)
+	}
+	check("ListVaults", vs.rows[0].(*walletrpc.YedVault))
+}
+
+// TestCollateralMintBlockedFields (cf. DigiByte v9.26.7 e18654a3, estimatecollateral's minting_restricted): the
+// node's mintBlocked / mintBlockedReason on yed_estimatecollateral reach the client. Absent keys (a node that
+// predates them) read as false / ""; a refused mint passes the identifier yed_mint would throw.
+func TestCollateralMintBlockedFields(t *testing.T) {
+	svc, node := newService(t)
+	ctx := context.Background()
+	var est map[string]interface{}
+	if err := json.Unmarshal(node.contract.returns(t, "yed_estimatecollateral"), &est); err != nil {
+		t.Fatal(err)
+	}
+	delete(est, "mintBlocked")
+	delete(est, "mintBlockedReason")
+	put := func(v map[string]interface{}) {
+		one, _ := json.Marshal(map[string]interface{}{"returns": v})
+		node.contract["yed_estimatecollateral"] = one
+	}
+	q := &walletrpc.YedMintQuery{Cents: 100000, LockBlocks: 48}
+	put(est)
+	absent, err := svc.EstimateCollateral(ctx, q)
+	if err != nil || absent.GetMintBlocked() || absent.GetMintBlockedReason() != "" {
+		t.Fatalf("node without the fields: mintBlocked=%v reason=%q (%v)", absent.GetMintBlocked(), absent.GetMintBlockedReason(), err)
+	}
+	est["mintBlocked"] = true
+	est["mintBlockedReason"] = "mintpol-global-ratio"
+	put(est)
+	got, err := svc.EstimateCollateral(ctx, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.GetMintBlocked() || got.GetMintBlockedReason() != "mintpol-global-ratio" {
+		t.Errorf("mint restriction not passed through: mintBlocked=%v reason=%q", got.GetMintBlocked(), got.GetMintBlockedReason())
+	}
+	if got.GetRequiredZat() != absent.GetRequiredZat() {
+		t.Errorf("the restriction changed the estimate: requiredZat %d, want %d", got.GetRequiredZat(), absent.GetRequiredZat())
+	}
+}
