@@ -134,6 +134,7 @@ var NotOffered = map[string]string{
 	"yed_signattestation":    "RPC-auth only; signs with a wallet key",
 	"yed_getnewaddress":      "wallet",
 	"yed_listaddresses":      "wallet",
+	"yed_verifyindex":        "operator audit",
 	"yed_validateaddress":    "wallet context in the node; clients decode addresses locally (plan section 5)",
 	"yed_getbalance":         "wallet",
 	"yed_listunspent":        "wallet; GetAddressTokens (Phase L2) is the node-context answer",
