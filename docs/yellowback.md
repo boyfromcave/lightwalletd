@@ -173,6 +173,18 @@ cancelled vault with a held residual (and a CLAIMING one's `refundHolder`) throu
 `TestClaimableCancelLimitFields` the claimable rows; on regtest `TestDevnetCancelLimitFieldsThroughServer` compares
 every `ListVaults` row and its `GetVault`, and every `ListClaimable` row, with the node's answers.
 
+**Pending vault spends and mint restrictions (DigiByte v9.26.7 review, REPORT-B L1; additive, rpcversion
+unchanged).** `YedVault` (`GetVault`, `ListVaults`) carries the node's `spendPending` (36, bool) and `spendTxid` (37):
+true and the spending txid while a mempool transaction spends the vault outpoint (a redeem or claim waiting to
+confirm), so a light wallet shows the vault as pending and offers no second redeem (cf. DigiByte 00136af6).
+`YedCollateralEstimate` (`EstimateCollateral`) carries `mintBlocked` (19, bool) and `mintBlockedReason` (20): whether
+`yed_mint` of the query would be refused at the next block and the identifier it would throw (`mintpol-*`; cf.
+DigiByte e18654a3's `minting_restricted`). The node fields are being added on both node lines; until a node answers
+them the keys are absent and the client reads false / `""`, so this server works against either. The contract copy
+(`testdata/yellowback/contract.json`) is synced from the node by `scripts/sync-node-contracts.sh` once the node
+change lands; `TestVaultSpendPendingFields` and `TestCollateralMintBlockedFields` cover both the absent and the
+present case meanwhile.
+
 **SendTransaction and the fee ceiling (review M-2).** A transaction priced at the published rate can pay more than
 the node's `-maxtxfee`, which `sendrawtransaction` refuses as "absurdly high". On such a refusal, and only when the
 node serves `yed_getinfo` at rpcversion 8, the server establishes the fee — from the node's message (ycash-dd states
