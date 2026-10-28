@@ -59,6 +59,11 @@ var notCarried = map[string]string{
 	"yed_getinfo.supplyCapReached":                 "GetStats carries the supply and its cap",
 	"yed_getinfo.lockedOutputs":                    "the node's wallet layer (H10), not the client's",
 	"yed_getinfo.miner":                            "the node's own miner state (quote, payout address)",
+	// HALT-2 reads open debt (node, owner 2026-10-28): globalRatioBps already carries the ratio; carrying its
+	// denominator in yellowback.proto is a later client update
+	"yed_getinfo.params.globalRatioDenominator": "always \"openDebt\" (HALT-2, 2026-10-28)",
+	"yed_getstats.globalRatioDenominator":       "always \"openDebt\" (HALT-2, 2026-10-28)",
+	"yed_getstats.openDebtCents":                "HALT-2's denominator; globalRatioBps carries the ratio",
 	// The decimal YEC twin of collateralZat (yellowback-rpc.md: amounts are zatoshi, a decimal twin
 	// only where the prototype had one); the proto carries the exact integer.
 	"yed_getvault.collateral":     "decimal twin of collateralZat",
