@@ -5,7 +5,7 @@
 //go:build devnet
 
 // The kogany leg (workspace kogany plan W9-c, report-only): this fork's server in front of a
-// kogany node (zakurad --features ycash, the third node line), compared with the same server in
+// kogany node (koganyd --features ycash, the third node line), compared with the same server in
 // front of a ycash6 node holding the same chain. Run through scripts/kogany-leg.sh, which starts
 // the rig (scripts/kogany-rig.py: kogany, and a ycash6 sidecar `connect=` kogany that holds the
 // wallet and mines) and sets, besides openDevnet's variables:
@@ -61,7 +61,7 @@ func TestKoganyRigLightdInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(f.ZcashdSubversion, "/kogany:") {
+	if !strings.HasPrefix(f.ZcashdSubversion, "/koganyd:") {
 		t.Fatalf("the server under test is not in front of kogany: subversion %q", f.ZcashdSubversion)
 	}
 	if !strings.HasPrefix(b.ZcashdSubversion, "/YcashCpp:") {
