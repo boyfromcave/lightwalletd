@@ -15,7 +15,8 @@ kogany. Stdlib only; one file, kept identical in every client repository that us
 chain-viz, x402-ycash, yew, hawkeye).
 
     kogany-rig.py up --zakurad Z --ycashd Y --dir D [--vault 110] [--blocks N]
-                     [--lightwalletd LWD [--lightwalletd-sidecar]] [--port-base P]
+                     [--lightwalletd LWD [--lightwalletd-sidecar]] [--port-base P] [--pruned RETENTION]
+    kogany-rig.py lightwalletd --lightwalletd LWD --name NAME   one more lightwalletd-dd on kogany, fresh
     kogany-rig.py mine N [POOL]         sync the mempools, generate N on the sidecar, wait for kogany
     kogany-rig.py cli --node I -- METHOD [ARGS...]   node 0 = the sidecar, any other = kogany
     kogany-rig.py price P                no-op (the rig has no quoting pools); accepted for tools
@@ -34,6 +35,12 @@ attestor set id (`--attestor-set`, default 0x11 x 32; no attestor joins it, so Y
 the `yed_*` reads answer from a live, empty index). With `--lightwalletd` it also starts
 lightwalletd-dd (`--yellowback`) against kogany, and with `--lightwalletd-sidecar` a second one
 against the sidecar, a reference for byte-for-byte comparisons.
+
+`--pruned RETENTION` runs kogany in Zakura's Pruned storage mode (`[state.storage_mode.pruned]
+tx_retention`, at least 1001 on regtest; workspace pruning assessment KP-3): raw transactions of
+blocks more than RETENTION below its finalized tip are deleted. `lightwalletd` starts another
+lightwalletd-dd on kogany with an empty cache (`rig.json` `lightwalletd_<NAME>`, stopped by `down`):
+the server a pruned backend cannot feed.
 
 `follow` is the rig for a client test that starts its own ycashd (Hawkeye's regtest tests): it
 starts kogany, has the test's node dial kogany as soon as its RPC answers (`addnode onetry`),
@@ -155,8 +162,9 @@ def spawn(argv, log, env=None):
     return subprocess.Popen(argv, stdout=out, stderr=subprocess.STDOUT, env=env, start_new_session=True)
 
 
-def zakurad_toml(root, ports, peers, vault, attestor_set):
+def zakurad_toml(root, ports, peers, vault, attestor_set, pruned=None):
     heights = '\n'.join(['%s = 1' % k for k in ACTIVATION_KEYS] + ['Vault = %d' % vault])
+    storage = '\n[state.storage_mode.pruned]\ntx_retention = %d\n' % pruned if pruned else ''
     return '''[network]
 listen_addr = "127.0.0.1:{kp2p}"
 initial_testnet_peers = {peers}
@@ -181,7 +189,7 @@ cookie_dir = "{root}/rpc"
 [state]
 cache_dir = "{root}/state"
 ephemeral = false
-
+{storage}
 [mempool]
 debug_enable_at_height = 0
 
@@ -194,15 +202,16 @@ attestor_set = "{attestor_set}"
 [tracing]
 use_color = false
 filter = "info"
-'''.format(root=root, peers=json.dumps(peers), heights=heights, attestor_set=attestor_set, **ports)
+'''.format(root=root, peers=json.dumps(peers), heights=heights, attestor_set=attestor_set, storage=storage,
+           **ports)
 
 
-def start_zakurad(binary, workdir, ports, peers, vault, attestor_set):
+def start_zakurad(binary, workdir, ports, peers, vault, attestor_set, pruned=None):
     root = os.path.join(workdir, 'zakurad')
     os.makedirs(root, exist_ok=True)
     conf = os.path.join(workdir, 'zakurad.toml')
     with open(conf, 'w', encoding='utf-8') as f:
-        f.write(zakurad_toml(root, ports, peers, vault, attestor_set))
+        f.write(zakurad_toml(root, ports, peers, vault, attestor_set, pruned))
     env = dict(os.environ)
     for k in ('KOGANY_VAULT_RPC_MOCK', 'KOGANY_YED_RPC_MOCK'):  # the real index, never the fixtures
         env.pop(k, None)
@@ -244,7 +253,7 @@ def cmd_up(args):
     os.makedirs(workdir)
     ports = ({k: args.port_base + i for i, k in enumerate(PORT_NAMES)} if args.port_base
              else free_ports(PORT_NAMES))
-    state = {'dir': workdir, 'num_nodes': 2, 'pools': [0], 'vault_height': args.vault,
+    state = {'dir': workdir, 'num_nodes': 2, 'pools': [0], 'vault_height': args.vault, 'pruned': args.pruned,
              'attestor_set': args.attestor_set, 'ports': ports, 'pids': {}, 'binaries': {
                  'zakurad': os.path.abspath(args.zakurad), 'ycashd': os.path.abspath(args.ycashd)},
              'rpc': {
@@ -254,7 +263,7 @@ def cmd_up(args):
                        'password': 'kogany', 'role': 'kogany'}}}
     save(state)
     try:
-        z, kogany = start_zakurad(args.zakurad, workdir, ports, [], args.vault, args.attestor_set)
+        z, kogany = start_zakurad(args.zakurad, workdir, ports, [], args.vault, args.attestor_set, args.pruned)
         state['pids']['zakurad'] = z.pid
         save(state)
         ydir = os.path.join(workdir, 'ycashd')
@@ -298,6 +307,22 @@ def cmd_up(args):
         raise
 
 
+def cmd_lightwalletd(args):
+    """One more lightwalletd-dd on kogany, with an empty cache, on two fresh ports."""
+    state = load(args)
+    name = 'lightwalletd-' + args.name
+    if name in state['pids']:
+        raise RigError('%s already runs' % name)
+    ports = free_ports(('grpc', 'http'))
+    p = start_lightwalletd(args.lightwalletd, state['dir'], name, state['ports']['krpc'], 'kogany', 'kogany',
+                           ports['grpc'], ports['http'])
+    state['pids'][name] = p.pid
+    state['lightwalletd_' + args.name] = '127.0.0.1:%d' % ports['grpc']
+    save(state)
+    print(json.dumps({'name': name, 'addr': state['lightwalletd_' + args.name], 'pid': p.pid,
+                      'log': os.path.join(state['dir'], name + '.log')}))
+
+
 def sync_mempools(state, timeout=60):
     """Every transaction in kogany's mempool also in the sidecar's (kogany relays; a late relay is
     handed over by `sendrawtransaction`), so `generate` mines what the clients sent to kogany."""
@@ -330,7 +355,8 @@ def mine(state, n):
 
 
 def down(state):
-    for name in ('lightwalletd-sidecar', 'lightwalletd', 'ycashd', 'zakurad'):
+    extra = [n for n in state.get('pids', {}) if n.startswith('lightwalletd-') and n != 'lightwalletd-sidecar']
+    for name in extra + ['lightwalletd-sidecar', 'lightwalletd', 'ycashd', 'zakurad']:
         pid = state.get('pids', {}).get(name)
         if not pid:
             continue
@@ -457,6 +483,11 @@ def main(argv=None):
     up.add_argument('--lightwalletd', help='lightwalletd-dd binary: serve kogany (--yellowback)')
     up.add_argument('--lightwalletd-sidecar', action='store_true', help='also a lightwalletd-dd on the sidecar')
     up.add_argument('--port-base', type=int, default=0)
+    up.add_argument('--pruned', type=int, metavar='RETENTION',
+                    help='run kogany in Pruned storage mode with this tx_retention (regtest floor 1001)')
+    lw = sub.add_parser('lightwalletd')
+    lw.add_argument('--lightwalletd', required=True)
+    lw.add_argument('--name', required=True)
     m = sub.add_parser('mine')
     m.add_argument('n', type=int)
     m.add_argument('pool', nargs='?', help='ignored (yellowback-devnet compatibility)')
@@ -493,6 +524,8 @@ def main(argv=None):
             cmd_cli(args)
         elif args.cmd == 'price':
             print('price %s: no quoting pools in the kogany rig (no-op)' % args.price)
+        elif args.cmd == 'lightwalletd':
+            cmd_lightwalletd(args)
         elif args.cmd == 'status':
             print(json.dumps(load(args), indent=2))
         elif args.cmd == 'down':
