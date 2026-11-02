@@ -12,7 +12,7 @@
 # with that error (no hang, no panic). The deployment this leg argues for is in README.md
 # ("Backends: archive, not pruned").
 #
-#   env: ZAKURAD (kogany's zakurad, built with --features ycash: kogany's zakurad-bin artifact),
+#   env: KOGANYD (kogany's koganyd, built with --features ycash: kogany's koganyd-bin artifact),
 #        YCASHD (ycash6's ycashd: ycash6's node-bin artifact), LWD_BIN_DIR (where lightwalletd and
 #        lwdinfo are built; default a temporary directory), KOGANY_RIG_DIR (default a temporary
 #        directory), PYTHON (default python3), LWD_KOGANY_RUN (go test -run; default the kogany
@@ -31,7 +31,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY="${PYTHON:-python3}"
-: "${ZAKURAD:?ZAKURAD: kogany zakurad (--features ycash)}"
+# ZAKURAD: the variable's name before kogany's daemon became koganyd (kogany dd834da8b).
+KOGANYD="${KOGANYD:-${ZAKURAD:-}}"
+: "${KOGANYD:?KOGANYD: kogany koganyd (--features ycash)}"
 : "${YCASHD:?YCASHD: ycash6 ycashd}"
 BIN="${LWD_BIN_DIR:-$(mktemp -d)}"
 DIR="${KOGANY_RIG_DIR:-$(mktemp -d)/rig}"
@@ -52,7 +54,7 @@ if [ "$PRUNED" = 1 ]; then
   RETENTION="${LWD_PRUNE_RETENTION:-1001}"
   # compiled first: the fresh server below gives the test about 100 s before its ingestor exits
   go test -mod=vendor -tags devnet -c -o "$BIN/frontend.test" ./frontend/
-  rig up --zakurad "$ZAKURAD" --ycashd "$YCASHD" --lightwalletd "$BIN/lightwalletd" --lightwalletd-sidecar \
+  rig up --koganyd "$KOGANYD" --ycashd "$YCASHD" --lightwalletd "$BIN/lightwalletd" --lightwalletd-sidecar \
     --pruned "$RETENTION"
   # past the window: kogany's finalized tip trails its tip by up to 1,000 blocks, and the window
   # counts from the finalized tip
@@ -91,7 +93,7 @@ if [ "$PRUNED" = 1 ]; then
   fi
   exit $status
 fi
-rig up --zakurad "$ZAKURAD" --ycashd "$YCASHD" --lightwalletd "$BIN/lightwalletd" --lightwalletd-sidecar
+rig up --koganyd "$KOGANYD" --ycashd "$YCASHD" --lightwalletd "$BIN/lightwalletd" --lightwalletd-sidecar
 fork=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["lightwalletd"])' "$DIR/rig.json")
 base=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["lightwalletd_sidecar"])' "$DIR/rig.json")
 
@@ -100,7 +102,7 @@ status=0
 "$BIN/lwdinfo" -server "$base" -timeout 10s -yellowback > "$DIR/lwdinfo-ycash6.json"
 "$PY" - "$DIR/lwdinfo-kogany.json" "$DIR/lwdinfo-ycash6.json" <<'PYEOF' || status=1
 import json, re, sys
-# Where kogany answers otherwise, and why (kogany at the zakurad-bin pin; each one a finding of
+# Where kogany answers otherwise, and why (kogany at the koganyd-bin pin; each one a finding of
 # plan W9-c). A method listed here may differ; any other difference fails the leg.
 KNOWN_GAPS = {
     'EstimateCollateral': 'yed_estimatecollateral is not served by kogany yet (plan W7-b)',

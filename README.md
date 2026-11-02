@@ -130,7 +130,7 @@ answers meanwhile. It checks the files at startup, logs `CORRUPTION` and re-down
 height if they are damaged. `--redownload` discards the cache.
 
 **Backends: archive, not pruned.** Run the node behind lightwalletd as an archive node: ycashd
-without `-prune` (the vault releases refuse it anyway), kogany (`zakurad`) in its default
+without `-prune` (the vault releases refuse it anyway), kogany (`koganyd`) in its default
 `storage_mode = "archive"`. lightwalletd reads every block from Sapling activation with `getblock`
 (the cache fill above, and again after `--redownload` or a damaged cache), a wallet's old transaction
 with `getrawtransaction` (`GetTransaction`), and the transparent views with the `getaddress*` calls. A

@@ -18,7 +18,7 @@
 #                         kogany) scripts/kogany-leg.sh: this fork's server in front of a regtest
 #                         kogany node (the third node line, workspace kogany plan W9-c), compared
 #                         with the same server in front of the ycash6 sidecar that holds the
-#                         chain's wallet. zakurad is kogany's zakurad-bin artifact at KOGANY_REF
+#                         chain's wallet. koganyd is kogany's koganyd-bin artifact at KOGANY_REF
 #                         (the contract of the workspace's docs/plans/kogany/ci-design.md), else
 #                         built at that commit; ycashd is ycash6's node-bin of vaults/kogany-compat.
 #
@@ -410,7 +410,7 @@ jobs:
   kogany:
     # The kogany leg (workspace kogany plan W9-c; docs/plans/kogany/ci-design.md section 5,
     # "lightwalletd-dd and chain-viz"): report-only until the lead architect flips it (drop
-    # continue-on-error). No cache is written: zakurad, ycashd and fetch-params.sh are other
+    # continue-on-error). No cache is written: koganyd, ycashd and fetch-params.sh are other
     # repositories' code.
     name: kogany (report-only)
     if: (github.event_name == 'push' && github.ref_name == 'vaults/kogany-compat') || (github.event_name == 'workflow_dispatch' && inputs.node_line == 'kogany')
@@ -419,17 +419,17 @@ jobs:
     timeout-minutes: 120
     env:
       # kogany vaults/kogany-compat at W5-f (the YED module registered: the real index answers)
-      KOGANY_REF: 1eca93d3f462fb5a10815b4267acb9157843b253
+      KOGANY_REF: dd834da8b77e882b9e6a00b3ce70f2b30b930c37
       YCASH6_BRANCH: vaults/kogany-compat
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      # zakurad-bin: zakurad.tgz holds zakurad (dev profile, --features ycash, ubuntu-24.04, linked
-      # against the runner's librocksdb) and zakurad-bin.json. Only a push, schedule or dispatch run of
+      # koganyd-bin: koganyd-bin.tgz holds koganyd (dev profile, --features ycash, ubuntu-24.04, linked
+      # against the runner's librocksdb) and koganyd-bin.json. Only a push, schedule or dispatch run of
       # kogany at KOGANY_REF is taken, never a pull_request run.
-      - name: kogany's zakurad-bin at KOGANY_REF
-        id: zakurad
+      - name: kogany's koganyd-bin at KOGANY_REF
+        id: koganyd
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -438,25 +438,25 @@ jobs:
           runs=$(gh run list -R boyfromcave/kogany -c "$KOGANY_REF" -L 50 --json databaseId,event,headSha \
             -q ".[] | select(.headSha == \"$KOGANY_REF\") | $trusted | .databaseId" 2>/dev/null || true)
           for r in $runs; do
-            if gh run download "$r" -R boyfromcave/kogany -n zakurad-bin -D "$RUNNER_TEMP/zk-dl" 2>/dev/null \
-               && [ -f "$RUNNER_TEMP/zk-dl/zakurad-bin.tgz" ]; then
-              mkdir -p "$RUNNER_TEMP/zk" && tar xzf "$RUNNER_TEMP/zk-dl/zakurad-bin.tgz" -C "$RUNNER_TEMP/zk"
-              cat "$RUNNER_TEMP/zk/zakurad-bin.json"
-              echo "ZAKURAD=$RUNNER_TEMP/zk/zakurad" >> "$GITHUB_ENV"
+            if gh run download "$r" -R boyfromcave/kogany -n koganyd-bin -D "$RUNNER_TEMP/zk-dl" 2>/dev/null \
+               && [ -f "$RUNNER_TEMP/zk-dl/koganyd-bin.tgz" ]; then
+              mkdir -p "$RUNNER_TEMP/zk" && tar xzf "$RUNNER_TEMP/zk-dl/koganyd-bin.tgz" -C "$RUNNER_TEMP/zk"
+              cat "$RUNNER_TEMP/zk/koganyd-bin.json"
+              echo "KOGANYD=$RUNNER_TEMP/zk/koganyd" >> "$GITHUB_ENV"
               echo "got=true" >> "$GITHUB_OUTPUT"
-              echo "zakurad from boyfromcave/kogany run $r"; exit 0
+              echo "koganyd from boyfromcave/kogany run $r"; exit 0
             fi
           done
           echo "got=false" >> "$GITHUB_OUTPUT"
-          echo "no zakurad-bin of boyfromcave/kogany at $KOGANY_REF: building it here"
+          echo "no koganyd-bin of boyfromcave/kogany at $KOGANY_REF: building it here"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: boyfromcave/kogany
           ref: ${{ env.KOGANY_REF }}
           path: kogany
           persist-credentials: false
-          sparse-checkout: ${{ steps.zakurad.outputs.got == 'true' && '.github/actions/setup-zakura-build' || '' }}
-      # kogany's setup-zakura-build, run as its script: librocksdb for a downloaded zakurad, and what
+          sparse-checkout: ${{ steps.koganyd.outputs.got == 'true' && '.github/actions/setup-zakura-build' || '' }}
+      # kogany's setup-zakura-build, run as its script: librocksdb for a downloaded koganyd, and what
       # the fallback build needs. The fallback fails at dependency resolution until
       # boyfromcave/zakura-common-ycash exists on GitHub (kogany plan K-2).
       - name: kogany build packages
@@ -464,18 +464,18 @@ jobs:
           INSTALL_LIBCLANG: "false"
           INSTALL_PROTOC: "false"
         run: bash kogany/.github/actions/setup-zakura-build/install-ubuntu-packages.sh
-      - name: build zakurad (kogany at KOGANY_REF, --features ycash)
-        if: steps.zakurad.outputs.got != 'true'
+      - name: build koganyd (kogany at KOGANY_REF, --features ycash)
+        if: steps.koganyd.outputs.got != 'true'
         working-directory: kogany
         env:
           CARGO_INCREMENTAL: 0
         run: |
-          cargo build --locked -p zakura --features ycash --bin zakurad
-          echo "ZAKURAD=$GITHUB_WORKSPACE/kogany/target/debug/zakurad" >> "$GITHUB_ENV"
-      - name: zakurad runs here
+          cargo build --locked -p zakura --features ycash --bin koganyd
+          echo "KOGANYD=$GITHUB_WORKSPACE/kogany/target/debug/koganyd" >> "$GITHUB_ENV"
+      - name: koganyd runs here
         run: |
-          if ldd "$ZAKURAD" | grep 'not found'; then echo "::error::zakurad needs a library this runner lacks"; exit 1; fi
-          "$ZAKURAD" --version
+          if ldd "$KOGANYD" | grep 'not found'; then echo "::error::koganyd needs a library this runner lacks"; exit 1; fi
+          "$KOGANYD" --version
       - name: ycashd from ycash6's node-bin (vaults/kogany-compat)
         env:
           GH_TOKEN: ${{ github.token }}
