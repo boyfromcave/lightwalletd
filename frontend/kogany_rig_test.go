@@ -269,7 +269,7 @@ func TestKoganyRigTransparent(t *testing.T) {
 			t.Fatalf("ycash6 %s: %v", name, err)
 		}
 		if !bytes.Equal(f, b) {
-			t.Fatalf("%s differs between kogany and ycash6", name)
+			t.Fatalf("%s differs between kogany and ycash6:\nkogany %x\nycash6 %x", name, f, b)
 		}
 		return f
 	}
