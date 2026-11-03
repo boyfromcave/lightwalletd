@@ -104,9 +104,13 @@ jobs:
         # node side may genuinely not exist yet, skips with a notice.
         env:
           BRANCH: ${{ github.base_ref || github.ref_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
+          # The kogany line (and a wave-gate PR from it) compares against the node's kogany line.
+          case "$HEAD_REF" in vaults/kogany-compat|kc/*) BRANCH=vaults/kogany-compat ;; esac
           case "$BRANCH" in
+            vaults/kogany-compat|kc/*)       node=vaults/kogany-compat;          required=--required ;;
             ci/harden*|harden/yellowback)     node=harden/yellowback;              required=--required ;;
             upgrade/vault-in-term)            node=upgrade/vault-in-term;          required=--required ;;
             ci/q*|upgrade/quantum-vaults|q/*) node=upgrade/quantum-vaults;         required=--required ;;
@@ -121,9 +125,13 @@ jobs:
         # difference prints a warning and never fails the job.
         env:
           BRANCH: ${{ github.base_ref || github.ref_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -uo pipefail
+          # The kogany line (and a wave-gate PR from it) compares against the node's kogany line.
+          case "$HEAD_REF" in vaults/kogany-compat|kc/*) BRANCH=vaults/kogany-compat ;; esac
           case "$BRANCH" in
+            vaults/kogany-compat|kc/*)       node=vaults/kogany-compat ;;
             ci/harden*|harden/yellowback)     node=harden/yellowback ;;
             upgrade/vault-in-term)            node=upgrade/vault-in-term ;;
             ci/q*|upgrade/quantum-vaults|q/*) node=upgrade/quantum-vaults ;;
