@@ -516,7 +516,20 @@ jobs:
       - name: scripts/kogany-leg.sh (report-only)
         env:
           KOGANY_RIG_DIR: ${{ runner.temp }}/kogany-rig
-        run: scripts/kogany-leg.sh
+        # Report-only: the leg's result goes to the step summary and the step exits 0, so a
+        # kogany difference never turns the check red; the log and the rig files are uploaded.
+        run: |
+          set -uo pipefail
+          log=$RUNNER_TEMP/kogany-leg.out
+          scripts/kogany-leg.sh 2>&1 | tee "$log"; status=${PIPESTATUS[0]}
+          {
+            echo "### kogany leg (report-only): exit $status"
+            echo '```'
+            grep -E '^(--- (PASS|FAIL|SKIP)|ok |FAIL|lwdinfo)|differs|kogany_.*_test.go' "$log" | tail -60
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then echo "::warning::kogany leg failed (exit $status); report-only, see the step summary"; fi
+          exit 0
       - name: Upload the rig logs
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
