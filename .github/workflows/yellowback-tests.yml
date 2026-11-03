@@ -421,7 +421,8 @@ jobs:
     # continue-on-error). No cache is written: koganyd, ycashd and fetch-params.sh are other
     # repositories' code.
     name: kogany (report-only)
-    if: (github.event_name == 'push' && github.ref_name == 'vaults/kogany-compat') || (github.event_name == 'workflow_dispatch' && inputs.node_line == 'kogany')
+    # Cache poisoning (code scanning): a downloaded artifact runs here, so only the repository owner starts it.
+    if: ((github.event_name == 'push' && github.ref_name == 'vaults/kogany-compat') || (github.event_name == 'workflow_dispatch' && inputs.node_line == 'kogany')) && github.actor == github.repository_owner
     continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 120
