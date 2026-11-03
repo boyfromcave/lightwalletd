@@ -428,7 +428,7 @@ jobs:
     timeout-minutes: 120
     env:
       # kogany vaults/kogany-compat at W5-f (the YED module registered: the real index answers)
-      KOGANY_REF: dd834da8b77e882b9e6a00b3ce70f2b30b930c37
+      KOGANY_REF: 7a65371421ba7f155012405299da38510b5098ee
       YCASH6_BRANCH: vaults/kogany-compat
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -462,7 +462,7 @@ jobs:
         with:
           repository: boyfromcave/kogany
           # The literal of KOGANY_REF (bump both): a fixed commit, checked in "koganyd runs here".
-          ref: dd834da8b77e882b9e6a00b3ce70f2b30b930c37
+          ref: 7a65371421ba7f155012405299da38510b5098ee
           path: kogany
           persist-credentials: false
           sparse-checkout: ${{ steps.koganyd.outputs.got == 'true' && '.github/actions/setup-zakura-build' || '' }}
@@ -525,7 +525,10 @@ jobs:
         run: |
           set -uo pipefail
           log=$RUNNER_TEMP/kogany-leg.out
+          # The default shell is bash -e: without set +e a failing leg ends the step before exit 0.
+          set +e
           scripts/kogany-leg.sh 2>&1 | tee "$log"; status=${PIPESTATUS[0]}
+          set -e
           {
             echo "### kogany leg (report-only): exit $status"
             echo '```'
