@@ -129,6 +129,23 @@ for a reverse proxy that terminates TLS in front of a loopback bind; never for a
 answers meanwhile. It checks the files at startup, logs `CORRUPTION` and re-downloads from that
 height if they are damaged. `--redownload` discards the cache.
 
+**Backends: archive, not pruned.** Run the node behind lightwalletd as an archive node: ycashd
+without `-prune` (the vault releases refuse it anyway), kogany (`koganyd`) in its default
+`storage_mode = "archive"`. lightwalletd reads every block from Sapling activation with `getblock`
+(the cache fill above, and again after `--redownload` or a damaged cache), a wallet's old transaction
+with `getrawtransaction` (`GetTransaction`), and the transparent views with the `getaddress*` calls. A
+pruned node keeps raw transactions for a window of recent blocks only (Zakura's Pruned mode: at
+least 10,000 blocks below its finalized tip on mainnet, so roughly the last 11,000), and a pruned
+kogany that synced with checkpoints also stops maintaining the address index. Behind a pruned
+kogany, a server whose cache was filled before the node pruned keeps serving that cache, but a
+server started from scratch, or after an outage longer than the window, cannot fill it: kogany
+answers `getblock` below its `pruneheight` with ycashd's `Block not available (pruned data)`
+(-32603), `GetBlock`/`GetBlockRange` return that error, and the ingestor gives up and exits (about
+100 s of retries) rather than waiting forever; `GetTransaction` of a pruned transaction fails.
+`getblockchaininfo` says `"pruned": true` and the `pruneheight` on such a node. The kogany leg
+proves this on regtest: `scripts/kogany-leg.sh --pruned` (report-only). Workspace decision 7 of the
+pruning assessment: lightwalletd backends stay archive.
+
 Other flags: `--grpc-bind-addr` (default `127.0.0.1:9067`), `--http-bind-addr` (`127.0.0.1:9068`),
 `--log-file` (`./server.log`; `/dev/stdout` for a supervisor), `--log-level` (logrus 1–7),
 `--config lightwalletd.yml` ([lightwalletd-example.yml](lightwalletd-example.yml) names every key).
