@@ -205,7 +205,7 @@ func TestVaultParamsAndValidation(t *testing.T) {
 			return svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Owner: owner[2:]}, &vaultOutputStream{})
 		},
 		func() error { // a PQ address: the node takes it, this server's filter field is a pqkeyid
-			return svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Owner: "yr2Tp5VfX9aERxy2khaRBpd7c3FY7nnPNXFgWE9ix6TPjLE4fqeRP"}, &vaultOutputStream{})
+			return svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Owner: "yrs2Uk7esRMiR7LjofAMYfgnNABpTKjkRKSp8Demg3quRHHEaEvqi"}, &vaultOutputStream{})
 		},
 		func() error {
 			return svc.ListVaultOutputs(&walletrpc.VaultOutputFilter{Kind: "bond"}, &vaultOutputStream{})

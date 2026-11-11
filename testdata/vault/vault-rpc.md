@@ -28,7 +28,8 @@ checks live answers against it. Edit this document, then regenerate.
 - **Owners**: a vault's owner is a post-quantum key (docs/plans/yellowback-quantum-plan.md §4.3),
   named by its `pqkeyid` (`scheme || SHA256(scheme || pk)`, scheme 1 SLH-DSA-SHA2-128s or 2
   FN-DSA-512) or, as a parameter, by its PQ Yellowback address (`yb…`/`yt…`/`yr…`, 53
-  characters) or its plain-YEC PQ address (`sq…`/`tq…`/`rq…`, 53 characters, D-Q-20). The node
+  characters) or its plain-YEC PQ address (`sq…`/`tq…`/`rq…`, 53 characters, D-Q-20; the third character
+  names the scheme, D-9: `sqf…`/`ybf…` FN-DSA-512, `sqs…`/`ybs…` SLH-DSA-SHA2-128s). The node
   wallet holds post-quantum keys (`vault_getnewowner`, `getnewaddress "" "pq"`, or one imported
   with `z_importpqkey`) and signs owner spends; an external owner is named explicitly.
 - **Addresses**: every `address` parameter (recipients, `vault_release`, `vault_ownerspend`) takes
@@ -112,7 +113,7 @@ Params: `[]`
 
 Result: `{"branchid": str, "activationheight": int, "active": bool, "height": height, "attestorsetid": hash|null, "moduleactive": bool, "dbtip": {"hash": hash, "height": height}|null, "sets"?: int, "vaults"?: int, "intents"?: int, "lockedvalue"?: yec, "statehash"?: hash}`
 
-`branchid` is `"6d5b7a31"`; `activationheight` is -1 if unscheduled; `active` is at the next
+`branchid` is this network's Vault branch ID: `"6d5b7a31"`, but testnet-yb-slow's own `"e1f1cc08"` (doc/yellowback-testnet-shadow-fork.md); `activationheight` is -1 if unscheduled; `active` is at the next
 block; `height` is the tip. `attestorsetid` is the set the registered module (YED) governs on this
 node, null when it governs none, and `moduleactive` whether it governs one: until the release that
 makes the attestor set a chain parameter (upgrade plan P8) it is the node parameter

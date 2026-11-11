@@ -1188,7 +1188,7 @@ func TestDevnetPQTaddrThroughServer(t *testing.T) {
 	}
 	var rq string
 	d.rpc(t, &rq, "getnewaddress", "", "pq")
-	if !isPlainPQAddress(rq) || rq[:2] != "rq" {
+	if !isPlainPQAddress(rq) || rq[:3] != "rqf" { // D-9: a regtest FN-DSA-512 plain PQ address is rqf…
 		t.Fatalf("getnewaddress pq = %q: not a regtest plain PQ address", rq)
 	}
 	var vinfo struct {
@@ -1326,15 +1326,15 @@ func TestDevnetPQTaddrThroughServer(t *testing.T) {
 	t.Logf("PQ address %s (= %s): balance, txids and UTXOs through the server match the node's index (%d zat, %v)", rq, yr, nodeBalance.Balance, txids)
 }
 
-// yedPQOf is the inverse of yedPQToPlain for a regtest rq… address (the test's own derivation;
-// the unit tests pin the mapping to independent vectors).
+// yedPQOf is the inverse of yedPQToPlain for a regtest FN-DSA-512 rqf… address (the test's own
+// derivation, D-9 versions 0x4C54EF -> 0x571444; the unit tests pin the mapping to independent vectors).
 func yedPQOf(t *testing.T, rq string) string {
 	t.Helper()
 	raw := base58.Decode(rq)
-	if len(raw) != 39 || raw[0] != 0x4C || raw[1] != 0x51 {
-		t.Fatalf("%s: not a regtest plain PQ address", rq)
+	if len(raw) != 39 || raw[0] != 0x4C || raw[1] != 0x54 || raw[2] != 0xEF {
+		t.Fatalf("%s: not a regtest FN-DSA-512 plain PQ address", rq)
 	}
-	p := append([]byte{0x57, 0x10}, raw[2:35]...)
+	p := append([]byte{0x57, 0x14, 0x44}, raw[3:35]...)
 	yr := base58.Encode(append(p, checksum4(p)...))
 	if back, ok := yedPQToPlain(yr); !ok || back != rq {
 		t.Fatalf("yr %s maps back to %q, want %s", yr, back, rq)
