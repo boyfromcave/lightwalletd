@@ -31,9 +31,11 @@ dollar backed by YEC in vaults (`1 YED = $1`), as the first application.
 - **Post-quantum:** vault owners are SLH-DSA keys and YED holders Falcon-512 keys, so a vault row
   carries the owner's scheme and key hash, and YED addresses come in two lengths: 35 characters
   (ordinary) and 53 (post-quantum). Mainnet YED addresses start `yb…`, testnet `yt…`, regtest
-  `yr…`. `GetAddressTokens` takes both, and so do the transparent-address calls: they also take
-  plain-YEC post-quantum addresses (`sq…`, testnet `tq…`, regtest `rq…`) and answer for a
-  post-quantum YED address under its `sq…` form.
+  `yr…`; a post-quantum one names its scheme in the prefix (`ybf…` Falcon, `ybs…` SLH-DSA; `ytf…`/`yts…`,
+  `yrf…`/`yrs…`). `GetAddressTokens` takes both, and so do the transparent-address calls: they also take
+  plain-YEC post-quantum addresses (`sqf…`/`sqs…`, testnet `tqf…`/`tqs…`, regtest `rqf…`/`rqs…`) and
+  answer for a post-quantum YED address under its `sq…` form. The pre-D-9 post-quantum form (`sq4…`,
+  `yb5…`: two version bytes and a scheme byte) is refused.
 - **Fees:** the service publishes the node's fee parameters: the protocol fee in dollars of the
   debt, and the network fee in dollars per KB at the attested price, which is what a light wallet
   uses to price a post-quantum or Yellowback transaction by size. `SendTransaction` resubmits a
@@ -109,8 +111,9 @@ If you restart the node on a different network, restart lightwalletd too.
 
 **Yellowback.** `--yellowback` (or `YELLOWBACK=1`, or `yellowback: true` in the config file).
 At startup the server asks the node for `yed_getinfo` and registers the service only when the node
-speaks Yellowback `rpcversion 8` exactly (a node without the `yed_*` commands answers "Method not
-found": no service, no error); the log says `Yellowback service started (node rpcversion 8, network …)` or
+speaks Yellowback `rpcversion 9` exactly (the scheme-visible post-quantum prefixes, D-9: ycash-dd and ycash6
+6.22.x from that change on; an rpcversion 8 node is refused; a node without the `yed_*` commands answers "Method not
+found": no service, no error); the log says `Yellowback service started (node rpcversion 9, network …)` or
 why not. Two operator flags
 belong to it: `--yellowback-max-inflight N` (node calls in flight at once, default 16) and
 `--trusted-proxy-cidr NET` (repeatable; the per-peer rate limiter believes `x-real-ip` /

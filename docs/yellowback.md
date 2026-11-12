@@ -97,14 +97,19 @@ C-11). Proto changes:
   fee for a PQ spend is `max(DEFAULT_FEE, rate × size / 1000)` on ycash-dd). `YellowbackAttestParams.mintPayloadVersion`
   (14) = 4.
 
-Addresses: a YED address is P2PKH (35 characters) or post-quantum (53 characters, `Base58Check(pqVersion ‖ scheme
-‖ keyHash)`). Mainnet is `yb…` (owner decision D-Q-21: P2PKH `0x1FDD`, PQ `0x56AB`; the earlier `ye…` `0x1FE4` no
-longer maps), testnet `yt…` (`0x2007`, PQ `0x571E`), regtest `yr…` (`0x2002`, PQ `0x5710`). `GetAddressTokens`
+Addresses: a YED address is P2PKH (35 characters) or post-quantum (53 characters). Mainnet is `yb…` (lead architect decision
+D-Q-21: P2PKH `0x1FDD`; the earlier `ye…` `0x1FE4` no longer maps), testnet `yt…` (`0x2007`), regtest `yr…`
+(`0x2002`). Since rpcversion 9 (decision D-9, quantum spec §4.1) a post-quantum address is `Base58Check(version ‖
+keyHash)` with one 3-byte version per network, coin and scheme, so the prefix names the scheme (f FN-DSA-512, s
+SLH-DSA-SHA2-128s): YED `ybf…` `0x56AEDE` / `ybs…` `0x56B044`, `ytf…` `0x5721C9` / `yts…` `0x572330`, `yrf…`
+`0x571444` / `yrs…` `0x5715AA`; plain YEC `sqf…` `0x4DDD04` / `sqs…` `0x4DDE6A`, `tqf…` `0x4F6519` / `tqs…`
+`0x4F667F`, `rqf…` `0x4C54EF` / `rqs…` `0x4C5655`. The pre-D-9 form (2-byte version ‖ scheme ‖ keyHash, `0x56AB`
+/ `0x571E` / `0x5710` and `0x4DD9` / `0x4F61` / `0x4C51`) is refused. `GetAddressTokens`
 takes either form (the node resolves both). The taddr RPCs (`GetTaddressTxids`, `GetTaddressBalance`,
 `GetTaddressBalanceStream`, `GetAddressUtxos`, `GetAddressUtxosStream`) map a P2PKH YED address to its transparent
-twin as before, take a plain-YEC post-quantum address (`sq…`/`tq…`/`rq…`, owner decision D-Q-20: PQ versions
-`0x4DD9`/`0x4F61`/`0x4C51`, a `TX_PQPKH` output, which the node's address index covers as `CScript::P2PQPKH`) as
-is, and map a PQ YED address to the plain PQ form of the same script (`yb`→`sq`, `yt`→`tq`, `yr`→`rq`; the mapping
+twin as before, take a plain-YEC post-quantum address (lead architect decision D-Q-20: a `TX_PQPKH` output, which the node's
+address index covers as `CScript::P2PQPKH`) as is, and map a PQ YED address to the plain PQ form of the same script
+(same network and scheme: `ybf`→`sqf`, `yts`→`tqs`, …; the mapping
 ycash-infra's yindex makes). The node names a PQ address in its answers (`GetAddressUtxosReply.address`) as asked,
 so a client gets the plain form back, as it gets `s…`/`sm…` for a P2PKH YED address. A plain PQ address is accepted
 with or without `--yellowback` (it is a chain-wide Ycash address on this line); a PQ YED address only with it. The
@@ -127,6 +132,13 @@ tests and commit the copies. CI runs the same script with `--check --github` aga
 matches this one, and on `upgrade/*`, `harden/*` and the quantum line an unreachable node file fails the job
 instead of skipping it (audit 06/L-1); ycash6's vault contract is compared too, report-only, with the embedded
 `sha256` stamp masked (it is the only line that differs between the two node lines).
+
+**rpcversion 9 (scheme-visible post-quantum prefixes, decision D-9; `docs/plans/yellowback-pq-prefix-rpc-delta.md`
+§4.12 in the workspace).** Every post-quantum address carries its scheme in a 3-byte version (Addresses, above), and
+`yed_getinfo.params.pqAddressVersion` and `params.pq.plainAddressVersion` are objects keyed by scheme (`"1"`, `"2"`);
+the proto carries neither (a light wallet takes the versions from its network parameters). The server speaks exactly
+9 (8 is refused: every post-quantum address an 8 node prints or takes is in the form this server refuses). No proto
+change. The nodes that speak 9 are ycash-dd and ycash6 (6.22.x) from the D-9 change on.
 
 **rpcversion 8 (the fee structure, branch `upgrade/quantum-vaults`; `docs/plans/yellowback-quantum-fees-spec.md`
 §1–§3 and the node's `doc/yellowback-rpc.md` in the workspace).** The pool fee is a protocol fee in dollars, tiered

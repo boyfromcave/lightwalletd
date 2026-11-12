@@ -43,8 +43,13 @@ const ServerVersion = "0.2-yec-lightwalletd"
 // yed_getinfo.params carries pq and attest.mintPayloadVersion. The match stays exact: a rpcversion
 // 5 node's rows would read as claimable=false, which is not what it meant, and a rpcversion 6
 // node's owner fields would be dropped silently by this proto (their numbers are reserved) while
-// its owner filter takes a 02/03 public key, the same 66 hex digits as a pqkeyid.
-const KnownRPCVersion = 8
+// its owner filter takes a 02/03 public key, the same 66 hex digits as a pqkeyid. 8 is the fee
+// structure (D-Q-23/24/25). 9 is decision D-9 (quantum spec section 4.1): a post-quantum address
+// carries its scheme in a 3-byte version (sqf…/sqs…, ybf…/ybs…; frontend/yellowback_addr.go), so
+// every PQ address a rpcversion 8 node prints or takes is one this server refuses, and
+// yed_getinfo.params.pqAddressVersion and params.pq.plainAddressVersion are objects keyed by scheme.
+// The nodes that speak 9: ycash-dd and ycash6 (6.22.x) from the D-9 change (ycash-dd #166, ycash6 #95).
+const KnownRPCVersion = 9
 
 // YedMethods is the allow-list: every node RPC the service may call, and nothing else.
 // The offline test asserts this set against the contract: every yed_* method there is either

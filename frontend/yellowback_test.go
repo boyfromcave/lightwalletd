@@ -653,7 +653,7 @@ func TestYedToTransparent(t *testing.T) {
 		"smFv3B1FhYXS2ZU1e54x9sdLfq7e46YhxVT",                                    // already transparent: unchanged, false
 		"yr9L2hEfNDjpRnbHcY14f9b3coWbKdBD9ii",                                    // bad checksum
 		"ye5AFsECVAfVbGza52vizHE2p1wpsg7hdWq",                                    // the retired mainnet ye… version
-		"yr2Tp5VfX9aERxy2khaRBpd7c3FY7nnPNXFgWE9ix6TPjLE4fqeRP",                  // post-quantum (no transparent twin)
+		"yrs2Uk7esRMiR7LjofAMYfgnNABpTKjkRKSp8Demg3quRHHEaEvqi",                  // post-quantum (no transparent twin)
 		"ys1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq", // shielded
 		"", "yr",
 	} {
@@ -685,34 +685,36 @@ func TestTaddrOfMapsYedAddresses(t *testing.T) {
 	}
 }
 
-// pqAddressVectors: post-quantum YED addresses (rpcversion 7, quantum spec section 4): Base58Check of
-// the PQ version || scheme || key hash a1b2…8f90, from an independent base58check implementation
-// (the workspace venv's Python) with the versions of D-Q-21 (mainnet yb 0x56AB) and spec F-4
-// (testnet yt 0x571E, regtest yr 0x5710); the last is the node's own (aa0fd3812), re-derived identically.
+// pqAddressVectors: post-quantum YED addresses (quantum spec section 4.1, D-9): Base58Check of the
+// 3-byte version of (network, YED, scheme) || key hash a1b2…8f90, from an independent base58check
+// implementation (the workspace venv's Python) with the versions of the node's D-9 change (main
+// ybs 0x56B044 / ybf 0x56AEDE, test yts 0x572330 / ytf 0x5721C9, regtest yrs 0x5715AA / yrf
+// 0x571444); the same scheme and key hash as the pre-D-9 vectors these replace (the last, the node's
+// vault_getnewowner owner of testdata/vault, re-encoded). The shared vectors file is checked in
+// TestPQAddressSharedVectors.
 var pqAddressVectors = []string{
-	"yb5u8LCGfU3hYYhhAqvYzR3ZQuNFEUWzx5dmLiGjPW8Gqto3xqqCc", // mainnet, scheme 1
-	"yb5w55NW7Vu8DmqWkYq8cQzt1gHMrCAhnxRQQpWt5Q7vrHHZiW4bg", // mainnet, scheme 2
-	"yt6ae5ki7bj4McDDWSdwgy4SRXLMFUeBYoSQL4WaGy9whGruyVkhs", // testnet, scheme 1
-	"yt6capvwZdaV2qM369YXJy1m2JFTsCHtPgE3QAkixs9bhfMSj4ja8", // testnet, scheme 2
-	"yr2Tp5VfX9aERxy2khaRBpd7c3FY7nnPNXFgWE9ix6TPjLE4fqeRP", // regtest, scheme 1
-	"yr2VkpftyBRf7C6rLQUzopaSCpAejWS6DQ3KaLPsdzT3jiihq7N9u", // regtest, scheme 2
-	"yr2UU5D3MMKpAahQX9ugwKzJgYgeg6WXYfj3YWKf6jsaFn9BS23nZ", // regtest, from the node: vault_getnewowner, key hash f7f8…89e2 (testdata/vault)
+	"ybs3X4pcEUunYbKiws3N3LpX22ttkmAY3ZZhjitVx27wrHWd3QAx9", // mainnet, scheme 1
+	"ybf3cZfbZ3qURX42uNVqqdMiNo44HgSSN5rtPBYsh6FMTSr3Zp8gg", // mainnet, scheme 2
+	"yts49vrQhyYdq88qfMdAKukz3AYiTQHdnmdZJvFM5ZGWZui7tAiPH", // testnet, scheme 1
+	"ytf2JgXAaWcu2pjL3AB4WCLro9nmNbuqGR96tGfa8jQGAgYtCrK2h", // testnet, scheme 2
+	"yrs2Uk7esRMiR7LjofAMYfgnNABpTKjkRKSp8Demg3quRHHEaEvqi", // regtest, scheme 1
+	"yrf2aExeBzHQJ353mAcqLxDyivLyzF1ejqjzmgK9R7yK2Scau49Nj", // regtest, scheme 2
+	"yrs38jq2hd7J9j57a7VdJB3ySfcw1dTtbTvBAVphphG5wjCFCXDhb", // regtest, from the node: vault_getnewowner, key hash f7f8…89e2 (testdata/vault)
 }
 
-// pqPlainVectors: post-quantum YED address -> the plain-YEC address (sq…/tq…/rq…, D-Q-20) of the
-// same TX_PQPKH script. The mainnet yb… inputs are the node's own (ycash-dd q/attest
-// src/test/pq_standard_tests.cpp: scheme 1|2, keyHash 32×0x5a); the regtest pairs (but the last)
-// are a q/attest regtest node's (Falcon active: vault_getnewowner 1|2 returned the yr… address,
-// validateaddress took the rq… form with the same pqkeyhash and a TX_PQPKH scriptPubKey), the
-// pairs ycash-infra's yindex tests carry (9f46d05); every plain form was re-derived independently
-// (the workspace venv's Python base58check with the version bytes of yellowback_addr.go).
+// pqPlainVectors: post-quantum YED address -> the plain-YEC address (sqf…/sqs…, tqf…/tqs…,
+// rqf…/rqs…; D-Q-20, D-9) of the same TX_PQPKH script. The scheme and key hash of each pair are the
+// pre-D-9 vectors' (the mainnet pairs the node's src/test/pq_standard_tests.cpp, keyHash 32×0x5a; the
+// regtest pairs a regtest node's vault_getnewowner / validateaddress answers, the pairs ycash-infra's
+// yindex tests carried), re-encoded under the D-9 versions by an independent implementation (the
+// workspace venv's Python base58check).
 var pqPlainVectors = [][2]string{
-	{"yb5taumpu5RVtFHRjsEgzLi1T33PqEcM3Ac2MipTj3qcLeGaSRJGu", "sq4couNBfnJoRxqXF89SWjiPh5wktFi5bb5S4F89xMMsCrqRf2L4z"},
-	{"yb5vXex4M7GvZURFKa9GcLfL3oxWSxG3t3PfRq4cQwqGM2mH4L3Kg", "sq4ekeYR7pAE7ByLpq428jfiHrrsVyMnSTs58MNJeFMXDFL63vTbT"},
-	{"yt6a6fLGMD6rhJnx5Tx5gtitTf1VrEjXdtQfM54JcWsHC2LXjqjfL", "tq3uz2dSJQZwKwgiMurAaowUceGWbVkNZQFd9bBy4pwJDEbVRn79A"},
-	{"yr2UGYBxhHb8yzYYCjZ1HtJ8cNHP6tNJawkjC4L1wmRiGdFQVjNy5", "rq5LdfDfyggmkJz71M7AYoVsjiyhZMAMm7S2diguW13RF2d8n2Rc6"}, // SLH-DSA
-	{"yr2VA5rANyC4wfgx6kmvLPy2LxuhHYitwJ8xazzFCdXa1gEZSXSRH", "rq5MXCssfNHhhz8WuNL5bKAmUKc1k1Wx7TpG2fM8ks9Gz5cPeCqKa"}, // Falcon
-	{"yr2UU5D3MMKpAahQX9ugwKzJgYgeg6WXYfj3YWKf6jsaFn9BS23nZ", "rq5LqCEkdkRSvu8yKmTrCFC3ouNy8ZJaiqQLzAgYeyVHEBWvjYKWg"}, // testdata/vault's owner
+	{"ybs2yeQAU6HatHuTWtMW3GUy4Aa3MXFt8eXxkjSEHZqHM2zHYK76X", "sqs34vhLJ1Z48caj6wiH9djY5eGjoq4NiLuf9M1cew8STzJkZtyAr"},
+	{"ybf359F9nfDGmDdmUPoyqZ2AQvjCtSXnTAq9QC6c2dxgxCKgiEFio", "sqf3ARYKcaUk1YK34TAkwvGjSQRuLkLH2sCqnofzQ1Fr59eA2Past"},
+	{"yts3cWRxwavSApiaENwJKqRS5JDs4ANysrbpKvo5R6yr4fBm15dEx", "tqs34gfTMJi8EMG9RYTBFgzMbTptT9kTNYcGixCaDEadcWRpg4MCp"},
+	{"yrs2wCox3ZNcy8vFFh8wejMoNVDfSRKfdjwrp3q4fipDxaJRZPzW3", "rqs453qxBF36FCu5fMdq9iVHY25HYqrsBUjqEZTDkkwEN1jMu8gmf"}, // SLH-DSA
+	{"yrf1yW8ubn3p8Wf9XWuksXcZs562YHJTTjqdnLuWym3qJQ8SeGH2b", "rqf37MAujTiHQadywBQeNWk42bweehqf1UdcCrXg4oAqhqZQhCebM"}, // Falcon
+	{"yrs38jq2hd7J9j57a7VdJB3ySfcw1dTtbTvBAVphphG5wjCFCXDhb", "rqs4Gas2qJmmRo3wymzWoABTcCUZ84169Ci9b1SrujP6MAdByXeHE"}, // testdata/vault's owner
 }
 
 // TestTaddrOfMapsPQAddresses: a post-quantum YED address maps to the plain sq…/tq…/rq… form of the
@@ -745,6 +747,11 @@ func TestTaddrOfMapsPQAddresses(t *testing.T) {
 		}
 	}
 	for _, bad := range []string{
+		"yr2Tp5VfX9aERxy2khaRBpd7c3FY7nnPNXFgWE9ix6TPjLE4fqeRP", // the pre-D-9 form (2-byte version 0x5710 || scheme 1): refused (clean cut)
+		"rq5LdfDfyggmkJz71M7AYoVsjiyhZMAMm7S2diguW13RF2d8n2Rc6", // the pre-D-9 plain form (0x4C51 || scheme 1)
+		"sq4ekeYR7pAE7ByLpq428jfiHrrsVyMnSTs58MNJeFMXDFL63vTbT", // the pre-D-9 mainnet plain form (0x4DD9 || scheme 2)
+		"yrs2Uk7esRMiR7LjofAMYfgnNABpTKjkRKSp8Demg3quRHHEaEvqj", // bad checksum
+		"rqs453qxBF36FCu5fMdq9iVHY25HYqrsBUjqEZTDkkwEN1jMu8gmg", // bad checksum
 		"yr2Tp5VfX9aERxy2khaRBpd7c3FY7nnPNXFgWE9ix6TPjLE4fqeRQ", // bad checksum
 		"yr2XhZr8RDH5nREfv7PaRpXkob5mME5o4GpxeSe2KtShk7DKFopSv", // scheme 3 (unregistered)
 		"ye3VjmRUey82J33xXuSSrLXT9t4GHAtRVLUDwuMfHKhM5XR1uq4Az", // the retired mainnet ye… PQ version 0x56BF
@@ -1262,7 +1269,7 @@ func TestUnaryInfoPQ(t *testing.T) {
 		t.Fatal(err)
 	}
 	pq := info.GetParams().GetPq()
-	if info.GetRpcversion() != 8 || common.KnownRPCVersion != 8 || pq == nil {
+	if info.GetRpcversion() != 9 || common.KnownRPCVersion != 9 || pq == nil {
 		t.Fatalf("rpcversion %d (server knows %d), pq %+v", info.GetRpcversion(), common.KnownRPCVersion, pq)
 	}
 	if s := pq.GetSchemes(); len(s) != 1 || s[0] != 1 || pq.GetFalconActive() || pq.GetFalconHeight() != -1 || pq.GetFeeRateZatPerKB() != 100 {
@@ -1353,7 +1360,7 @@ func TestUnaryInfoFees(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := info.GetParams()
-	if info.GetRpcversion() != 8 || p.GetMaxMintCents() != 10000000 {
+	if info.GetRpcversion() != common.KnownRPCVersion || p.GetMaxMintCents() != 10000000 {
 		t.Fatalf("rpcversion %d, maxMintCents %d", info.GetRpcversion(), p.GetMaxMintCents())
 	}
 	f := p.GetFees()
