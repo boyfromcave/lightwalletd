@@ -2,7 +2,7 @@
   "contract": "vault-rpc",
   "source": {
     "file": "doc/vault-rpc.md",
-    "sha256": "dce0275ce8ba193a3ef7d8e691f0448a6cc48e7c5150691173b27dd6fe48bd05"
+    "sha256": "7b326775609bdabb9cfdf909378041fde934738b17a3c486b332dab056499aae"
   },
   "branchid": "6d5b7a31",
   "units": {
@@ -2636,7 +2636,7 @@
       "provokedBy": "`from` `\"nonsense\"`"
     },
     {
-      "code": -4,
+      "code": -5,
       "message": "from: not an address of this wallet",
       "raisedBy": [
         "vault_lock"
@@ -2652,7 +2652,7 @@
       "provokedBy": "`from` an address imported with `importaddress`"
     },
     {
-      "code": -8,
+      "code": -5,
       "message": "from: an FN-DSA-512 (scheme 2) address cannot be spent before Falcon is active",
       "raisedBy": [
         "vault_lock"
