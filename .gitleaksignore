@@ -45,3 +45,30 @@ ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-
 ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:639
 ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:648
 ffb4df71ff9d352149215fbb712926fa9918c9da:parser/transaction_test.go:generic-api-key:656
+
+# testdata/yellowback/pq_address_vectors.json: the shared post-quantum address vectors (quantum spec 4.1, D-9): public key hashes and
+# addresses, no secrets; matched by generic-api-key. Checked 2026-11-12.
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:51
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:60
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:105
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:114
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:159
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:168
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:213
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:222
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:267
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:276
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:321
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:330
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:375
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:384
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:429
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:438
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:483
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:492
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:537
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:546
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:591
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:600
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:645
+92bf1b1c384cf88c7c80ddf2a5eb18e7d34b76cc:testdata/yellowback/pq_address_vectors.json:generic-api-key:654
