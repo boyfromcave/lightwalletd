@@ -16,9 +16,11 @@ network upgrade that adds **post-quantum vaults** (YEC locked under rules every 
 released only with the approval of a bonded **signer set**), with **Ycash Yellowback (YED)**, a
 dollar backed by YEC in vaults (`1 YED = $1`), as the first application.
 
-> **Status: in development.** It runs on regtest and on a one-laptop devnet only. No activation
-> height is set on mainnet or testnet, the upgrade has not been adopted by the Ycash Foundation,
-> and there is no external audit.
+> **Status: beta.** No activation height is set on mainnet, the upgrade has not been adopted by
+> the Ycash Foundation, and there is no external audit. It runs on regtest, on a one-laptop devnet
+> and on the project's fast testnet (testnet-yb-fast) at `fastnet-lightwallet.ycash.team`. The
+> vault upgrade is active there but no YED attestor set is configured, so the node serves no
+> `yed_*` and that server offers compact blocks and YEC only, without the Yellowback service.
 
 - **What the server adds:** with `--yellowback`, a second gRPC service, `YellowbackStreamer`
   ([walletrpc/yellowback.proto](walletrpc/yellowback.proto)). Its 24 methods only *read*: YED
@@ -41,10 +43,13 @@ dollar backed by YEC in vaults (`1 YED = $1`), as the first application.
   uses to price a post-quantum or Yellowback transaction by size. `SendTransaction` resubmits a
   correctly priced Yellowback transaction that the node refuses only for exceeding `-maxtxfee`,
   up to the node's `-yellowbackmaxtxfee` ceiling (default 10 YEC).
-- **Node it needs:** a `ycashd` built from the `upgrade/quantum-vaults` branch of
-  [ycash-dd](https://github.com/boyfromcave/ycash-dd) or
-  [ycash6](https://github.com/boyfromcave/ycash6) (this line joins `upgrade/vault` at release),
-  speaking Yellowback `rpcversion` **9** (beta2) or **10** (beta3). Against any other node the service simply does not start.
+- **Node it needs:** a `ycashd` of the vault upgrade, ycashd 6.22.0-beta2 or later from
+  [ycash6](https://github.com/boyfromcave/ycash6) or the `upgrade/vault` branch of
+  [ycash-dd](https://github.com/boyfromcave/ycash-dd), started with `-txindex -insightexplorer
+  -experimentalfeatures` (*Running against ycashd*). For the Yellowback service the node must
+  speak Yellowback `rpcversion` **9** (beta2) or **10** (beta3) and serve `yed_*`, which it does
+  only where the vault upgrade is active and the network's YED attestor set is configured. Against
+  any other node the service simply does not start, and the server serves the stock surface.
 - **Try it:** with a built ycash-dd checkout beside this one (or `YCASH_DD=<path>`),
   `scripts/devnet-test.sh --up --down` brings up the node's local test network, starts this server
   against it and runs the regtest suite (`--help` lists the options; the Python it needs is in
@@ -77,7 +82,7 @@ proto changes.
 
 # Running against ycashd
 
-The node is `ycashd` (Ycash 4.5.0 or later; for the Yellowback service, the `upgrade/quantum-vaults` build
+The node is `ycashd` (Ycash 4.5.0 or later; for the Yellowback service, a vault-upgrade build as
 above). Its `ycash.conf` must contain:
 
 ```
