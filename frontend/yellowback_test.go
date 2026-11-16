@@ -605,11 +605,20 @@ func TestProbe(t *testing.T) {
 	node = newFakeNode(t)
 	install(t, node)
 	capability, err = common.ProbeYellowback()
-	if err != nil || !capability.Enabled || capability.RPCVersion != common.KnownRPCVersion || capability.Network != "regtest" {
+	if err != nil || !capability.Enabled || !common.RPCVersionAccepted(capability.RPCVersion) || capability.Network != "regtest" {
 		t.Fatalf("yellowback node: got %+v err=%v", capability, err)
 	}
-	// rpcversion 6 (the in-term line, EC vault owners) and a future 8 are both refused: the contract is exact.
-	for _, v := range []int{common.KnownRPCVersion - 1, common.KnownRPCVersion + 1} {
+	// beta3 (R-1, B3-D5): a beta2 node (9) and a beta3 node (10) are both served.
+	for _, v := range []int{common.MinRPCVersion, common.KnownRPCVersion} {
+		node = newFakeNode(t)
+		install(t, node)
+		node.contract["yed_getinfo"] = json.RawMessage(fmt.Sprintf(`{"returns": {"rpcversion": %d, "network": "regtest"}}`, v))
+		if capability, err := common.ProbeYellowback(); err != nil || !capability.Enabled || capability.RPCVersion != int64(v) {
+			t.Fatalf("rpcversion %d must be served: %+v err=%v", v, capability, err)
+		}
+	}
+	// rpcversion 8 (pre-D-9 post-quantum addresses) and a future 11 are both refused.
+	for _, v := range []int{common.MinRPCVersion - 1, common.KnownRPCVersion + 1} {
 		node = newFakeNode(t)
 		install(t, node)
 		node.contract["yed_getinfo"] = json.RawMessage(fmt.Sprintf(`{"returns": {"rpcversion": %d, "network": "regtest"}}`, v))
@@ -1213,7 +1222,7 @@ func TestUnaryInfoInTerm(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := info.GetParams()
-	if info.GetRpcversion() != common.KnownRPCVersion || !p.GetInTermClaims() || p.GetClaimThresholdBps() != 12500 || p.GetSigmaMultMaxBps() != 10000 {
+	if !common.RPCVersionAccepted(info.GetRpcversion()) || !p.GetInTermClaims() || p.GetClaimThresholdBps() != 12500 || p.GetSigmaMultMaxBps() != 10000 {
 		t.Errorf("in-term params not passed through: rpcversion %d params %+v", info.GetRpcversion(), p)
 	}
 	if fees := p.GetEarlyRedeemFeeBps(); len(fees) != 3 || fees[0] != 500 || fees[1] != 250 || fees[2] != 100 {
@@ -1269,7 +1278,7 @@ func TestUnaryInfoPQ(t *testing.T) {
 		t.Fatal(err)
 	}
 	pq := info.GetParams().GetPq()
-	if info.GetRpcversion() != 9 || common.KnownRPCVersion != 9 || pq == nil {
+	if !common.RPCVersionAccepted(info.GetRpcversion()) || common.KnownRPCVersion != 10 || common.MinRPCVersion != 9 || pq == nil {
 		t.Fatalf("rpcversion %d (server knows %d), pq %+v", info.GetRpcversion(), common.KnownRPCVersion, pq)
 	}
 	if s := pq.GetSchemes(); len(s) != 1 || s[0] != 1 || pq.GetFalconActive() || pq.GetFalconHeight() != -1 || pq.GetFeeRateZatPerKB() != 100 {
@@ -1360,7 +1369,7 @@ func TestUnaryInfoFees(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := info.GetParams()
-	if info.GetRpcversion() != common.KnownRPCVersion || p.GetMaxMintCents() != 10000000 {
+	if !common.RPCVersionAccepted(info.GetRpcversion()) || p.GetMaxMintCents() != 10000000 {
 		t.Fatalf("rpcversion %d, maxMintCents %d", info.GetRpcversion(), p.GetMaxMintCents())
 	}
 	f := p.GetFees()

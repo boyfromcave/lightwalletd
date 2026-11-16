@@ -140,6 +140,14 @@ the proto carries neither (a light wallet takes the versions from its network pa
 9 (8 is refused: every post-quantum address an 8 node prints or takes is in the form this server refuses). No proto
 change. The nodes that speak 9 are ycash-dd and ycash6 (6.22.x) from the D-9 change on.
 
+**rpcversion 10 (beta3, the workspace's `docs/plans/beta3/beta3-plan.md` R-1, decision B3-D5).** One step covering
+the run's additions: the new call `getcoinbasetemplatefor`, `getblockchaininfo.transparentPools`, input addresses
+for post-quantum spends, the `gettransaction` fee and the `-ydf` default. None of them is a `yed_*` shape change and
+this server calls none of them (`getcoinbasetemplatefor` is a mining call, not on the allow-list), so the match is no
+longer exact: the server accepts `MinRPCVersion` 9 to `KnownRPCVersion` 10 (`common.RPCVersionAccepted`), a beta2 and
+a beta3 node alike; 8 and anything above 10 are refused. The fee-ceiling read (`frontend/sendfee.go`) needs 9 or
+later. No proto change.
+
 **rpcversion 8 (the fee structure, branch `upgrade/quantum-vaults`; `docs/plans/yellowback-quantum-fees-spec.md`
 §1–§3 and the node's `doc/yellowback-rpc.md` in the workspace).** The pool fee is a protocol fee in dollars, tiered
 by the vault's debt and struck at the vault's stored mint price `pMint`; network fees of post-quantum and Yellowback

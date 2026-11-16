@@ -44,7 +44,7 @@ dollar backed by YEC in vaults (`1 YED = $1`), as the first application.
 - **Node it needs:** a `ycashd` built from the `upgrade/quantum-vaults` branch of
   [ycash-dd](https://github.com/boyfromcave/ycash-dd) or
   [ycash6](https://github.com/boyfromcave/ycash6) (this line joins `upgrade/vault` at release),
-  speaking Yellowback `rpcversion` **8**. Against any other node the service simply does not start.
+  speaking Yellowback `rpcversion` **9** (beta2) or **10** (beta3). Against any other node the service simply does not start.
 - **Try it:** with a built ycash-dd checkout beside this one (or `YCASH_DD=<path>`),
   `scripts/devnet-test.sh --up --down` brings up the node's local test network, starts this server
   against it and runs the regtest suite (`--help` lists the options; the Python it needs is in
@@ -111,9 +111,10 @@ If you restart the node on a different network, restart lightwalletd too.
 
 **Yellowback.** `--yellowback` (or `YELLOWBACK=1`, or `yellowback: true` in the config file).
 At startup the server asks the node for `yed_getinfo` and registers the service only when the node
-speaks Yellowback `rpcversion 9` exactly (the scheme-visible post-quantum prefixes, D-9: ycash-dd and ycash6
-6.22.x from that change on; an rpcversion 8 node is refused; a node without the `yed_*` commands answers "Method not
-found": no service, no error); the log says `Yellowback service started (node rpcversion 9, network …)` or
+speaks Yellowback `rpcversion` 9 or 10 (9: the scheme-visible post-quantum prefixes, D-9, ycash-dd and ycash6
+6.22.x from that change on; 10: beta3, whose additions this server needs none of; an rpcversion 8 node is refused,
+and so is an 11 it does not know yet; a node without the `yed_*` commands answers "Method not
+found": no service, no error); the log says `Yellowback service started (node rpcversion 10, network …)` or
 why not. Two operator flags
 belong to it: `--yellowback-max-inflight N` (node calls in flight at once, default 16) and
 `--trusted-proxy-cidr NET` (repeatable; the per-peer rate limiter believes `x-real-ip` /
