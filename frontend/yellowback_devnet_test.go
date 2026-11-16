@@ -327,7 +327,7 @@ func TestDevnetWalletMintSeenThroughServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Rpcversion != common.KnownRPCVersion || info.Network != "regtest" || !info.Enabled {
+	if !common.RPCVersionAccepted(info.Rpcversion) || info.Network != "regtest" || !info.Enabled {
 		t.Fatalf("unexpected node: %+v", info)
 	}
 	d.warmPrice(t, ctx, y)
@@ -1117,7 +1117,7 @@ func TestDevnetInTermClaimableThroughServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := info.GetParams()
-	if info.Rpcversion != common.KnownRPCVersion || !p.GetInTermClaims() || !nodeInfo.Params.InTermClaims || p.GetClaimThresholdBps() != nodeInfo.Params.ClaimThresholdBps ||
+	if !common.RPCVersionAccepted(info.Rpcversion) || !p.GetInTermClaims() || !nodeInfo.Params.InTermClaims || p.GetClaimThresholdBps() != nodeInfo.Params.ClaimThresholdBps ||
 		p.GetSigmaMultMaxBps() != nodeInfo.Params.SigmaMultMaxBps || fmt.Sprint(p.GetEarlyRedeemFeeBps()) != fmt.Sprint(nodeInfo.Params.EarlyRedeemFeeBps) {
 		t.Fatalf("in-term params: server %+v, node %+v", p, nodeInfo.Params)
 	}

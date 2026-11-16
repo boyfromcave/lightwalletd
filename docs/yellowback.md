@@ -26,12 +26,12 @@ by the workspace's `make spec`), so results unmarshal straight into the generate
 
 **Switch:** `--yellowback` (cobra/viper, so also `YELLOWBACK=1` or the config file). At startup,
 after `GetLightdInfo`, the server calls `yed_getinfo`; it registers the service only when the node
-speaks `rpcversion 5`. ("Method not found" means a node without the yed_* commands: the node
+speaks `rpcversion` 9 or 10 (`common.RPCVersionAccepted`; the history of the versions is below). ("Method not found" means a node without the yed_* commands: the node
 registers them exactly where the vault upgrade and a YED attestor set are configured; no node flag
 turns them on.) Off,
 or on a stock node, the binary is the baseline in every observable way. With the flag on, the
 taddr RPCs (`GetTaddressTxids`, `GetTaddressBalance`, `GetAddressUtxos`) also accept YED
-addresses (`ye…`/`yt…`/`yr…`), mapped to the transparent form before the baseline's
+addresses (`yb…`/`yt…`/`yr…`), mapped to the transparent form before the baseline's
 `checkTaddress` (plan D-L-4; `frontend/yellowback_addr.go`, `taddrOf` in `frontend/service.go`).
 
 **The node is reached through `common.RawRequest`**, the tree's own function variable, which
@@ -140,6 +140,14 @@ the proto carries neither (a light wallet takes the versions from its network pa
 9 (8 is refused: every post-quantum address an 8 node prints or takes is in the form this server refuses). No proto
 change. The nodes that speak 9 are ycash-dd and ycash6 (6.22.x) from the D-9 change on.
 
+**rpcversion 10 (beta3, the workspace's `docs/plans/beta3/beta3-plan.md` R-1, decision B3-D5).** One step covering
+the run's additions: the new call `getcoinbasetemplatefor`, `getblockchaininfo.transparentPools`, input addresses
+for post-quantum spends, the `gettransaction` fee and the `-ydf` default. None of them is a `yed_*` shape change and
+this server calls none of them (`getcoinbasetemplatefor` is a mining call, not on the allow-list), so the match is no
+longer exact: the server accepts `MinRPCVersion` 9 to `KnownRPCVersion` 10 (`common.RPCVersionAccepted`), a beta2 and
+a beta3 node alike; 8 and anything above 10 are refused. The fee-ceiling read (`frontend/sendfee.go`) needs 9 or
+later. No proto change.
+
 **rpcversion 8 (the fee structure, branch `upgrade/quantum-vaults`; `docs/plans/yellowback-quantum-fees-spec.md`
 §1–§3 and the node's `doc/yellowback-rpc.md` in the workspace).** The pool fee is a protocol fee in dollars, tiered
 by the vault's debt and struck at the vault's stored mint price `pMint`; network fees of post-quantum and Yellowback
@@ -199,7 +207,7 @@ present case meanwhile.
 
 **SendTransaction and the fee ceiling (review M-2).** A transaction priced at the published rate can pay more than
 the node's `-maxtxfee`, which `sendrawtransaction` refuses as "absurdly high". On such a refusal, and only when the
-node serves `yed_getinfo` at rpcversion 8, the server establishes the fee — from the node's message (ycash-dd states
+node serves `yed_getinfo` at rpcversion 8 or later (9 or 10 on this server), the server establishes the fee — from the node's message (ycash-dd states
 it) or by computing it from the transaction and `gettxout` (ycash6 does not) — and resubmits with
 `allowhighfees = true` when it is at most `params.fees.network.yellowback.maxTxFeeZat`, the node's effective cap (what its own wallet relays
 within; `maxTxFeeCeilingZat`, `-yellowbackmaxtxfee`, is used only when the node does not report it); above it the
@@ -450,7 +458,10 @@ lightwalletd --zcash-conf-path ycash.conf --data-dir /var/lib/lightwalletd --grp
 ```
 Credentials come from `ycash.conf`: never put `--rpcpassword` on a production command line.
 
-The log says either `Yellowback service started (node rpcversion 5, network …)` or why not.
+The log says either `Yellowback service started (node rpcversion 10, network …)` (9 for a beta2 node) or why not.
+A node on which the vault upgrade is active but no YED attestor set is configured (the fast testnet
+today) answers `yed_getinfo` with "Method not found": the server then serves the stock surface
+only, and `GetChainInfo` answers `UNIMPLEMENTED` there.
 **Upgrade order:** node first (`ycash-dd` or `ycash6` on the vault upgrade), then the server binary (no change
 until the flag), then `--yellowback`. A server ahead of its node, or on a stock node, logs one
 line and serves the baseline surface. `docs/review.md` is the review packet for the maintainers.

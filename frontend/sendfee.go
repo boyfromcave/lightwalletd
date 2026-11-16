@@ -67,7 +67,7 @@ func yellowbackFeeCeiling() (int64, bool) {
 			} `json:"fees"`
 		} `json:"params"`
 	}
-	if json.Unmarshal(raw, &info) != nil || info.RPCVersion < common.KnownRPCVersion {
+	if json.Unmarshal(raw, &info) != nil || info.RPCVersion < common.MinRPCVersion {
 		return 0, false
 	}
 	yb := info.Params.Fees.Network.Yellowback

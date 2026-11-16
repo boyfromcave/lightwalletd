@@ -49,7 +49,20 @@ const ServerVersion = "0.2-yec-lightwalletd"
 // every PQ address a rpcversion 8 node prints or takes is one this server refuses, and
 // yed_getinfo.params.pqAddressVersion and params.pq.plainAddressVersion are objects keyed by scheme.
 // The nodes that speak 9: ycash-dd and ycash6 (6.22.x) from the D-9 change (ycash-dd #166, ycash6 #95).
-const KnownRPCVersion = 9
+// 10 is beta3 (docs/plans/beta3/beta3-plan.md R-1, decision B3-D5): getcoinbasetemplatefor,
+// getblockchaininfo.transparentPools, input addresses for post-quantum spends, the gettransaction
+// fee and the -ydf default. Every one of those is additive to what this server proxies or reads, so
+// 10 is accepted and 9 still is: the step is the first one that is not exact, MinRPCVersion..KnownRPCVersion.
+const KnownRPCVersion = 10
+
+// MinRPCVersion is the oldest contract this server still serves (9: an 8 node prints pre-D-9
+// post-quantum addresses this server refuses).
+const MinRPCVersion = 9
+
+// RPCVersionAccepted says whether this server serves a node speaking rpcversion v.
+func RPCVersionAccepted(v int64) bool {
+	return v >= MinRPCVersion && v <= KnownRPCVersion
+}
 
 // YedMethods is the allow-list: every node RPC the service may call, and nothing else.
 // The offline test asserts this set against the contract: every yed_* method there is either
@@ -203,8 +216,8 @@ func ProbeYellowback() (YellowbackCapability, error) {
 		return capability, fmt.Errorf("yed_getinfo: unexpected result")
 	}
 	capability.RPCVersion, capability.Network = info.RPCVersion, info.Network
-	if info.RPCVersion != KnownRPCVersion {
-		return capability, fmt.Errorf("node speaks yed rpcversion %d, this server knows %d", info.RPCVersion, KnownRPCVersion)
+	if !RPCVersionAccepted(info.RPCVersion) {
+		return capability, fmt.Errorf("node speaks yed rpcversion %d, this server knows %d to %d", info.RPCVersion, MinRPCVersion, KnownRPCVersion)
 	}
 	return capability, nil
 }
