@@ -68,15 +68,22 @@ end-of-life Go 1.24.7. #3 fixed them (Go 1.26.9; grpc 1.83.2, x/net 0.60.0, btcd
 prometheus client_golang 1.24.1).
 
 After that upgrade one reachable vulnerability was left, GO-2026-6809 (crypto/x509, fixed in Go
-1.26.10). The toolchain is now Go 1.26.10. Go 1.26.10 came out on 2026-10-19, so this is earlier than
-the two-week version rule allows (2026-11-02). The exception is made because the fix is a
+1.26.10). The toolchain moved to Go 1.26.10. Go 1.26.10 came out on 2026-10-19, so this was earlier than
+the two-week version rule allows (2026-11-02). The exception was made because the fix is a
 point release of the toolchain that is already pinned.
+
+Then GO-2026-6859 (net/http: an HTTP/1 server using `MaxBytesReader` or `MaxBytesHandler` can
+panic on a header-map race, fixed in Go 1.26.11) was reported against Go 1.26.10. govulncheck
+flags it because the server links net/http; the trigger is not reachable here (nothing in the
+tree, vendor included, calls `MaxBytesReader` or `MaxBytesHandler`, and the gRPC listener is
+HTTP/2), but the alert is fixed rather than accepted. The toolchain is now Go 1.26.11, released
+2026-11-02, inside the two-week version rule.
 
 `osv-scanner.toml` accepts one advisory, GO-2026-5932 (until 2027-01-21). It is the
 "unmaintained" advisory on `golang.org/x/crypto/openpgp` and has no fixed version. Nothing here
 imports openpgp: only `ripemd160` and `sha3` are vendored. govulncheck reports it as not called.
 
-The security jobs run on go.mod's toolchain (Go 1.26.10; govulncheck v1.8.0 needs Go 1.26), so govulncheck
+The security jobs run on go.mod's toolchain (Go 1.26.11; govulncheck v1.8.0 needs Go 1.26), so govulncheck
 judges the standard library the server is built with.
 
 ## Repository settings (owner)
