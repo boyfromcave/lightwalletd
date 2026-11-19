@@ -47,7 +47,7 @@ dollar backed by YEC in vaults (`1 YED = $1`), as the first application.
   [ycash6](https://github.com/boyfromcave/ycash6) or the `upgrade/vault` branch of
   [ycash-dd](https://github.com/boyfromcave/ycash-dd), started with `-txindex -insightexplorer
   -experimentalfeatures` (*Running against ycashd*). For the Yellowback service the node must
-  speak Yellowback `rpcversion` **9** (beta2) or **10** (beta3) and serve `yed_*`, which it does
+  speak Yellowback `rpcversion` **9** (beta2), **10** (beta3) or **11** (beta4) and serve `yed_*`, which it does
   only where the vault upgrade is active and the network's YED attestor set is configured. Against
   any other node the service simply does not start, and the server serves the stock surface.
 - **Try it:** with a built ycash-dd checkout beside this one (or `YCASH_DD=<path>`),
@@ -116,10 +116,11 @@ If you restart the node on a different network, restart lightwalletd too.
 
 **Yellowback.** `--yellowback` (or `YELLOWBACK=1`, or `yellowback: true` in the config file).
 At startup the server asks the node for `yed_getinfo` and registers the service only when the node
-speaks Yellowback `rpcversion` 9 or 10 (9: the scheme-visible post-quantum prefixes, D-9, ycash-dd and ycash6
-6.22.x from that change on; 10: beta3, whose additions this server needs none of; an rpcversion 8 node is refused,
-and so is an 11 it does not know yet; a node without the `yed_*` commands answers "Method not
-found": no service, no error); the log says `Yellowback service started (node rpcversion 10, network …)` or
+speaks Yellowback `rpcversion` 9, 10 or 11 (9: the scheme-visible post-quantum prefixes, D-9, ycash-dd and ycash6
+6.22.x from that change on; 10: beta3, whose additions this server needs none of; 11: beta4, tag v2 with a
+post-quantum payout key, passed through as `payoutScheme`; an rpcversion 8 node is refused, and so is a 12 it does
+not know yet; a node without the `yed_*` commands answers "Method not
+found": no service, no error); the log says `Yellowback service started (node rpcversion 11, network …)` or
 why not. Two operator flags
 belong to it: `--yellowback-max-inflight N` (node calls in flight at once, default 16) and
 `--trusted-proxy-cidr NET` (repeatable; the per-peer rate limiter believes `x-real-ip` /

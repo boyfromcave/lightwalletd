@@ -32,7 +32,7 @@ by the workspace's `make spec`), so results unmarshal straight into the generate
 
 **Switch:** `--yellowback` (cobra/viper, so also `YELLOWBACK=1` or the config file). At startup,
 after `GetLightdInfo`, the server calls `yed_getinfo`; it registers the service only when the node
-speaks `rpcversion` 9 or 10 (`common.RPCVersionAccepted`; the history of the versions is below). ("Method not found" means a node without the yed_* commands: the node
+speaks `rpcversion` 9, 10 or 11 (`common.RPCVersionAccepted`; the history of the versions is below). ("Method not found" means a node without the yed_* commands: the node
 registers them exactly where the vault upgrade and a YED attestor set are configured; no node flag
 turns them on.) Off,
 or on a stock node, the binary is the baseline in every observable way. With the flag on, the
@@ -193,6 +193,14 @@ instead of skipping it (audit 06/L-1); ycash6's vault contract is compared too, 
 the proto carries neither (a light wallet takes the versions from its network parameters). The server speaks exactly
 9 (8 is refused: every post-quantum address an 8 node prints or takes is in the form this server refuses). No proto
 change. The nodes that speak 9 are ycash-dd and ycash6 (6.22.x) from the D-9 change on.
+
+**rpcversion 11 (beta4, the workspace's `docs/plans/beta4/rpc-contract-delta.md` §4.14, decisions D-8, D-10).**
+Tag v2: a miner's payout key may be post-quantum. `yed_gettag` and `yed_getprice.tag` gain `payoutScheme` (`p2pkh`,
+`fn-dsa-512`, `slh-dsa-sha2-128s`) and `version` is 2 for a post-quantum key; every payee and payout address field
+(`yed_getfeepayee`, `yed_getinfo.miner`, `yed_listminers`, every `payee`) may hold a plain post-quantum address
+(`sqf…`/`sqs…`, `tqf…`/`tqs…`, `rqf…`/`rqs…`). This server passes those strings through and validates none of them,
+so the step is additive: `KnownRPCVersion` 11, `MinRPCVersion` still 9. Proto: `YedPriceTag.payoutScheme` (8);
+`YedTag` (GetTag) already carried `version` and `payoutScheme`.
 
 **rpcversion 10 (beta3, the workspace's `docs/plans/beta3/beta3-plan.md` R-1, decision B3-D5).** One step covering
 the run's additions: the new call `getcoinbasetemplatefor`, `getblockchaininfo.transparentPools`, input addresses
@@ -519,7 +527,7 @@ lightwalletd --zcash-conf-path ycash.conf --data-dir /var/lib/lightwalletd --grp
 ```
 Credentials come from `ycash.conf`: never put `--rpcpassword` on a production command line.
 
-The log says either `Yellowback service started (node rpcversion 10, network …)` (9 for a beta2 node) or why not.
+The log says either `Yellowback service started (node rpcversion 11, network …)` (9 for a beta2 node, 10 for beta3) or why not.
 A node on which the vault upgrade is active but no YED attestor set is configured (the fast testnet
 today) answers `yed_getinfo` with "Method not found": the server then serves the stock surface
 only, and `GetChainInfo` answers `UNIMPLEMENTED` there.
