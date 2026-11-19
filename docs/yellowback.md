@@ -12,15 +12,21 @@ re-ported here on 2026-09-24 (plan Phase R0, §10); the design and its evidence 
 ## What it adds
 
 A second gRPC service, `cash.z.wallet.sdk.rpc.YellowbackStreamer` (`walletrpc/yellowback.proto`),
-beside `CompactTxStreamer`. Twenty-four methods, each a thin, allow-listed proxy of one read-only
-node RPC — nineteen `yed_*` RPCs, the stock `getblockchaininfo` (`GetChainInfo`, below) and, from
-rpcversion 5, four read RPCs of the vault primitive YED runs on (below) — on
-the node this server already talks to: verdicts (`GetTxInfo`,
+beside `CompactTxStreamer`. Twenty-eight methods, each a thin, allow-listed proxy of one
+node RPC — twenty-one `yed_*` RPCs, the stock `getblockchaininfo` (`GetChainInfo`, below),
+`gettxout` and `getrawmempool` (the light attestor's reads, below) and, from rpcversion 5, four
+read RPCs of the vault primitive YED runs on (below) — on the node this server already talks to.
+Every method is read-only but one: **`SubmitAttestation` writes**, adding a price statement to the
+node's in-memory attestation pool (`yed_addattestation`, behind its guards; "The light attestor"
+below). The methods: verdicts (`GetTxInfo`,
 `ValidateRawTransaction`), price and collateral (`GetPrice`, `GetStats`, `EstimateCollateral`,
 `EstimateFee`, `GetFeePayee`), vaults (`GetVault`, `ListVaults`, `ListClaimable`, `GetNotice`),
 attestation (`BuildBundle`, `GetSelection`, `GetAttestations`, `ListAttestors`), the YED UTXO set
 of any address (`GetAddressTokens` → the node's `yed_listtokens`), `GetActivation`,
-`DecodePayload`, `GetYellowbackInfo`. Field names are the node contract's JSON names
+`DecodePayload` (a payload script, or a raw transaction, whose carrier bundle it then returns too: the light
+seat's cancel watcher reads a claim's bundle; a transaction costs what `ValidateRawTransaction` does for its size),
+`GetYellowbackInfo`, and the light attestor's `SubmitAttestation`, `GetTag`,
+`GetTxOut`, `GetMempoolTxids`. Field names are the node contract's JSON names
 (`testdata/yellowback/contract.json`, kept equal to `ycash-dd/doc/yellowback-rpc-contract.json`
 by the workspace's `make spec`), so results unmarshal straight into the generated messages.
 
@@ -38,8 +44,44 @@ addresses (`yb…`/`yt…`/`yr…`), mapped to the transparent form before the b
 `main` assigns from the btcd client and tests replace with a stub — no new abstraction.
 `common.CallYed` is the only path to a `yed_*` RPC; `common.YedMethods` (allow-list) and
 `common.NotOffered` (with reasons) together cover every `yed_*` method of the contract, and the
-offline suite fails when one appears in neither. `common.StockMethods` is the separate, one-entry
-allow-list of stock RPCs `CallYed` may also reach (`getblockchaininfo`, for `GetChainInfo`).
+offline suite fails when one appears in neither. `common.StockMethods` is the separate
+allow-list of stock RPCs `CallYed` may also reach (`getblockchaininfo` for `GetChainInfo`;
+`gettxout` and `getrawmempool` for `GetTxOut` and `GetMempoolTxids`).
+
+**The light attestor (beta4 item 3d, B-T1; workspace `docs/plans/beta4/price-feed.md` §2.2).** A
+light seat runs the attest agent and no node: it signs its statements itself and reaches the
+network only through two of these servers. Four calls serve it (`frontend/yellowback_attest.go`):
+
+| Call | Proxies | Notes |
+|---|---|---|
+| `SubmitAttestation(YedAttestationFrame{frame})` → `YedAttestationAccepted` | `yed_addattestation <hex>` | **the service's only writing call**: the statement joins the node's attestation pool, the one `BuildBundle` reads; the node verifies it exactly as one that came over gossip. The result is the RPC's (`accepted`, `seq`, `priceMicroUsd`, `citedHeight`, `replaced`, `poolSize`) |
+| `GetTag(HeightFilter)` → `YedTag` | `yed_gettag "<height>"` | height 0 = the node's tip; `height` is filled with the block asked for; `found = false` (`kind` `none`) is an answer |
+| `GetTxOut(YedTxOutQuery{txid, vout, includeMempool})` → `YedTxOut` | `gettxout` | a spent or unknown output (the RPC's `null`) is `found = false`; `valueZat` from `value`, `scriptPubKeyHex` = `scriptPubKey.hex` |
+| `GetMempoolTxids(Empty)` → `YedTxidList` | `getrawmempool` | `GetMempoolTx` streams compact transactions, which carry no transparent inputs; the cancel watcher fetches full ones by id |
+
+`SubmitAttestation`'s guards, each refusal naming its guard first:
+
+| Guard | Rule | Refusal |
+|---|---|---|
+| `size` | the frame is exactly 74 bytes (`seq` u16, `priceMicroUsd` u32, `citedHeight` u32, signature 64, little-endian) | `INVALID_ARGUMENT` |
+| `seq` | `seq` is listed by `yed_listattestors` (the subscribe agent's test; the node refuses a listed seq that is not eligible). The list is cached and refreshed when the ingestor's tip moves or after 60 s | `PERMISSION_DENIED` |
+| `rate` | at most one new statement per seq per `--yellowback-attest-seq-blocks` blocks (default 5), counted in `citedHeight` from the last statement the node accepted through this server. A byte-identical resubmit of that statement is answered with the remembered result, without a node call, and does not count | `RESOURCE_EXHAUSTED` |
+| per-IP | the token bucket every method takes from (a whole token: the node verifies a signature) | `RESOURCE_EXHAUSTED` |
+
+A node refusal (`attest-stale`, `attest-invalid`, `attest-not-eligible`, ...) is
+`FAILED_PRECONDITION` with the node's message, as for every method. Only an accepted statement moves
+the window: a statement is signed by its seat, so a third party can only replay genuine ones, and
+neither a refused frame nor an older statement replayed by someone else uses up the seat's window
+(an older one cites a lower height and is refused unsent). A lying server can make a seat cite a
+wrong hash; the node refuses such a statement, and it cannot be equivocation (the plan's "Trust").
+
+**A server that light attestor seats use** needs a larger per-peer budget than the default, which is sized for a
+phone. A seat's agent reads every poll (`GetYellowbackInfo`, `ListAttestors`, `GetAttestations`, and the cancel
+watcher's `ListVaults`, `GetSet`, `GetVault`, ...), and the seats of one host share its address (three per host on
+the fast testnet, plan D-1). Measured on regtest (`ycash6 qa/rpc-tests/yellowback_cancel_agent_light.py`, four
+seats on one address polling every second): the default bucket of 20 refilled one per second starves the watcher.
+Raise it for those servers, e.g. `--yellowback-rate-burst 200 --yellowback-rate-interval 100ms`, or put the seat
+hosts behind their own server.
 
 **rpcversion 5 (the vault upgrade, `docs/plans/yellowback-upgrade-plan.md` §6, §15.10).** YED is a
 consensus module of the network upgrade `Vault` (branch id `6d5b7a31`), so the messages carry
@@ -260,7 +302,7 @@ it does not, on **both** node lines (ycash-dd 4.5.0 and ycash6 6.21.0):
 **Errors:** a node RPC error → `FAILED_PRECONDITION` with the node's message verbatim
 (`bundle-insufficient: …`, `vault-not-found: …`); transport failure → `UNAVAILABLE`; malformed
 input → `INVALID_ARGUMENT` before any node call; a peer past its burst on any method →
-`RESOURCE_EXHAUSTED` (a bucket of 20 tokens refilled one per second per peer; the methods that
+`RESOURCE_EXHAUSTED` (a bucket of 20 tokens refilled one per second per peer by default, `--yellowback-rate-burst` and `--yellowback-rate-interval`; the methods that
 make the node walk its index or attestation pool — `EstimateCollateral`, `BuildBundle`,
 `ValidateRawTransaction`, `GetAddressTokens`, `GetSelection`, `ListVaults`, `ListClaimable`,
 `GetAttestations` — cost a token, the index reads a fifth of one, and `ValidateRawTransaction` one
@@ -318,12 +360,15 @@ plan decision first). Per-tip keys make a shared cache a convenience, not a corr
 | `yed_getvault`, `yed_listvaults`, `yed_listclaimable`, `yed_getnotice` | yes | index state at the tip; `yed_getnotice` reads the block at `notice.height` |
 | `yed_estimatecollateral`, `yed_estimatefee`, `yed_getfeepayee` | yes | the reference snapshot (`tip − REF_LAG`) and the parameters |
 | `yed_listtokens` | yes | the YED UTXO set at the tip — the K1 target: every `GetAddressTokens` was a node call |
+| `yed_gettag` | yes | the coinbase tag of a block on the active chain at the tip (`GetTag` always sends a height) |
 | `getblockchaininfo` | yes | `GetChainInfo` relays only tip-pure fields (`size_on_disk`, which drifts, is not carried) |
 | `vault_getinfo`, `set_list`, `set_getinfo`, `vault_list` | yes | the primitive's state at the tip; the wallet-only `mine` filter is never sent |
 | `yed_validaterawtransaction` | **no** | the dry run is against the mempool (`CCoinsViewMemPool`), which changes between blocks |
 | `yed_buildbundle`, `yed_getselection` | **no** | built from this node's attestation pool (W5, W9), which fills as attestations arrive off-chain; `poolFresh`, `reachable`, `missing` and the bundle hex change within a tip |
 | `yed_getattestations` | **no** | the attestation pool itself |
 | `yed_listattestors` | **no** | each row's `poolFresh` is pool state; kept exact rather than up to a block stale |
+| `yed_addattestation` | **no** | a write: the statement is added to the node's pool (`SubmitAttestation`) |
+| `gettxout`, `getrawmempool` | **no** | the mempool (`gettxout` with `includeMempool`), which changes between blocks |
 
 **Concurrency note.** A burst of equal requests on a fresh tip all miss together (there is no
 single-flight): with ghz's 50 workers the node saw 50 `yed_listtokens` per tip change, then
@@ -366,10 +411,13 @@ change with the protoc release) and comment re-wrapping; CI runs it.
 | `common/yedcache.go` (+ `yedcache_test.go`) | the tip-hash-keyed read cache: `YedCacheable`, `YedTipHash`, the LRU, the counter |
 | `frontend/yellowback.go` | the handlers (embed `UnimplementedYellowbackStreamerServer`; validate at the edge) |
 | `frontend/yellowback_addr.go`, `taddrOf` in `frontend/service.go` | D-L-4 |
+| `frontend/yellowback_attest.go` | the light attestor's calls: `SubmitAttestation` and its guards, `GetTag`, `GetTxOut`, `GetMempoolTxids` |
 | `frontend/yellowback_ratelimit.go` | the token bucket |
 | `frontend/coinbase.go` (+ `coinbase_test.go`), `parser/coinbase.go` (+ `coinbase_test.go`) | `GetAddressUtxosReply.coinbase`: the cached per-txid lookup, `IsCoinbase` |
 | `frontend/yellowback_test.go` | the offline suite (every method against the contract; `GetChainInfo` against a fixed `getblockchaininfo` answer) |
 | `frontend/yellowback_devnet_test.go` | the regtest suite (`-tags devnet`) |
+| `frontend/yellowback_attest_test.go`, `frontend/yellowback_attest_devnet_test.go` | the light attestor's calls: offline (B-3: size, seq, rate, the identical resubmit, the member cache, a node refusal does not count) and on regtest (`-tags devnet`, through `scripts/attest-leg.py`) |
+| `scripts/attest-leg.py` | the light attestor's regtest leg (beta4 B-2, B-3): a ycash6 node whose wallet holds three seated attestors and, with `--koganyd`, a kogany node following it (the kogany rig's pieces, imported), one server on each, then `go test -tags devnet -run TestAttestLeg`: statements signed with `yed_signattestation` go through `SubmitAttestation` into `GetAttestations` and `BuildBundle` on each node. `scripts/attest-leg.py --ycashd Y [--koganyd Z] [--port-base 39100]` |
 | `testtools/lwdinfo/main.go` | `go run -mod=vendor ./testtools/lwdinfo -server host:port [-yellowback]`: `GetLightdInfo` + `GetLatestBlock` (+ every Yellowback method once, incl. `GetChainInfo`'s two branch ids) as JSON; the devnet's `check` uses it |
 | `scripts/build-baseline.sh`, `scripts/check-generated.sh`, `scripts/devnet-test.sh` | the baseline binary, the generated-code gate, the regtest driver |
 | `.github/workflows/yellowback-tests.yml` | build, vet, gofmt (the fork's files), tests, generated-code check |

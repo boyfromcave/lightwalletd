@@ -56,6 +56,12 @@ type Options struct {
 	YedCacheEntries    int      `json:"yellowback_cache_entries"`
 	YedCacheBytes      int64    `json:"yellowback_cache_bytes"`
 	TrustedProxyCIDRs  []string `json:"trusted_proxy_cidr"`
+	// SubmitAttestation's per-seq window in blocks (beta4 item 3d; frontend/yellowback_attest.go).
+	YedAttestSeqBlocks int `json:"yellowback_attest_seq_blocks"`
+	// The per-peer limiter of the Yellowback service (frontend/yellowback_ratelimit.go): burst tokens, one refilled
+	// per interval. A server that light attestor seats use sizes it for them (docs/yellowback.md).
+	YedRateBurst    int           `json:"yellowback_rate_burst"`
+	YedRateInterval time.Duration `json:"yellowback_rate_interval"`
 }
 
 // RawRequest points to the function to send a an RPC request to zcashd;
