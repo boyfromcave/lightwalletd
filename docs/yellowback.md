@@ -393,6 +393,8 @@ change with the protoc release) and comment re-wrapping; CI runs it.
 | `frontend/yellowback_ratelimit.go` | the token bucket |
 | `frontend/yellowback_test.go` | the offline suite (every method against the contract; `GetChainInfo` against a fixed `getblockchaininfo` answer) |
 | `frontend/yellowback_devnet_test.go` | the regtest suite (`-tags devnet`) |
+| `frontend/yellowback_attest_test.go`, `frontend/yellowback_attest_devnet_test.go` | the light attestor's calls: offline (B-3: size, seq, rate, the identical resubmit, the member cache, a node refusal does not count) and on regtest (`-tags devnet`, through `scripts/attest-leg.py`) |
+| `scripts/attest-leg.py` | the light attestor's regtest leg (beta4 B-2, B-3): a ycash6 node whose wallet holds three seated attestors and, with `--koganyd`, a kogany node following it (the kogany rig's pieces, imported), one server on each, then `go test -tags devnet -run TestAttestLeg`: statements signed with `yed_signattestation` go through `SubmitAttestation` into `GetAttestations` and `BuildBundle` on each node. `scripts/attest-leg.py --ycashd Y [--koganyd Z] [--port-base 39100]` |
 | `testtools/lwdinfo/main.go` | `go run -mod=vendor ./testtools/lwdinfo -server host:port [-yellowback]`: `GetLightdInfo` + `GetLatestBlock` (+ every Yellowback method once, incl. `GetChainInfo`'s two branch ids) as JSON; the devnet's `check` uses it |
 | `scripts/build-baseline.sh`, `scripts/check-generated.sh`, `scripts/devnet-test.sh` | the baseline binary, the generated-code gate, the regtest driver |
 | `.github/workflows/yellowback-tests.yml` | build, vet, gofmt (the fork's files), tests, generated-code check |
