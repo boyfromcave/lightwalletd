@@ -117,6 +117,18 @@ O(1) length-and-prefix pre-check (audit E-1) covers both lengths. Unit tests: `T
 `TestPQTaddrMethodsForwardPlainForm` (the node's `pq_standard_tests` mainnet vectors and a regtest node's answers);
 regtest: `TestDevnetPQTaddrThroughServer` (Falcon active: YEC sent to a wallet `rq…` address, every taddr method
 under the `rq…` and `yr…` forms compared with `getaddressbalance`/`getaddresstxids`/`getaddressutxos`).
+**Coinbase outputs (beta4).** `GetAddressUtxosReply` carries `bool coinbase = 7` (the one edit to `service.proto`,
+additive and wire-compatible: an older client ignores it, an older server always sends false). Consensus lets a
+coinbase output be spent only after 100 confirmations (depth 101) and only into a transaction with no transparent
+outputs, so a light wallet must shield it at the exact amount (a post-quantum mining reward otherwise looks like an
+ordinary coin and every send of it is refused). The node's `getaddressutxos` (ycashd and koganyd) carries no such
+field, so the server asks `getrawtransaction <txid> 1` once per txid (`frontend/coinbase.go`) and reads the first
+input (`parser.IsCoinbase`: one input with a null prevout, the prefix only, any version); the verdict is cached by
+txid, since a txid's coinbase-ness never changes. A lookup the node cannot answer fails the call instead of
+reporting a coinbase as ordinary (darkside's staged UTXOs excepted). A deployment that routes `GetAddressUtxos` to
+another index (ycash-infra's yindex) must fill the field the same way. Tests: `TestIsCoinbase`,
+`TestGetAddressUtxosCoinbase`.
+
 `vault_getnewowner` (a new PQ key of the node's wallet) is wallet context and not offered. The offline suite has
 reverse checks (`TestContractFieldsAreDeclared`, `TestVaultContractFieldsAreDeclared`): every field of an offered
 method's node contract (and, for the primitive, the node's `doc/vault-rpc-contract.json`, copied to
@@ -355,6 +367,7 @@ change with the protoc release) and comment re-wrapping; CI runs it.
 | `frontend/yellowback.go` | the handlers (embed `UnimplementedYellowbackStreamerServer`; validate at the edge) |
 | `frontend/yellowback_addr.go`, `taddrOf` in `frontend/service.go` | D-L-4 |
 | `frontend/yellowback_ratelimit.go` | the token bucket |
+| `frontend/coinbase.go` (+ `coinbase_test.go`), `parser/coinbase.go` (+ `coinbase_test.go`) | `GetAddressUtxosReply.coinbase`: the cached per-txid lookup, `IsCoinbase` |
 | `frontend/yellowback_test.go` | the offline suite (every method against the contract; `GetChainInfo` against a fixed `getblockchaininfo` answer) |
 | `frontend/yellowback_devnet_test.go` | the regtest suite (`-tags devnet`) |
 | `testtools/lwdinfo/main.go` | `go run -mod=vendor ./testtools/lwdinfo -server host:port [-yellowback]`: `GetLightdInfo` + `GetLatestBlock` (+ every Yellowback method once, incl. `GetChainInfo`'s two branch ids) as JSON; the devnet's `check` uses it |
@@ -364,9 +377,9 @@ change with the protoc release) and comment re-wrapping; CI runs it.
 **Changed in files that existed at `187a267`:** `cmd/root.go` (+53: the flags, their binds and
 defaults, the `Options` field reads, the registration block after darkside's, the cache's
 wiring), `common/common.go` (+9: `Options.Yellowback`, the bounds), `frontend/service.go` (+19 −3: `YellowbackAddresses`, `taddrOf`, the
-three call sites), `Makefile` (+8: the proto in every list), `go.mod` (+1: `btcutil` promoted
-from indirect to direct, same version, for `base58`), `README.md` (+2). **Zero:** both original
-`.proto` files and their generated code, `parser/`, `common/cache.go`, the rest of
+three call sites; beta4: the coinbase lookup in `getAddressUtxos`), `walletrpc/service.proto` (+5, beta4: `GetAddressUtxosReply.coinbase = 7`, with `service.pb.go` regenerated), `Makefile` (+8: the proto in every list), `go.mod` (+1: `btcutil` promoted
+from indirect to direct, same version, for `base58`), `README.md` (+2). **Zero:** `compact_formats.proto` and its generated code, the
+baseline's `parser/` files, `common/cache.go`, the rest of
 `common/common.go`, `go.sum`, `vendor/`, `Dockerfile`, `docker-compose.yml`.
 
 ## Baseline findings (this lineage)

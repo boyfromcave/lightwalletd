@@ -805,6 +805,9 @@ func (n *pqTaddrNode) RawRequest(method string, params []json.RawMessage) (json.
 			req.Addresses[0], 7, 9)), nil
 	case "getaddresstxids":
 		return json.RawMessage(`[]`), nil
+	case "getrawtransaction":
+		// The coinbase lookup (coinbase.go): an ordinary one-input v4 transaction's prefix.
+		return json.RawMessage(fmt.Sprintf(`{"hex":"0400008085202f8901%064x00000000","height":205}`, 3)), nil
 	}
 	return nil, fmt.Errorf("unexpected %s", method)
 }
