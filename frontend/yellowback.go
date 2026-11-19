@@ -213,6 +213,11 @@ func rawTxCost(in *walletrpc.RawTransaction) float64 {
 	if in != nil {
 		n = len(in.Data)
 	}
+	return rawTxBytesCost(n)
+}
+
+// rawTxBytesCost is rawTxCost for a body of n bytes.
+func rawTxBytesCost(n int) float64 {
 	if n > maxRawTxBytes {
 		n = maxRawTxBytes
 	}
@@ -223,15 +228,23 @@ func rawTxCost(in *walletrpc.RawTransaction) float64 {
 	return yedCostHeavy * float64(units)
 }
 
-// DecodePayload proxies yed_decodepayload <hex>.
+// DecodePayload proxies yed_decodepayload <hex>: a payload push or OP_RETURN script (at most 520 bytes), or a
+// raw transaction (at most maxRawTxBytes; the node then also decodes the carrier's bundle, which the light
+// attestor's cancel watcher reads). A transaction costs what ValidateRawTransaction's does for its size.
 func (y *YellowbackStreamer) DecodePayload(ctx context.Context, in *walletrpc.YedHex) (*walletrpc.YedPayload, error) {
-	if err := y.limited(ctx, yedCostLight); err != nil {
-		return nil, err
-	}
 	if in == nil {
 		return nil, badArg("hex required")
 	}
-	if err := checkHex("hex", in.Hex, 2*520); err != nil {
+	cost := yedCostLight
+	limit := 2 * 520
+	if len(in.Hex) > limit {
+		cost = rawTxBytesCost(len(in.Hex) / 2)
+		limit = 2 * maxRawTxBytes
+	}
+	if err := y.limited(ctx, cost); err != nil {
+		return nil, err
+	}
+	if err := checkHex("hex", in.Hex, limit); err != nil {
 		return nil, err
 	}
 	out := &walletrpc.YedPayload{}

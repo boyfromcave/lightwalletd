@@ -1608,3 +1608,31 @@ func TestCollateralMintBlockedFields(t *testing.T) {
 		t.Errorf("the restriction changed the estimate: requiredZat %d, want %d", got.GetRequiredZat(), absent.GetRequiredZat())
 	}
 }
+
+// TestDecodePayloadRawTransaction: a raw transaction (above the 520-byte payload bound) is forwarded, costs what
+// ValidateRawTransaction's body would, and the carrier's bundle the node decodes reaches the client (beta4 item 3d:
+// the light seat's cancel watcher reads its own attestation inside a claim's bundle).
+func TestDecodePayloadRawTransaction(t *testing.T) {
+	svc, node := newService(t)
+	ctx := context.Background()
+	reply := map[string]interface{}{"valid": true, "version": 3, "type": "redeem", "refHeight": 237, "opReturnIndex": 2,
+		"bundle": map[string]interface{}{"vin": 1, "hash": strings.Repeat("ab", 32), "version": 1, "count": 1,
+			"attestations": []map[string]interface{}{{"seq": 2, "priceMicroUsd": 1600000, "citedHeight": 236,
+				"sig": strings.Repeat("cd", 64), "hex": strings.Repeat("ef", 74)}}}}
+	encoded, _ := json.Marshal(map[string]interface{}{"returns": reply})
+	node.contract["yed_decodepayload"] = encoded
+	tx := strings.Repeat("00", 1500)
+	p, err := svc.DecodePayload(ctx, &walletrpc.YedHex{Hex: tx})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := p.GetBundle()
+	if p.GetOpReturnIndex() != 2 || b.GetVin() != 1 || b.GetCount() != 1 || len(b.GetAttestations()) != 1 ||
+		b.GetAttestations()[0].GetSeq() != 2 || b.GetAttestations()[0].GetCitedHeight() != 236 ||
+		b.GetAttestations()[0].GetHex() != strings.Repeat("ef", 74) {
+		t.Errorf("bundle not carried: %+v", p)
+	}
+	if _, err := svc.DecodePayload(ctx, &walletrpc.YedHex{Hex: strings.Repeat("00", maxRawTxBytes+1)}); status.Code(err) != codes.InvalidArgument {
+		t.Errorf("a body past maxRawTxBytes: %v", err)
+	}
+}

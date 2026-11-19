@@ -23,7 +23,9 @@ below). The methods: verdicts (`GetTxInfo`,
 `EstimateFee`, `GetFeePayee`), vaults (`GetVault`, `ListVaults`, `ListClaimable`, `GetNotice`),
 attestation (`BuildBundle`, `GetSelection`, `GetAttestations`, `ListAttestors`), the YED UTXO set
 of any address (`GetAddressTokens` → the node's `yed_listtokens`), `GetActivation`,
-`DecodePayload`, `GetYellowbackInfo`, and the light attestor's `SubmitAttestation`, `GetTag`,
+`DecodePayload` (a payload script, or a raw transaction, whose carrier bundle it then returns too: the light
+seat's cancel watcher reads a claim's bundle; a transaction costs what `ValidateRawTransaction` does for its size),
+`GetYellowbackInfo`, and the light attestor's `SubmitAttestation`, `GetTag`,
 `GetTxOut`, `GetMempoolTxids`. Field names are the node contract's JSON names
 (`testdata/yellowback/contract.json`, kept equal to `ycash-dd/doc/yellowback-rpc-contract.json`
 by the workspace's `make spec`), so results unmarshal straight into the generated messages.
