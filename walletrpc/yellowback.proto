@@ -327,6 +327,31 @@ message VaultOutput {
   string owner = 23; int64 ownerscheme = 24;                         // rpcversion 7: the owner's pqkeyid (scheme || key hash) and scheme
 }
 
+// ---- the light attestor (beta4 item 3d, workspace docs/plans/beta4/price-feed.md section 2.2, B-T1) --------
+// SubmitAttestation: one 74-byte attestation statement (seq u16, price u32, citedHeight u32, sig 64;
+// ycash6 src/yellowback/attest.h) into the node's pool through yed_addattestation, the pool BuildBundle
+// reads. The only writing call of this service; guarded (exact size, a current member's seq, at most one
+// new frame per seq per window of blocks, the per-IP limit). The result is yed_addattestation's.
+message YedAttestationFrame { bytes frame = 1; }
+message YedAttestationAccepted {
+  bool accepted = 1; int64 citedHeight = 2; int64 poolSize = 3; int64 priceMicroUsd = 4; bool replaced = 5; int64 seq = 6;
+}
+// GetTag: yed_gettag <height> (0 = the tip). version / payoutScheme are rpcversion 11 (tag v2, beta4 item 3f);
+// a node before it leaves them empty.
+message YedTag {
+  bool found = 1; string kind = 2; string payoutAddress = 3; int64 priceMicroUsd = 4; int64 sourceMask = 5; int64 version = 6;
+  string payoutScheme = 7; int64 height = 8;                          // height: the block asked for (filled by the server)
+}
+// GetTxOut: gettxout <txid> <vout> <includeMempool>. A spent or unknown output is found = false (the RPC's null).
+message YedTxOutQuery { string txid = 1; uint32 vout = 2; bool includeMempool = 3; }
+message YedTxOut {
+  bool found = 1; string bestblock = 2; int64 confirmations = 3; int64 valueZat = 4; string scriptPubKeyHex = 5;
+  bool coinbase = 6;
+}
+// GetMempoolTxids: getrawmempool (txids in display order). GetMempoolTx (service.proto) streams compact
+// transactions, which carry no transparent inputs; the cancel watcher needs the ids to fetch full ones.
+message YedTxidList { repeated string txids = 1; }
+
 // ---- the service ---------------------------------------------------------------------------
 
 service YellowbackStreamer {
@@ -354,4 +379,9 @@ service YellowbackStreamer {
   rpc ListSets(Empty) returns (stream VaultSet) {}                       // set_list
   rpc GetSet(VaultSetQuery) returns (VaultSet) {}                        // set_getinfo
   rpc ListVaultOutputs(VaultOutputFilter) returns (stream VaultOutput) {} // vault_list (never "mine")
+  // the light attestor (beta4 item 3d, B-T1)
+  rpc SubmitAttestation(YedAttestationFrame) returns (YedAttestationAccepted) {}  // yed_addattestation (guarded)
+  rpc GetTag(HeightFilter) returns (YedTag) {}                                     // yed_gettag
+  rpc GetTxOut(YedTxOutQuery) returns (YedTxOut) {}                                // gettxout
+  rpc GetMempoolTxids(Empty) returns (YedTxidList) {}                              // getrawmempool
 }
