@@ -645,6 +645,12 @@ func getAddressUtxos(arg *walletrpc.GetAddressUtxosArg, f func(*walletrpc.GetAdd
 		if err != nil {
 			return err
 		}
+		// A failed lookup fails the call: a coinbase reported as an ordinary coin would be
+		// offered to an ordinary send, which consensus refuses.
+		coinbase, err := txIsCoinbase(utxo.Txid)
+		if err != nil {
+			return err
+		}
 		err = f(&walletrpc.GetAddressUtxosReply{
 			Address:  utxo.Address,
 			Txid:     parser.Reverse(txidBytes),
@@ -652,6 +658,7 @@ func getAddressUtxos(arg *walletrpc.GetAddressUtxosArg, f func(*walletrpc.GetAdd
 			Script:   scriptBytes,
 			ValueZat: int64(utxo.Satoshis),
 			Height:   uint64(utxo.Height),
+			Coinbase: coinbase,
 		})
 		if err != nil {
 			return err
