@@ -3,10 +3,12 @@
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
 // Yellowback (YED) light-client service: a second, separate gRPC service beside
-// CompactTxStreamer (service.proto, which is not edited). Every method is a thin proxy of a
+// CompactTxStreamer (service.proto, which is not edited). Every method but one is a thin proxy of a
 // read-only yed_* RPC (or, since rpcversion 5, a read-only set_* / vault_* RPC of the vault
-// primitive YED runs on) on the node this server already talks to; the server adds no rule and
-// holds no Yellowback state. Field names are the JSON names of the node's RPC contract
+// primitive YED runs on, or a stock read RPC) on the node this server already talks to; the server
+// adds no rule and holds no Yellowback state. The one writing call is SubmitAttestation (beta4 item
+// 3d): it adds an attestation statement to the node's in-memory pool (yed_addattestation), never a
+// transaction or wallet act, behind the guards described at its message. Field names are the JSON names of the node's RPC contract
 // (ycash-dd/doc/yellowback-rpc-contract.json, rpcversion 8 on upgrade/quantum-vaults) so the contract's example values
 // are the test fixtures and the JSON result unmarshals straight into these messages; a message
 // may carry a subset of a result's fields (unknown JSON fields are ignored), never a renamed one.

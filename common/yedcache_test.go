@@ -105,7 +105,7 @@ func TestYedCacheMissesOnANewTip(t *testing.T) {
 func TestYedCacheBypassesNonCacheableMethods(t *testing.T) {
 	stub := withCache(t, 100, 1<<20)
 	ctx := context.Background()
-	for _, method := range []string{"yed_validaterawtransaction", "yed_buildbundle", "yed_getselection", "yed_getattestations", "yed_listattestors"} {
+	for _, method := range []string{"yed_validaterawtransaction", "yed_buildbundle", "yed_getselection", "yed_getattestations", "yed_listattestors", "yed_addattestation", "gettxout", "getrawmempool"} {
 		if YedCacheable[method] {
 			t.Fatalf("%s must not be cacheable (mempool / attestation pool)", method)
 		}

@@ -56,6 +56,8 @@ type Options struct {
 	YedCacheEntries    int      `json:"yellowback_cache_entries"`
 	YedCacheBytes      int64    `json:"yellowback_cache_bytes"`
 	TrustedProxyCIDRs  []string `json:"trusted_proxy_cidr"`
+	// SubmitAttestation's per-seq window in blocks (beta4 item 3d; frontend/yellowback_attest.go).
+	YedAttestSeqBlocks int `json:"yellowback_attest_seq_blocks"`
 }
 
 // RawRequest points to the function to send a an RPC request to zcashd;

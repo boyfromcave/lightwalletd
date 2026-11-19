@@ -380,6 +380,14 @@
                 </li>
               
                 <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YedAttestationAccepted"><span class="badge">M</span>YedAttestationAccepted</a>
+                </li>
+              
+                <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YedAttestationFrame"><span class="badge">M</span>YedAttestationFrame</a>
+                </li>
+              
+                <li>
                   <a href="#cash.z.wallet.sdk.rpc.YedAttestor"><span class="badge">M</span>YedAttestor</a>
                 </li>
               
@@ -476,6 +484,10 @@
                 </li>
               
                 <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YedTag"><span class="badge">M</span>YedTag</a>
+                </li>
+              
+                <li>
                   <a href="#cash.z.wallet.sdk.rpc.YedToken"><span class="badge">M</span>YedToken</a>
                 </li>
               
@@ -484,7 +496,19 @@
                 </li>
               
                 <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YedTxOut"><span class="badge">M</span>YedTxOut</a>
+                </li>
+              
+                <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YedTxOutQuery"><span class="badge">M</span>YedTxOutQuery</a>
+                </li>
+              
+                <li>
                   <a href="#cash.z.wallet.sdk.rpc.YedTxid"><span class="badge">M</span>YedTxid</a>
+                </li>
+              
+                <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YedTxidList"><span class="badge">M</span>YedTxidList</a>
                 </li>
               
                 <li>
@@ -1884,7 +1908,7 @@ The block can be specified by either height or hash.</p></td>
       <div class="file-heading">
         <h2 id="yellowback.proto">yellowback.proto</h2><a href="#title">Top</a>
       </div>
-      <p>Yellowback (YED) light-client service: a second, separate gRPC service beside</p><p>CompactTxStreamer (service.proto, which is not edited). Every method is a thin proxy of a</p><p>read-only yed_* RPC (or, since rpcversion 5, a read-only set_* / vault_* RPC of the vault</p><p>primitive YED runs on) on the node this server already talks to; the server adds no rule and</p><p>holds no Yellowback state. Field names are the JSON names of the node's RPC contract</p><p>(ycash-dd/doc/yellowback-rpc-contract.json, rpcversion 8 on upgrade/quantum-vaults) so the contract's example values</p><p>are the test fixtures and the JSON result unmarshals straight into these messages; a message</p><p>may carry a subset of a result's fields (unknown JSON fields are ignored), never a renamed one.</p><p>Plan: docs/plans/yellowback-lightwalletd-plan.md section 4.1.</p>
+      <p>Yellowback (YED) light-client service: a second, separate gRPC service beside</p><p>CompactTxStreamer (service.proto, which is not edited). Every method but one is a thin proxy of a</p><p>read-only yed_* RPC (or, since rpcversion 5, a read-only set_* / vault_* RPC of the vault</p><p>primitive YED runs on, or a stock read RPC) on the node this server already talks to; the server</p><p>adds no rule and holds no Yellowback state. The one writing call is SubmitAttestation (beta4 item</p><p>3d): it adds an attestation statement to the node's in-memory pool (yed_addattestation), never a</p><p>transaction or wallet act, behind the guards described at its message. Field names are the JSON names of the node's RPC contract</p><p>(ycash-dd/doc/yellowback-rpc-contract.json, rpcversion 8 on upgrade/quantum-vaults) so the contract's example values</p><p>are the test fixtures and the JSON result unmarshals straight into these messages; a message</p><p>may carry a subset of a result's fields (unknown JSON fields are ignored), never a renamed one.</p><p>Plan: docs/plans/yellowback-lightwalletd-plan.md section 4.1.</p>
 
       
         <h3 id="cash.z.wallet.sdk.rpc.HeightFilter">HeightFilter</h3>
@@ -2724,6 +2748,89 @@ is still indexed; unlockheight = exitheight &#43; the set&#39;s maturity, the fi
                 <tr>
                   <td>seq</td>
                   <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.YedAttestationAccepted">YedAttestationAccepted</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>accepted</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>citedHeight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>poolSize</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>priceMicroUsd</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>replaced</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>seq</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.YedAttestationFrame">YedAttestationFrame</h3>
+        <p>---- the light attestor (beta4 item 3d, workspace docs/plans/beta4/price-feed.md section 2.2, B-T1) --------</p><p>SubmitAttestation: one 74-byte attestation statement (seq u16, price u32, citedHeight u32, sig 64;</p><p>ycash6 src/yellowback/attest.h) into the node's pool through yed_addattestation, the pool BuildBundle</p><p>reads. The only writing call of this service; guarded (exact size, a current member's seq, at most one</p><p>new frame per seq per window of blocks, the per-IP limit). The result is yed_addattestation's.</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>frame</td>
+                  <td><a href="#bytes">bytes</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -4334,6 +4441,79 @@ mint is allowed, and also when the node predates the fields (it omits the keys).
 
         
       
+        <h3 id="cash.z.wallet.sdk.rpc.YedTag">YedTag</h3>
+        <p>GetTag: yed_gettag <height> (0 = the tip). version / payoutScheme are rpcversion 11 (tag v2, beta4 item 3f);</p><p>a node before it leaves them empty.</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>found</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>kind</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>payoutAddress</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>priceMicroUsd</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>sourceMask</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>version</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>payoutScheme</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>height</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>height: the block asked for (filled by the server) </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="cash.z.wallet.sdk.rpc.YedToken">YedToken</h3>
         <p>yed_listtokens: one live YED output of one of the queried addresses (the authoritative UTXO set).</p>
 
@@ -4620,6 +4800,103 @@ mint is allowed, and also when the node predates the fields (it omits the keys).
 
         
       
+        <h3 id="cash.z.wallet.sdk.rpc.YedTxOut">YedTxOut</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>found</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bestblock</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>confirmations</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>valueZat</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>scriptPubKeyHex</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>coinbase</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.YedTxOutQuery">YedTxOutQuery</h3>
+        <p>GetTxOut: gettxout <txid> <vout> <includeMempool>. A spent or unknown output is found = false (the RPC's null).</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>txid</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>vout</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>includeMempool</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="cash.z.wallet.sdk.rpc.YedTxid">YedTxid</h3>
         <p></p>
 
@@ -4634,6 +4911,30 @@ mint is allowed, and also when the node predates the fields (it omits the keys).
                   <td>txid</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.YedTxidList">YedTxidList</h3>
+        <p>GetMempoolTxids: getrawmempool (txids in display order). GetMempoolTx (service.proto) streams compact</p><p>transactions, which carry no transparent inputs; the cancel watcher needs the ids to fetch full ones.</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>txids</td>
+                  <td><a href="#string">string</a></td>
+                  <td>repeated</td>
                   <td><p> </p></td>
                 </tr>
               
@@ -6477,6 +6778,34 @@ floor a join in the NEXT block must meet, clamp(ceil(collateral * bondShareBps /
                 <td>ListVaultOutputs</td>
                 <td><a href="#cash.z.wallet.sdk.rpc.VaultOutputFilter">VaultOutputFilter</a></td>
                 <td><a href="#cash.z.wallet.sdk.rpc.VaultOutput">VaultOutput</a> stream</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>SubmitAttestation</td>
+                <td><a href="#cash.z.wallet.sdk.rpc.YedAttestationFrame">YedAttestationFrame</a></td>
+                <td><a href="#cash.z.wallet.sdk.rpc.YedAttestationAccepted">YedAttestationAccepted</a></td>
+                <td><p>the light attestor (beta4 item 3d, B-T1)</p></td>
+              </tr>
+            
+              <tr>
+                <td>GetTag</td>
+                <td><a href="#cash.z.wallet.sdk.rpc.HeightFilter">HeightFilter</a></td>
+                <td><a href="#cash.z.wallet.sdk.rpc.YedTag">YedTag</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>GetTxOut</td>
+                <td><a href="#cash.z.wallet.sdk.rpc.YedTxOutQuery">YedTxOutQuery</a></td>
+                <td><a href="#cash.z.wallet.sdk.rpc.YedTxOut">YedTxOut</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>GetMempoolTxids</td>
+                <td><a href="#cash.z.wallet.sdk.rpc.Empty">Empty</a></td>
+                <td><a href="#cash.z.wallet.sdk.rpc.YedTxidList">YedTxidList</a></td>
                 <td><p></p></td>
               </tr>
             

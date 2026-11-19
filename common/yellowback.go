@@ -6,10 +6,12 @@
 // (docs/plans/yellowback-lightwalletd-plan.md section 4.2, re-ported onto zcash/lightwalletd 0.4.6 in section 10).
 //
 // This file is the ONLY way a yed_* RPC is reached from this server. CallYed consults an
-// allow-list of read-only, node-context methods; anything else — every wallet RPC, the
-// miner-local yed_setquote, the RPC-auth-only yed_addattestation / yed_signattestation — is
-// unreachable by construction. ProbeYellowback runs once at startup and decides whether the
-// service is registered at all (plan D-L-5).
+// allow-list of node-context methods, read-only but for yed_addattestation (beta4 item 3d: the
+// light attestor's SubmitAttestation, guarded in frontend/yellowback_attest.go, adds a statement
+// to the node's attestation pool); anything else — every wallet RPC, the miner-local
+// yed_setquote, the wallet-signing yed_signattestation — is unreachable by construction.
+// ProbeYellowback runs once at startup and decides whether the service is registered at all
+// (plan D-L-5).
 package common
 
 import (
@@ -87,15 +89,24 @@ var YedMethods = map[string]bool{
 	"yed_getattestations":        true,
 	"yed_listattestors":          true,
 	"yed_listtokens":             true,
+	// beta4 item 3d (B-T1), the light attestor: yed_gettag backs GetTag; yed_addattestation backs
+	// SubmitAttestation, the service's one writing call (the node's in-memory attestation pool,
+	// never a transaction or a wallet), reached only behind its guards (frontend/yellowback_attest.go).
+	"yed_gettag":         true,
+	"yed_addattestation": true,
 }
 
 // StockMethods is the second, separate allow-list: the stock (non-yed_*) node RPCs the service may
-// call through CallYed — read-only, node-context, parameterless. getblockchaininfo backs
-// GetChainInfo (consensus.nextblock, which the frozen GetLightdInfo cannot carry; x402 X-F71).
+// call through CallYed — read-only, node-context. getblockchaininfo backs GetChainInfo
+// (consensus.nextblock, which the frozen GetLightdInfo cannot carry; x402 X-F71); gettxout and
+// getrawmempool back GetTxOut and GetMempoolTxids, the light attestor's cancel watcher reads
+// (beta4 item 3d, B-T1).
 // It is kept apart from YedMethods so the contract test's meaning ("every yed_* RPC is either
 // offered or declined") is unchanged.
 var StockMethods = map[string]bool{
 	"getblockchaininfo": true,
+	"gettxout":          true,
+	"getrawmempool":     true,
 }
 
 // VaultMethods is the third allow-list: the vault primitive's read-only, node-context RPCs
@@ -145,10 +156,8 @@ var NotOffered = map[string]string{
 	"yed_getstatehash":       "test and operator tooling",
 	"yed_gethistory":         "test and operator tooling (the model rebuild)",
 	"yed_getblockverdict":    "operator tooling",
-	"yed_gettag":             "operator tooling; yed_getprice carries the tip's tag",
 	"yed_listminers":         "operator tooling",
 	"yed_setquote":           "miner-local state",
-	"yed_addattestation":     "RPC-auth only (plan v3 section 4.5)",
 	"yed_signattestation":    "RPC-auth only; signs with a wallet key",
 	"yed_getnewaddress":      "wallet",
 	"yed_listaddresses":      "wallet",

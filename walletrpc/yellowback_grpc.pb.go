@@ -42,6 +42,11 @@ type YellowbackStreamerClient interface {
 	ListSets(ctx context.Context, in *Empty, opts ...grpc.CallOption) (YellowbackStreamer_ListSetsClient, error)
 	GetSet(ctx context.Context, in *VaultSetQuery, opts ...grpc.CallOption) (*VaultSet, error)
 	ListVaultOutputs(ctx context.Context, in *VaultOutputFilter, opts ...grpc.CallOption) (YellowbackStreamer_ListVaultOutputsClient, error)
+	// the light attestor (beta4 item 3d, B-T1)
+	SubmitAttestation(ctx context.Context, in *YedAttestationFrame, opts ...grpc.CallOption) (*YedAttestationAccepted, error)
+	GetTag(ctx context.Context, in *HeightFilter, opts ...grpc.CallOption) (*YedTag, error)
+	GetTxOut(ctx context.Context, in *YedTxOutQuery, opts ...grpc.CallOption) (*YedTxOut, error)
+	GetMempoolTxids(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*YedTxidList, error)
 }
 
 type yellowbackStreamerClient struct {
@@ -429,6 +434,42 @@ func (x *yellowbackStreamerListVaultOutputsClient) Recv() (*VaultOutput, error) 
 	return m, nil
 }
 
+func (c *yellowbackStreamerClient) SubmitAttestation(ctx context.Context, in *YedAttestationFrame, opts ...grpc.CallOption) (*YedAttestationAccepted, error) {
+	out := new(YedAttestationAccepted)
+	err := c.cc.Invoke(ctx, "/cash.z.wallet.sdk.rpc.YellowbackStreamer/SubmitAttestation", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *yellowbackStreamerClient) GetTag(ctx context.Context, in *HeightFilter, opts ...grpc.CallOption) (*YedTag, error) {
+	out := new(YedTag)
+	err := c.cc.Invoke(ctx, "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetTag", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *yellowbackStreamerClient) GetTxOut(ctx context.Context, in *YedTxOutQuery, opts ...grpc.CallOption) (*YedTxOut, error) {
+	out := new(YedTxOut)
+	err := c.cc.Invoke(ctx, "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetTxOut", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *yellowbackStreamerClient) GetMempoolTxids(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*YedTxidList, error) {
+	out := new(YedTxidList)
+	err := c.cc.Invoke(ctx, "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetMempoolTxids", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // YellowbackStreamerServer is the server API for YellowbackStreamer service.
 // All implementations must embed UnimplementedYellowbackStreamerServer
 // for forward compatibility
@@ -457,6 +498,11 @@ type YellowbackStreamerServer interface {
 	ListSets(*Empty, YellowbackStreamer_ListSetsServer) error
 	GetSet(context.Context, *VaultSetQuery) (*VaultSet, error)
 	ListVaultOutputs(*VaultOutputFilter, YellowbackStreamer_ListVaultOutputsServer) error
+	// the light attestor (beta4 item 3d, B-T1)
+	SubmitAttestation(context.Context, *YedAttestationFrame) (*YedAttestationAccepted, error)
+	GetTag(context.Context, *HeightFilter) (*YedTag, error)
+	GetTxOut(context.Context, *YedTxOutQuery) (*YedTxOut, error)
+	GetMempoolTxids(context.Context, *Empty) (*YedTxidList, error)
 	mustEmbedUnimplementedYellowbackStreamerServer()
 }
 
@@ -535,6 +581,18 @@ func (UnimplementedYellowbackStreamerServer) GetSet(context.Context, *VaultSetQu
 }
 func (UnimplementedYellowbackStreamerServer) ListVaultOutputs(*VaultOutputFilter, YellowbackStreamer_ListVaultOutputsServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListVaultOutputs not implemented")
+}
+func (UnimplementedYellowbackStreamerServer) SubmitAttestation(context.Context, *YedAttestationFrame) (*YedAttestationAccepted, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SubmitAttestation not implemented")
+}
+func (UnimplementedYellowbackStreamerServer) GetTag(context.Context, *HeightFilter) (*YedTag, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTag not implemented")
+}
+func (UnimplementedYellowbackStreamerServer) GetTxOut(context.Context, *YedTxOutQuery) (*YedTxOut, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTxOut not implemented")
+}
+func (UnimplementedYellowbackStreamerServer) GetMempoolTxids(context.Context, *Empty) (*YedTxidList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMempoolTxids not implemented")
 }
 func (UnimplementedYellowbackStreamerServer) mustEmbedUnimplementedYellowbackStreamerServer() {}
 
@@ -1002,6 +1060,78 @@ func (x *yellowbackStreamerListVaultOutputsServer) Send(m *VaultOutput) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _YellowbackStreamer_SubmitAttestation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(YedAttestationFrame)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(YellowbackStreamerServer).SubmitAttestation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cash.z.wallet.sdk.rpc.YellowbackStreamer/SubmitAttestation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(YellowbackStreamerServer).SubmitAttestation(ctx, req.(*YedAttestationFrame))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _YellowbackStreamer_GetTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HeightFilter)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(YellowbackStreamerServer).GetTag(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetTag",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(YellowbackStreamerServer).GetTag(ctx, req.(*HeightFilter))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _YellowbackStreamer_GetTxOut_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(YedTxOutQuery)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(YellowbackStreamerServer).GetTxOut(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetTxOut",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(YellowbackStreamerServer).GetTxOut(ctx, req.(*YedTxOutQuery))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _YellowbackStreamer_GetMempoolTxids_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(YellowbackStreamerServer).GetMempoolTxids(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cash.z.wallet.sdk.rpc.YellowbackStreamer/GetMempoolTxids",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(YellowbackStreamerServer).GetMempoolTxids(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // YellowbackStreamer_ServiceDesc is the grpc.ServiceDesc for YellowbackStreamer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1076,6 +1206,22 @@ var YellowbackStreamer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSet",
 			Handler:    _YellowbackStreamer_GetSet_Handler,
+		},
+		{
+			MethodName: "SubmitAttestation",
+			Handler:    _YellowbackStreamer_SubmitAttestation_Handler,
+		},
+		{
+			MethodName: "GetTag",
+			Handler:    _YellowbackStreamer_GetTag_Handler,
+		},
+		{
+			MethodName: "GetTxOut",
+			Handler:    _YellowbackStreamer_GetTxOut_Handler,
+		},
+		{
+			MethodName: "GetMempoolTxids",
+			Handler:    _YellowbackStreamer_GetMempoolTxids_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

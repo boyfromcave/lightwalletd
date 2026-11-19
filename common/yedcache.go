@@ -43,6 +43,7 @@ var YedCacheable = map[string]bool{
 	"yed_estimatefee":        true,
 	"yed_getfeepayee":        true,
 	"yed_listtokens":         true,
+	"yed_gettag":             true,
 	"getblockchaininfo":      true,
 	"vault_getinfo":          true,
 	"set_list":               true,

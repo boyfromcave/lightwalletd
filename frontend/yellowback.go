@@ -4,7 +4,8 @@
 
 // YellowbackStreamer: the Yellowback (YED) light-client service, every method a proxy of one
 // read-only yed_* node RPC through common.CallYed (docs/plans/yellowback-lightwalletd-plan.md
-// section 4.1). Each handler validates its input, calls, unmarshals the JSON result straight into
+// section 4.1), but one: SubmitAttestation (yellowback_attest.go) adds a price statement to the
+// node's attestation pool. Each handler validates its input, calls, unmarshals the JSON result straight into
 // the generated message (field names are the contract's JSON names), and returns. No Yellowback
 // logic lives here.
 package frontend
@@ -72,6 +73,7 @@ type YellowbackStreamer struct {
 	cacheMu    sync.Mutex
 	cache      map[string]cacheEntry // method -> last tip answer (callCached)
 	now        func() time.Time
+	attest     *attestGuard // SubmitAttestation's member cache and per-seq windows (yellowback_attest.go)
 	walletrpc.UnimplementedYellowbackStreamerServer
 }
 
@@ -79,7 +81,7 @@ type YellowbackStreamer struct {
 // every other handler in this tree does.
 func NewYellowbackStreamer(capability common.YellowbackCapability, log *logrus.Entry) *YellowbackStreamer {
 	return &YellowbackStreamer{capability: capability, log: log, limiter: newRateLimiter(yedRateBurst, yedRateInterval),
-		cache: map[string]cacheEntry{}, now: time.Now}
+		cache: map[string]cacheEntry{}, now: time.Now, attest: newAttestGuard()}
 }
 
 // call forwards and unmarshals into out (a pointer to a generated message or a slice of them).
