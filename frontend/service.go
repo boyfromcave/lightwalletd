@@ -652,13 +652,13 @@ func getAddressUtxos(arg *walletrpc.GetAddressUtxosArg, f func(*walletrpc.GetAdd
 			return err
 		}
 		err = f(&walletrpc.GetAddressUtxosReply{
+			Coinbase: coinbase,
 			Address:  utxo.Address,
 			Txid:     parser.Reverse(txidBytes),
 			Index:    int32(utxo.OutputIndex),
 			Script:   scriptBytes,
 			ValueZat: int64(utxo.Satoshis),
 			Height:   uint64(utxo.Height),
-			Coinbase: coinbase,
 		})
 		if err != nil {
 			return err
