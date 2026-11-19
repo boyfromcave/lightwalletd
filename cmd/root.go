@@ -63,6 +63,8 @@ var rootCmd = &cobra.Command{
 			YedCacheBytes:       viper.GetInt64("yellowback-cache-bytes"),
 			TrustedProxyCIDRs:   viper.GetStringSlice("trusted-proxy-cidr"),
 			YedAttestSeqBlocks:  viper.GetInt("yellowback-attest-seq-blocks"),
+			YedRateBurst:        viper.GetInt("yellowback-rate-burst"),
+			YedRateInterval:     viper.GetDuration("yellowback-rate-interval"),
 			DarksideTimeout:     viper.GetUint64("darkside-timeout"),
 		}
 
@@ -303,6 +305,7 @@ func startServer(opts *common.Options) error {
 				common.Log.WithFields(logrus.Fields{"error": err}).Fatal("--trusted-proxy-cidr")
 			}
 			service.SetAttestSeqBlocks(opts.YedAttestSeqBlocks)
+			service.SetRateLimit(opts.YedRateBurst, opts.YedRateInterval)
 			common.SetYedMaxInFlight(opts.YellowbackInFlight)
 			// The read cache keys on the ingestor's tip (common/yedcache.go); 0 entries = off.
 			common.YedTipHash = cache.GetLatestHash
@@ -381,6 +384,8 @@ func init() {
 	rootCmd.Flags().Int("yellowback-max-inflight", common.DefaultYedMaxInFlight, "at most this many Yellowback node calls in flight at once (0: unbounded)")
 	rootCmd.Flags().Int("yellowback-cache-entries", common.DefaultYedCacheEntries, "remember at most this many Yellowback node answers per chain tip (0: no cache)")
 	rootCmd.Flags().Int64("yellowback-cache-bytes", common.DefaultYedCacheBytes, "the Yellowback read cache's byte budget")
+	rootCmd.Flags().Int("yellowback-rate-burst", frontend.DefaultRateBurst, "Yellowback service: calls a peer may make at once (per-IP token bucket)")
+	rootCmd.Flags().Duration("yellowback-rate-interval", frontend.DefaultRateInterval, "Yellowback service: one call refilled per this interval, per peer")
 	rootCmd.Flags().Int("yellowback-attest-seq-blocks", frontend.DefaultAttestSeqBlocks, "SubmitAttestation: at most one new statement per attestor seq per this many blocks of citedHeight")
 	rootCmd.Flags().StringSlice("trusted-proxy-cidr", nil, "reverse-proxy networks whose x-real-ip / x-forwarded-for the Yellowback rate limiter believes (repeatable)")
 	rootCmd.Flags().Int("darkside-timeout", 30, "override 30 minute default darkside timeout")
@@ -427,6 +432,10 @@ func init() {
 	viper.SetDefault("yellowback-cache-bytes", common.DefaultYedCacheBytes)
 	viper.BindPFlag("yellowback-attest-seq-blocks", rootCmd.Flags().Lookup("yellowback-attest-seq-blocks"))
 	viper.SetDefault("yellowback-attest-seq-blocks", frontend.DefaultAttestSeqBlocks)
+	viper.BindPFlag("yellowback-rate-burst", rootCmd.Flags().Lookup("yellowback-rate-burst"))
+	viper.SetDefault("yellowback-rate-burst", frontend.DefaultRateBurst)
+	viper.BindPFlag("yellowback-rate-interval", rootCmd.Flags().Lookup("yellowback-rate-interval"))
+	viper.SetDefault("yellowback-rate-interval", frontend.DefaultRateInterval)
 	viper.BindPFlag("trusted-proxy-cidr", rootCmd.Flags().Lookup("trusted-proxy-cidr"))
 	viper.BindPFlag("darkside-timeout", rootCmd.Flags().Lookup("darkside-timeout"))
 	viper.SetDefault("darkside-timeout", 30)
@@ -485,12 +494,12 @@ func optionsForLog(o *common.Options) string {
 		"LogLevel:%d LogFile:%q ZcashConfPath:%q RPCUser:%q RPCHost:%q RPCPort:%q "+
 		"NoTLSVeryInsecure:%t GenCertVeryInsecure:%t Redownload:%t DataDir:%q PingEnable:%t "+
 		"Darkside:%t Yellowback:%t DarksideTimeout:%d YellowbackInFlight:%d YedCacheEntries:%d "+
-		"YedCacheBytes:%d TrustedProxyCIDRs:%q YedAttestSeqBlocks:%d}",
+		"YedCacheBytes:%d TrustedProxyCIDRs:%q YedAttestSeqBlocks:%d YedRateBurst:%d YedRateInterval:%s}",
 		o.GRPCBindAddr, o.GRPCLogging, o.HTTPBindAddr, o.TLSCertPath, o.TLSKeyPath,
 		o.LogLevel, o.LogFile, o.ZcashConfPath, o.RPCUser, o.RPCHost, o.RPCPort,
 		o.NoTLSVeryInsecure, o.GenCertVeryInsecure, o.Redownload, o.DataDir, o.PingEnable,
 		o.Darkside, o.Yellowback, o.DarksideTimeout, o.YellowbackInFlight, o.YedCacheEntries,
-		o.YedCacheBytes, o.TrustedProxyCIDRs, o.YedAttestSeqBlocks)
+		o.YedCacheBytes, o.TrustedProxyCIDRs, o.YedAttestSeqBlocks, o.YedRateBurst, o.YedRateInterval)
 }
 
 func startHTTPServer(opts *common.Options) {

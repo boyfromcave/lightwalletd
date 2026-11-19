@@ -321,3 +321,22 @@ func TestGetMempoolTxids(t *testing.T) {
 	_, err = svc.GetMempoolTxids(ctx, &walletrpc.Empty{})
 	wantCode(t, "garbage", err, codes.Internal, "")
 }
+
+// SetRateLimit sizes the per-peer limiter for light attestor seats and keeps --trusted-proxy-cidr.
+func TestYellowbackSetRateLimit(t *testing.T) {
+	svc := NewYellowbackStreamer(common.YellowbackCapability{}, nil)
+	if err := svc.TrustProxies([]string{"10.0.0.0/8"}); err != nil {
+		t.Fatal(err)
+	}
+	svc.SetRateLimit(200, 100*time.Millisecond)
+	if int(svc.limiter.burst) != 200 || svc.limiter.interval != 100*time.Millisecond {
+		t.Fatalf("limiter %v/%v", svc.limiter.burst, svc.limiter.interval)
+	}
+	if len(svc.limiter.trusted) != 1 {
+		t.Fatalf("trusted proxies lost: %v", svc.limiter.trusted)
+	}
+	svc.SetRateLimit(0, 0)
+	if int(svc.limiter.burst) != DefaultRateBurst || svc.limiter.interval != DefaultRateInterval {
+		t.Fatalf("defaults not restored: %v/%v", svc.limiter.burst, svc.limiter.interval)
+	}
+}

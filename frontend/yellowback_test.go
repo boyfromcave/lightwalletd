@@ -936,11 +936,11 @@ func TestRateLimitRawTxCost(t *testing.T) {
 	}
 	svc, node := newService(t)
 	now := time.Unix(1700000000, 0)
-	svc.limiter = newRateLimiter(yedRateBurst, time.Hour)
+	svc.limiter = newRateLimiter(DefaultRateBurst, time.Hour)
 	svc.limiter.now = func() time.Time { return now }
 	ctx := peerCtx(net.IPv4(10, 0, 0, 1))
 	big := &walletrpc.RawTransaction{Data: make([]byte, maxRawTxBytes)}
-	for i := 0; i < yedRateBurst/10; i++ {
+	for i := 0; i < DefaultRateBurst/10; i++ {
 		if _, err := svc.ValidateRawTransaction(ctx, big); err != nil {
 			t.Fatalf("2 MB validate %d: %v", i, err)
 		}
@@ -948,7 +948,7 @@ func TestRateLimitRawTxCost(t *testing.T) {
 	calls := len(node.calls)
 	_, err := svc.ValidateRawTransaction(ctx, &walletrpc.RawTransaction{Data: []byte{0xde, 0xad}})
 	if st, _ := status.FromError(err); st.Code() != codes.ResourceExhausted || len(node.calls) != calls {
-		t.Fatalf("after %d 2 MB validates the bucket must be empty: got %v", yedRateBurst/10, err)
+		t.Fatalf("after %d 2 MB validates the bucket must be empty: got %v", DefaultRateBurst/10, err)
 	}
 }
 

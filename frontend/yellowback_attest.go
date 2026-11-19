@@ -82,6 +82,24 @@ func newAttestGuard() *attestGuard {
 	return &attestGuard{seqBlocks: DefaultAttestSeqBlocks, seqs: map[uint16]*attestSeqState{}}
 }
 
+// SetRateLimit replaces the per-peer limiter (cmd/root.go --yellowback-rate-burst, --yellowback-rate-interval).
+// A light attestor seat polls the service every few seconds (its cancel watcher included), and the seats of one
+// host share its address, so a server they use needs a larger budget than a phone's. burst < 1 or interval <= 0
+// keeps the default.
+func (y *YellowbackStreamer) SetRateLimit(burst int, interval time.Duration) {
+	if burst < 1 {
+		burst = DefaultRateBurst
+	}
+	if interval <= 0 {
+		interval = DefaultRateInterval
+	}
+	l := newRateLimiter(burst, interval)
+	if y.limiter != nil {
+		l.trusted = y.limiter.trusted // --trusted-proxy-cidr, set before or after
+	}
+	y.limiter = l
+}
+
 // SetAttestSeqBlocks sets the per-seq window (cmd/root.go --yellowback-attest-seq-blocks); n < 1
 // is taken as 1 (one new statement per seq per cited block).
 func (y *YellowbackStreamer) SetAttestSeqBlocks(n int) {

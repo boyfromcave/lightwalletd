@@ -73,6 +73,14 @@ neither a refused frame nor an older statement replayed by someone else uses up 
 (an older one cites a lower height and is refused unsent). A lying server can make a seat cite a
 wrong hash; the node refuses such a statement, and it cannot be equivocation (the plan's "Trust").
 
+**A server that light attestor seats use** needs a larger per-peer budget than the default, which is sized for a
+phone. A seat's agent reads every poll (`GetYellowbackInfo`, `ListAttestors`, `GetAttestations`, and the cancel
+watcher's `ListVaults`, `GetSet`, `GetVault`, ...), and the seats of one host share its address (three per host on
+the fast testnet, plan D-1). Measured on regtest (`ycash6 qa/rpc-tests/yellowback_cancel_agent_light.py`, four
+seats on one address polling every second): the default bucket of 20 refilled one per second starves the watcher.
+Raise it for those servers, e.g. `--yellowback-rate-burst 200 --yellowback-rate-interval 100ms`, or put the seat
+hosts behind their own server.
+
 **rpcversion 5 (the vault upgrade, `docs/plans/yellowback-upgrade-plan.md` §6, §15.10).** YED is a
 consensus module of the network upgrade `Vault` (branch id `6d5b7a31`), so the messages carry
 no activation-by-signalling or enforcement fields (the numbers those fields used are `reserved` in
@@ -280,7 +288,7 @@ it does not, on **both** node lines (ycash-dd 4.5.0 and ycash6 6.21.0):
 **Errors:** a node RPC error → `FAILED_PRECONDITION` with the node's message verbatim
 (`bundle-insufficient: …`, `vault-not-found: …`); transport failure → `UNAVAILABLE`; malformed
 input → `INVALID_ARGUMENT` before any node call; a peer past its burst on any method →
-`RESOURCE_EXHAUSTED` (a bucket of 20 tokens refilled one per second per peer; the methods that
+`RESOURCE_EXHAUSTED` (a bucket of 20 tokens refilled one per second per peer by default, `--yellowback-rate-burst` and `--yellowback-rate-interval`; the methods that
 make the node walk its index or attestation pool — `EstimateCollateral`, `BuildBundle`,
 `ValidateRawTransaction`, `GetAddressTokens`, `GetSelection`, `ListVaults`, `ListClaimable`,
 `GetAttestations` — cost a token, the index reads a fifth of one, and `ValidateRawTransaction` one

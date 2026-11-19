@@ -27,9 +27,10 @@ import (
 // Defaults measured on the regtest devnet (docs/yellowback.md, L3): a phone's mint flow makes
 // at most a handful of the node-work calls per block.
 const (
-	yedRateBurst     = 20          // whole-token calls a peer may make at once
-	yedRateInterval  = time.Second // one token refilled per interval
-	yedRateIdleSweep = 10 * time.Minute
+	// DefaultRateBurst / DefaultRateInterval: --yellowback-rate-burst / --yellowback-rate-interval.
+	DefaultRateBurst    = 20          // whole-token calls a peer may make at once
+	DefaultRateInterval = time.Second // one token refilled per interval
+	yedRateIdleSweep    = 10 * time.Minute
 	// yedRateMaxPeers bounds the limiter's map (audit E-2). A bucket that has been idle for
 	// burst*interval is full again and carries no information, so dropping it is lossless;
 	// past the bound such buckets are swept first and, if the map is still full, the least
@@ -187,5 +188,5 @@ func (y *YellowbackStreamer) limited(ctx context.Context, cost float64) error {
 	if y.limiter == nil || y.limiter.allow(y.limiter.peerKey(ctx), cost) {
 		return nil
 	}
-	return status.Errorf(codes.ResourceExhausted, "rate limited: at most %d calls per burst, one more per %s", yedRateBurst, yedRateInterval)
+	return status.Errorf(codes.ResourceExhausted, "rate limited: at most %d calls per burst, one more per %s", int(y.limiter.burst), y.limiter.interval)
 }

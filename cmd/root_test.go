@@ -38,7 +38,7 @@ func TestOptionsForLogOmitsRPCPassword(t *testing.T) {
 // optionsForLog lists the Options fields by hand: a new field must be added there (or knowingly
 // left out, as RPCPassword is), and this count is the reminder.
 func TestOptionsForLogCoversEveryField(t *testing.T) {
-	if n := reflect.TypeOf(common.Options{}).NumField(); n != 25 {
+	if n := reflect.TypeOf(common.Options{}).NumField(); n != 27 {
 		t.Fatalf("common.Options has %d fields; update optionsForLog (cmd/root.go) and this count", n)
 	}
 }

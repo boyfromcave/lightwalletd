@@ -80,7 +80,7 @@ type YellowbackStreamer struct {
 // NewYellowbackStreamer builds the service; the node is reached through common.RawRequest, as
 // every other handler in this tree does.
 func NewYellowbackStreamer(capability common.YellowbackCapability, log *logrus.Entry) *YellowbackStreamer {
-	return &YellowbackStreamer{capability: capability, log: log, limiter: newRateLimiter(yedRateBurst, yedRateInterval),
+	return &YellowbackStreamer{capability: capability, log: log, limiter: newRateLimiter(DefaultRateBurst, DefaultRateInterval),
 		cache: map[string]cacheEntry{}, now: time.Now, attest: newAttestGuard()}
 }
 
