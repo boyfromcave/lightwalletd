@@ -119,6 +119,7 @@ message YedPriceTag {
   reserved 5; reserved "signal";                                      // rpcversion 5: no signalling
   bool found = 1; string kind = 2; string payoutAddress = 3; int64 priceMicroUsd = 4;
   int64 sourceMask = 6; int64 version = 7;
+  string payoutScheme = 8;                                            // rpcversion 11 (tag v2): p2pkh|fn-dsa-512|slh-dsa-sha2-128s
 }
 message YedPrice {
   bool armed = 1; string attestStatus = 2; YedPriceFills fill = 3; int64 height = 4; int64 pClaim = 5; int64 pFast = 6;

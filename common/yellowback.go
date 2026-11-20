@@ -55,7 +55,13 @@ const ServerVersion = "0.2-yec-lightwalletd"
 // getblockchaininfo.transparentPools, input addresses for post-quantum spends, the gettransaction
 // fee and the -ydf default. Every one of those is additive to what this server proxies or reads, so
 // 10 is accepted and 9 still is: the step is the first one that is not exact, MinRPCVersion..KnownRPCVersion.
-const KnownRPCVersion = 10
+// 11 is beta4 (docs/plans/beta4/rpc-contract-delta.md section 4.14, decisions D-8/D-10): tag v2, a
+// post-quantum payout key. yed_gettag and yed_getprice.tag gain payoutScheme ("p2pkh",
+// "fn-dsa-512", "slh-dsa-sha2-128s") and version is 2 for a post-quantum key; every payee and
+// payout address field may hold a plain post-quantum address (sqf…/sqs…, tqf…/tqs…, rqf…/rqs…).
+// This server passes those strings through unchanged and validates none of them, so 11 is
+// additive here too and 9 and 10 stay accepted.
+const KnownRPCVersion = 11
 
 // MinRPCVersion is the oldest contract this server still serves (9: an 8 node prints pre-D-9
 // post-quantum addresses this server refuses).

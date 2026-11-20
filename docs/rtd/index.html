@@ -400,6 +400,10 @@
                 </li>
               
                 <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YedBundleAttestation"><span class="badge">M</span>YedBundleAttestation</a>
+                </li>
+              
+                <li>
                   <a href="#cash.z.wallet.sdk.rpc.YedBundleQuery"><span class="badge">M</span>YedBundleQuery</a>
                 </li>
               
@@ -457,6 +461,10 @@
               
                 <li>
                   <a href="#cash.z.wallet.sdk.rpc.YedPayload"><span class="badge">M</span>YedPayload</a>
+                </li>
+              
+                <li>
+                  <a href="#cash.z.wallet.sdk.rpc.YedPayloadBundle"><span class="badge">M</span>YedPayloadBundle</a>
                 </li>
               
                 <li>
@@ -1414,6 +1422,16 @@ There is no staging or applying for these, very simple.</p></td>
                   <td><a href="#uint64">uint64</a></td>
                   <td></td>
                   <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>coinbase</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>Ycash (beta4): true when the output belongs to a coinbase transaction. Consensus lets a
+coinbase output be spent only after 100 confirmations and only into a transaction with no
+transparent outputs (no change), so a wallet must shield it at the exact amount. A server
+without this field always sends false. </p></td>
                 </tr>
               
             </tbody>
@@ -3140,6 +3158,58 @@ A WITHDRAWN record&#39;s unfrozen bond is spendable from statusHeight &#43; para
 
         
       
+        <h3 id="cash.z.wallet.sdk.rpc.YedBundleAttestation">YedBundleAttestation</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>seq</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>priceMicroUsd</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>citedHeight</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>sig</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>hex</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="cash.z.wallet.sdk.rpc.YedBundleQuery">YedBundleQuery</h3>
         <p></p>
 
@@ -4038,6 +4108,73 @@ mint is allowed, and also when the node predates the fields (it omits the keys).
                   <td><p>rpcversion 7 (MINT): the owner&#39;s scheme and 32-byte key hash (hex) </p></td>
                 </tr>
               
+                <tr>
+                  <td>opReturnIndex</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>When the hex is a raw transaction (beta4 item 3d: the light seat&#39;s cancel watcher reads a claim&#39;s bundle):
+the payload output&#39;s index and the carrier input&#39;s bundle, decoded only, never verified. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bundle</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YedPayloadBundle">YedPayloadBundle</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="cash.z.wallet.sdk.rpc.YedPayloadBundle">YedPayloadBundle</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>vin</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>hash</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>version</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>count</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>attestations</td>
+                  <td><a href="#cash.z.wallet.sdk.rpc.YedBundleAttestation">YedBundleAttestation</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -4293,6 +4430,13 @@ mint is allowed, and also when the node predates the fields (it omits the keys).
                   <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>payoutScheme</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>rpcversion 11 (tag v2): p2pkh|fn-dsa-512|slh-dsa-sha2-128s </p></td>
                 </tr>
               
             </tbody>
