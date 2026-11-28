@@ -61,7 +61,8 @@ const ServerVersion = "0.2-yec-lightwalletd"
 // payout address field may hold a plain post-quantum address (sqf…/sqs…, tqf…/tqs…, rqf…/rqs…).
 // This server passes those strings through unchanged and validates none of them, so 11 is
 // additive here too and 9 and 10 stay accepted.
-const KnownRPCVersion = 11
+// 12 is the Yugen line (yugen_getinfo, new tx version group 0x59474e47); no yed_* shape change.
+const KnownRPCVersion = 12
 
 // MinRPCVersion is the oldest contract this server still serves (9: an 8 node prints pre-D-9
 // post-quantum addresses this server refuses).

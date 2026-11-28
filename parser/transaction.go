@@ -17,6 +17,7 @@ type rawTransaction struct {
 	fOverwintered      bool
 	version            uint32
 	nVersionGroupID    uint32
+	yugen              bool
 	transparentInputs  []*txIn
 	transparentOutputs []*txOut
 	nLockTime          uint32
@@ -467,6 +468,20 @@ func (tx *Transaction) ParseFromSlice(data []byte) ([]byte, error) {
 		}
 	}
 
+	// Yugen (branch 0x59474e30): after the v4 body comes the Yugen field,
+	// compactsize(len) transfer || compactsize(len) proof_a || compactsize(len) proof_b
+	// (a bundle carries the bundle encoding and two empty proof fields). The server
+	// does not interpret it; it is skipped so the next transaction parses.
+	if tx.fOverwintered && tx.version == 4 && tx.nVersionGroupID == YugenVersionGroupID {
+		for _, name := range []string{"transfer", "proof_a", "proof_b"} {
+			var field bytestring.String
+			if !s.ReadCompactLengthPrefixed(&field) {
+				return nil, errors.New("could not read Yugen " + name)
+			}
+		}
+		tx.yugen = true
+	}
+
 	// TODO: implement rawBytes with MarshalBinary() instead
 	txLen := len(data) - len(s)
 	tx.rawBytes = data[:txLen]
@@ -479,4 +494,13 @@ func NewTransaction() *Transaction {
 	return &Transaction{
 		rawTransaction: new(rawTransaction),
 	}
+}
+
+// YugenVersionGroupID is the version group of a Yugen transaction (branch 0x59474e30).
+const YugenVersionGroupID = 0x59474e47
+
+// IsYugen reports whether the transaction carries a Yugen field. A Yugen transaction has no
+// Sapling parts, so compact blocks omit it (it has no compact encoding a Sapling wallet can use).
+func (tx *Transaction) IsYugen() bool {
+	return tx.yugen
 }

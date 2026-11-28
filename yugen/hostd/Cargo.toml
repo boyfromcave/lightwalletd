@@ -1,0 +1,15 @@
+[package]
+name = "yugen-hostd"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+description = "Yugen mailbox and retrieval host (spec 0.5.2 §17): indexes from ycashd, address records, two-server DPF answers"
+
+[dependencies]
+yugen-ref = { path = "../deps/yugen-spec/yugen-ref", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hex = "0.4"
+base64 = "0.22"
+getrandom = "0.2"

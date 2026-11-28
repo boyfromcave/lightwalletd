@@ -11,7 +11,7 @@ name: codeql
 on:
   pull_request:
   push:
-    branches: [upgrade/vault]
+    branches: [upgrade/vault, upgrade/yugen]
   schedule:
     - cron: '29 4 * * 1'
   workflow_dispatch:

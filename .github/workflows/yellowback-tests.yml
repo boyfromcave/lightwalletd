@@ -38,7 +38,7 @@ name: yellowback-tests
 # 0): its pushes run the push tier and the kogany leg.
 on:
   push:
-    branches: [ harden/yellowback, upgrade/vault, upgrade/vault-in-term, upgrade/quantum-vaults, main, feature/yellowback-price-attest, 'ci/**', vaults/kogany-compat ]
+    branches: [ harden/yellowback, upgrade/vault, upgrade/yugen, upgrade/vault-in-term, upgrade/quantum-vaults, main, feature/yellowback-price-attest, 'ci/**', vaults/kogany-compat ]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -91,7 +91,7 @@ jobs:
       - name: Vet the devnet suite (-tags devnet; it runs only from a devnet, so compile it on every push)
         run: go vet -mod=vendor -tags devnet ./frontend/
       - name: gofmt (files this fork added)
-        run: test -z "$(gofmt -l common/yellowback.go common/yedcache*.go frontend/yellowback*.go frontend/sendfee*.go frontend/coinbase*.go parser/fee.go parser/coinbase*.go testtools/lwdinfo)"
+        run: test -z "$(gofmt -l common/yellowback.go common/yedcache*.go frontend/yellowback*.go frontend/sendfee*.go frontend/coinbase*.go parser/fee.go parser/coinbase*.go parser/yugen_test.go testtools/lwdinfo)"
       - name: Test (every package but frontend)
         run: go test -mod=vendor ./cmd/... ./common/... ./parser/... ./walletrpc/...
       - name: The contract fixtures equal the node's (ycash-dd at the matching branch)
@@ -115,6 +115,10 @@ jobs:
             upgrade/vault-in-term)            node=upgrade/vault-in-term;          required=--required ;;
             ci/q*|upgrade/quantum-vaults|q/*) node=upgrade/quantum-vaults;         required=--required ;;
             ci/upgrade*|upgrade/vault)        node=upgrade/vault;                  required=--required ;;
+            # upgrade/yugen: the Yugen commits change no vault or Yellowback contract, and ycash-dd
+            # carries no upgrade/yugen until its recognise-and-refuse wave, so the fixtures are held
+            # to ycash-dd upgrade/vault until then.
+            ci/yugen*|upgrade/yugen)          node=upgrade/vault;                  required=--required ;;
             *)                                node=feature/yellowback-price-attest; required= ;;
           esac
           scripts/sync-node-contracts.sh --check $required --github "$NODE_REPO_YCASH_DD" "$node"
@@ -155,6 +159,30 @@ jobs:
         # forever; frontend_test.go now uses s-addresses, so the whole package runs (the
         # Yellowback tests among it), not a list of names a new test could miss.
         run: go test -mod=vendor -count=1 -timeout 180s ./frontend/
+
+  yugen-host:
+    # The Yugen mailbox / retrieval host (yugen/, its own Cargo workspace). Its yugen-ref dependency
+    # comes from the public yugen-spec repository at the full commit in yugen/PINS
+    # (yugen/scripts/deps.sh), yugen-falcon by the git rev yugen-ref names; the build is --locked
+    # against yugen/Cargo.lock.
+    # Runs only where the host exists: upgrade/yugen and the branches that carry its changes.
+    if: github.ref_name == 'upgrade/yugen' || github.base_ref == 'upgrade/yugen' || startsWith(github.ref_name, 'ci/yugen')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: The pinned Yugen repositories (yugen/PINS)
+        run: sh yugen/scripts/deps.sh
+      - name: Toolchain (yugen/rust-toolchain.toml)
+        working-directory: yugen
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Build and test yugen-hostd
+        working-directory: yugen
+        env:
+          CARGO_INCREMENTAL: 0
+        run: cargo test --locked --release
 
   generated-code:
     runs-on: ubuntu-24.04
@@ -258,6 +286,7 @@ jobs:
               upgrade/vault-in-term) ref=upgrade/vault-in-term ;;
               ci/q*|upgrade/quantum-vaults|q/*) ref=upgrade/quantum-vaults ;;
               ci/upgrade*|upgrade/vault)    ref=upgrade/vault ;;
+              ci/yugen*|upgrade/yugen)      ref=upgrade/yugen ;;
               *)                            ref=$record ;;
             esac
           fi

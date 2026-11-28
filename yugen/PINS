@@ -1,0 +1,4 @@
+# <repository> <commit>, fetched by scripts/deps.sh from $YUGEN_GIT_BASE/<repository>.git
+# (default https://github.com/boyfromcave). yugen-ref takes yugen-falcon by git rev from its own
+# Cargo.toml (pinned in Cargo.lock), so yugen-falcon needs no entry here.
+yugen-spec e93f9775c017bd359e90866c3fea3e0718e6119c

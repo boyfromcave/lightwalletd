@@ -1281,7 +1281,7 @@ func TestUnaryInfoPQ(t *testing.T) {
 		t.Fatal(err)
 	}
 	pq := info.GetParams().GetPq()
-	if !common.RPCVersionAccepted(info.GetRpcversion()) || common.KnownRPCVersion != 11 || common.MinRPCVersion != 9 || pq == nil {
+	if !common.RPCVersionAccepted(info.GetRpcversion()) || common.KnownRPCVersion != 12 || common.MinRPCVersion != 9 || pq == nil {
 		t.Fatalf("rpcversion %d (server knows %d), pq %+v", info.GetRpcversion(), common.KnownRPCVersion, pq)
 	}
 	if s := pq.GetSchemes(); len(s) != 1 || s[0] != 1 || pq.GetFalconActive() || pq.GetFalconHeight() != -1 || pq.GetFeeRateZatPerKB() != 100 {

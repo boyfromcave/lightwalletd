@@ -21,7 +21,7 @@ name: secops
 on:
   pull_request:
   push:
-    branches: [upgrade/vault]
+    branches: [upgrade/vault, upgrade/yugen]
   schedule:
     - cron: '43 3 * * *'
   workflow_dispatch:

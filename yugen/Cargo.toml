@@ -1,0 +1,11 @@
+# The Yugen mailbox / retrieval host of lightwalletd-dd (beta4 Yugen addendum §3.4, rulings 8 and 11).
+# Its own Cargo workspace; yugen-ref comes by path from deps/ at the commits in PINS (scripts/deps.sh).
+[workspace]
+resolver = "2"
+members = ["hostd"]
+exclude = ["deps"]
+
+[profile.dev.package."*"]
+opt-level = 3
+[profile.test]
+opt-level = 3

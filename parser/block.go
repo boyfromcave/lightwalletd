@@ -18,6 +18,8 @@ type Block struct {
 	hdr    *BlockHeader
 	vtx    []*Transaction
 	height int
+	// entries in the Yugen proof sidecar the block arrived with (0: none)
+	yugenSidecar int
 }
 
 // NewBlock constructs a block instance.
@@ -158,5 +160,40 @@ func (b *Block) ParseFromSlice(data []byte) (rest []byte, err error) {
 	}
 	b.hdr = hdr
 	b.vtx = vtx
+	// Yugen: a block whose bundle transactions commit to proofs carries them, in the node's
+	// network form (getblock hex included), after the transactions:
+	// compactsize(n) || n x [txid(32) || compactsize(k) || k x (compactsize(len) || proof)].
+	// The server keeps none of it; it is consumed so the block is not "overlong".
+	if len(data) > 0 && b.hasYugen() {
+		s := bytestring.String(data)
+		var n int
+		if !s.ReadCompactSize(&n) {
+			return nil, errors.New("could not read Yugen proof sidecar count")
+		}
+		for e := 0; e < n; e++ {
+			var txid []byte
+			var k int
+			if !s.ReadBytes(&txid, 32) || !s.ReadCompactSize(&k) {
+				return nil, errors.New("could not read Yugen proof sidecar entry")
+			}
+			for j := 0; j < k; j++ {
+				var proof bytestring.String
+				if !s.ReadCompactLengthPrefixed(&proof) {
+					return nil, errors.New("could not read Yugen sidecar proof")
+				}
+			}
+		}
+		b.yugenSidecar = n
+		data = []byte(s)
+	}
 	return data, nil
+}
+
+func (b *Block) hasYugen() bool {
+	for _, tx := range b.vtx {
+		if tx.IsYugen() {
+			return true
+		}
+	}
+	return false
 }

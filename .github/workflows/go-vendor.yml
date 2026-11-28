@@ -5,7 +5,7 @@ name: go-vendor
 # skip vendor/: this job shows that nothing in it was edited by hand.
 on:
   push:
-    branches: [ upgrade/vault, harden/yellowback, 'ci/**' ]
+    branches: [ upgrade/vault, upgrade/yugen, harden/yellowback, 'ci/**' ]
   pull_request:
   workflow_dispatch:
 
